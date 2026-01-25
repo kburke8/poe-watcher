@@ -131,6 +131,7 @@ export interface PoeItem {
   id: string;
   name: string;
   typeLine: string;
+  icon?: string;
   inventoryId: string;
   socketedItems?: PoeItem[];
   sockets?: PoeSocket[];

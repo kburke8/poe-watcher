@@ -5,76 +5,68 @@ interface EquipmentGridProps {
   items: Map<string, PoeItem>;
 }
 
-// Equipment slots in display order
-const EQUIPMENT_SLOTS = [
-  { id: 'Weapon', label: 'Weapon', row: 1, col: 1 },
-  { id: 'Helm', label: 'Helmet', row: 1, col: 2 },
-  { id: 'Offhand', label: 'Offhand', row: 1, col: 3 },
-  { id: 'BodyArmour', label: 'Body', row: 2, col: 2 },
-  { id: 'Gloves', label: 'Gloves', row: 2, col: 1 },
-  { id: 'Boots', label: 'Boots', row: 2, col: 3 },
-  { id: 'Amulet', label: 'Amulet', row: 1, col: 4 },
-  { id: 'Ring', label: 'Ring L', row: 2, col: 4 },
-  { id: 'Ring2', label: 'Ring R', row: 3, col: 4 },
-  { id: 'Belt', label: 'Belt', row: 3, col: 2 },
-];
-
-// Alternate weapon slots (for weapon swap)
-const WEAPON2_SLOTS = [
-  { id: 'Weapon2', label: 'Weapon 2', row: 3, col: 1 },
-  { id: 'Offhand2', label: 'Offhand 2', row: 3, col: 3 },
-];
+// Classic PoE character screen layout:
+//           [Helm]
+// [Weapon] [Body]  [Offhand]
+//           [Belt]
+// [Gloves]         [Boots]
+// [Ring L] [Amulet] [Ring R]
 
 export function EquipmentGrid({ items }: EquipmentGridProps) {
   return (
     <div className="space-y-4">
-      {/* Main equipment grid */}
-      <div className="grid grid-cols-4 gap-3">
-        {EQUIPMENT_SLOTS.map((slot) => {
-          const item = items.get(slot.id);
-          return (
-            <EquipmentSlot
-              key={slot.id}
-              label={slot.label}
-              item={item}
-            />
-          );
-        })}
+      {/* Main equipment grid - 3 columns, 5 rows */}
+      <div className="grid grid-cols-3 gap-2 max-w-[280px] mx-auto">
+        {/* Row 1: Helm centered */}
+        <div /> {/* Empty left */}
+        <EquipmentSlot label="Helm" item={items.get('Helm')} />
+        <div /> {/* Empty right */}
+
+        {/* Row 2: Weapon, Body, Offhand */}
+        <EquipmentSlot label="Weapon" item={items.get('Weapon')} tall />
+        <EquipmentSlot label="Body" item={items.get('BodyArmour')} tall />
+        <EquipmentSlot label="Offhand" item={items.get('Offhand')} tall />
+
+        {/* Row 3: Belt centered */}
+        <div /> {/* Empty left */}
+        <EquipmentSlot label="Belt" item={items.get('Belt')} />
+        <div /> {/* Empty right */}
+
+        {/* Row 4: Gloves, empty, Boots */}
+        <EquipmentSlot label="Gloves" item={items.get('Gloves')} />
+        <div /> {/* Empty center */}
+        <EquipmentSlot label="Boots" item={items.get('Boots')} />
+
+        {/* Row 5: Ring, Amulet, Ring2 */}
+        <EquipmentSlot label="Ring" item={items.get('Ring')} small />
+        <EquipmentSlot label="Amulet" item={items.get('Amulet')} small />
+        <EquipmentSlot label="Ring" item={items.get('Ring2')} small />
       </div>
 
       {/* Weapon swap (if present) */}
       {(items.has('Weapon2') || items.has('Offhand2')) && (
         <div>
-          <div className="text-xs text-[--color-text-muted] mb-2">Weapon Swap</div>
-          <div className="grid grid-cols-4 gap-3">
-            {WEAPON2_SLOTS.map((slot) => {
-              const item = items.get(slot.id);
-              return (
-                <EquipmentSlot
-                  key={slot.id}
-                  label={slot.label}
-                  item={item}
-                />
-              );
-            })}
-            {/* Empty slots for alignment */}
-            <div className="col-span-2" />
+          <div className="text-xs text-[--color-text-muted] mb-2 text-center">Weapon Swap</div>
+          <div className="grid grid-cols-3 gap-2 max-w-[280px] mx-auto">
+            <EquipmentSlot label="Weapon 2" item={items.get('Weapon2')} tall />
+            <div /> {/* Empty center */}
+            <EquipmentSlot label="Offhand 2" item={items.get('Offhand2')} tall />
           </div>
         </div>
       )}
 
       {/* Flask slots */}
       <div>
-        <div className="text-xs text-[--color-text-muted] mb-2">Flasks</div>
-        <div className="grid grid-cols-5 gap-2">
+        <div className="text-xs text-[--color-text-muted] mb-2 text-center">Flasks</div>
+        <div className="grid grid-cols-5 gap-2 max-w-[300px] mx-auto">
           {[0, 1, 2, 3, 4].map((i) => {
             const item = items.get(`Flask${i + 1}`);
             return (
               <EquipmentSlot
                 key={`flask-${i}`}
-                label={`Flask ${i + 1}`}
+                label={`${i + 1}`}
                 item={item}
-                small
+                flask
               />
             );
           })}
@@ -88,36 +80,56 @@ interface EquipmentSlotProps {
   label: string;
   item?: PoeItem;
   small?: boolean;
+  tall?: boolean;
+  flask?: boolean;
 }
 
-function EquipmentSlot({ label, item, small = false }: EquipmentSlotProps) {
-  const baseClasses = small
-    ? 'aspect-square p-2'
-    : 'aspect-square p-3';
+function EquipmentSlot({ label, item, small = false, tall = false, flask = false }: EquipmentSlotProps) {
+  // Size classes based on slot type
+  const sizeClasses = flask
+    ? 'aspect-[1/2] p-1'  // Flasks are tall and narrow
+    : tall
+    ? 'aspect-[1/1.5] p-1'  // Weapons/body are taller
+    : small
+    ? 'aspect-square p-1 min-h-[50px]'  // Rings/amulet are smaller squares
+    : 'aspect-square p-1';  // Default square
 
   if (!item) {
     return (
       <div
-        className={`${baseClasses} bg-[--color-surface-elevated] rounded-lg border border-[--color-border] border-dashed flex items-center justify-center`}
+        className={`${sizeClasses} bg-[--color-surface-elevated] rounded border border-[--color-border] border-dashed flex items-center justify-center`}
       >
-        <span className="text-xs text-[--color-text-muted] text-center">{label}</span>
+        <span className="text-[10px] text-[--color-text-muted] text-center opacity-50">{label}</span>
       </div>
     );
   }
 
   const displayName = item.name || item.typeLine;
   const colorClass = getFrameTypeColor(item.frameType);
+  const borderColorClass = item.frameType === 3 ? 'border-[--color-poe-unique]/60' :
+                           item.frameType === 2 ? 'border-[--color-poe-rare]/60' :
+                           item.frameType === 1 ? 'border-[--color-poe-magic]/60' :
+                           'border-[--color-border]';
 
   return (
     <div
-      className={`${baseClasses} bg-[--color-surface-elevated] rounded-lg border border-[--color-border] flex flex-col items-center justify-center hover:border-[--color-poe-gold]/50 transition-colors cursor-pointer group relative`}
+      className={`${sizeClasses} bg-[--color-surface-elevated] rounded border ${borderColorClass} flex flex-col items-center justify-center hover:border-[--color-poe-gold]/70 transition-colors cursor-pointer group relative overflow-hidden`}
       title={`${item.name}\n${item.typeLine}\n${item.explicitMods?.join('\n') || ''}`}
     >
-      <span className={`text-xs ${colorClass} text-center line-clamp-2 group-hover:line-clamp-none`}>
-        {displayName}
-      </span>
+      {item.icon ? (
+        <img
+          src={item.icon}
+          alt={displayName}
+          className="max-w-full max-h-full object-contain"
+          loading="lazy"
+        />
+      ) : (
+        <span className={`text-[10px] ${colorClass} text-center line-clamp-2 px-0.5`}>
+          {displayName}
+        </span>
+      )}
       {item.socketedItems && item.socketedItems.length > 0 && (
-        <div className="absolute bottom-1 right-1 text-xs text-[--color-text-muted] bg-[--color-surface] rounded px-1">
+        <div className="absolute bottom-0 right-0 text-[9px] text-[--color-text-muted] bg-[--color-surface]/90 rounded-tl px-1">
           {item.socketedItems.length}G
         </div>
       )}

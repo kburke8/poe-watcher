@@ -292,6 +292,8 @@ pub struct PoeItem {
     #[serde(default)]
     pub type_line: String,
     #[serde(default)]
+    pub icon: String,
+    #[serde(default)]
     pub inventory_id: String,
     #[serde(default)]
     pub socketed_items: Vec<PoeItem>,
