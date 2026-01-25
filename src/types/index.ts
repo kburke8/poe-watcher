@@ -2,15 +2,17 @@
 
 export interface Run {
   id: number;
-  characterName: string;
-  accountName: string;
+  character?: string;
+  characterName?: string;
+  accountName?: string;
   class: string;
-  ascendancy: string | null;
-  league: string;
+  ascendancy?: string | null;
+  league?: string;
   category: string;
   startedAt: string;
   endedAt: string | null;
   totalTimeMs: number | null;
+  townTimeMs?: number;
   isCompleted: boolean;
   isPersonalBest: boolean;
 }
@@ -93,6 +95,7 @@ export interface Breakpoint {
   type: BreakpointType;
   trigger: BreakpointTrigger;
   isEnabled: boolean;
+  captureSnapshot: boolean;
 }
 
 export interface BreakpointTrigger {
@@ -138,6 +141,11 @@ export interface PoeItem {
   y?: number;
   w: number;
   h: number;
+  ilvl?: number;
+  properties?: Array<{
+    name: string;
+    values?: Array<[string | number, number]>;
+  }>;
 }
 
 export interface PoeSocket {
@@ -157,6 +165,14 @@ export interface TimerState {
   elapsedMs: number;
   currentSplit: number;
   splits: SplitTime[];
+  // Town/Hideout time tracking
+  townTimeMs: number;
+  hideoutTimeMs: number;
+  inTown: boolean;
+  inHideout: boolean;
+  townEnteredAt: number | null;
+  hideoutEnteredAt: number | null;
+  currentZone: string | null;
 }
 
 export interface SplitTime {

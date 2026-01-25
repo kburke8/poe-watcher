@@ -23,6 +23,8 @@ export function SplitRow({
 }: SplitRowProps) {
   const typeIcon = getTypeIcon(type);
   const deltaColor = getDeltaColor(delta);
+  // segmentTime is passed for future use (e.g., showing segment comparison)
+  void segmentTime;
   const rowBg = isNext
     ? 'bg-[--color-surface-elevated]'
     : isCompleted

@@ -30,10 +30,10 @@ export function Sidebar() {
             onClick={() => setCurrentView(item.id)}
             className={`
               w-12 h-12 flex items-center justify-center rounded-lg
-              transition-colors duration-150
+              transition-all duration-100 active:scale-90 border
               ${currentView === item.id
-                ? 'bg-[--color-poe-gold] text-[--color-poe-darker]'
-                : 'text-[--color-text-muted] hover:bg-[--color-surface-elevated] hover:text-[--color-text]'
+                ? 'bg-[--color-poe-gold] text-[--color-poe-darker] border-[--color-poe-gold-light] shadow-md active:shadow-sm'
+                : 'text-[--color-text-muted] border-transparent hover:bg-[--color-surface-elevated] hover:text-[--color-text] hover:border-[--color-border] hover:shadow-sm active:bg-[--color-border]'
               }
             `}
             title={item.label}

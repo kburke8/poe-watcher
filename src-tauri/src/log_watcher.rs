@@ -2,13 +2,14 @@ use anyhow::Result;
 use notify::{Config, RecommendedWatcher, RecursiveMode, Watcher};
 use regex::Regex;
 use serde::{Deserialize, Serialize};
+use std::collections::HashSet;
 use std::fs::File;
 use std::io::{BufRead, BufReader, Seek, SeekFrom};
 use std::path::{Path, PathBuf};
 use std::sync::mpsc::{channel, Receiver, Sender};
 use std::sync::{Arc, Mutex};
 use std::thread;
-use std::time::Duration;
+use std::time::{Duration, Instant};
 use tauri::{AppHandle, Emitter};
 
 /// Events parsed from Client.txt
@@ -72,14 +73,14 @@ impl LogWatcher {
         // Create channel for file change notifications
         let (tx, rx) = channel();
 
-        // Create the file watcher
+        // Create the file watcher with faster polling for responsive splits
         let mut watcher = RecommendedWatcher::new(
             move |res| {
                 if let Ok(event) = res {
                     let _ = tx.send(event);
                 }
             },
-            Config::default().with_poll_interval(Duration::from_millis(500)),
+            Config::default().with_poll_interval(Duration::from_millis(100)),
         )?;
 
         // Watch the log file's parent directory
@@ -106,29 +107,73 @@ impl LogWatcher {
         self.watcher = None;
     }
 
-    /// Main watch loop
+    /// Main watch loop - uses active polling for reliable detection
     fn watch_loop(
         log_path: PathBuf,
         file_position: Arc<Mutex<u64>>,
-        rx: Receiver<notify::Event>,
+        _rx: Receiver<notify::Event>,
         stop_rx: Receiver<()>,
         app_handle: AppHandle,
     ) {
+        println!("[LogWatcher] Started watching: {:?}", log_path);
+
+        // Deduplication: track recent events to prevent duplicates
+        let mut recent_events: HashSet<String> = HashSet::new();
+        let mut last_cleanup = Instant::now();
+
         loop {
             // Check for stop signal
             if stop_rx.try_recv().is_ok() {
+                println!("[LogWatcher] Stopped");
                 break;
             }
 
-            // Check for file change events
-            if let Ok(_event) = rx.recv_timeout(Duration::from_millis(100)) {
-                // Read new lines from the file
-                if let Ok(events) = Self::read_new_lines(&log_path, &file_position) {
-                    for event in events {
-                        // Emit event to frontend
-                        let _ = app_handle.emit("log-event", &event);
+            // Clear recent events cache every 5 seconds to prevent memory buildup
+            if last_cleanup.elapsed() > Duration::from_secs(5) {
+                recent_events.clear();
+                last_cleanup = Instant::now();
+            }
+
+            // Actively poll the file every 100ms for new content
+            if let Ok(events) = Self::read_new_lines(&log_path, &file_position) {
+                for event in events {
+                    // Create a dedup key from event data
+                    let dedup_key = Self::get_event_key(&event);
+
+                    // Skip if we've seen this exact event recently
+                    if recent_events.contains(&dedup_key) {
+                        continue;
                     }
+
+                    recent_events.insert(dedup_key);
+                    println!("[LogWatcher] Event: {:?}", event);
+                    // Emit event to frontend
+                    let _ = app_handle.emit("log-event", &event);
                 }
+            }
+
+            // Sleep briefly before next poll
+            thread::sleep(Duration::from_millis(100));
+        }
+    }
+
+    /// Generate a unique key for an event to detect duplicates
+    fn get_event_key(event: &LogEvent) -> String {
+        match event {
+            LogEvent::ZoneEnter { timestamp, zone_name } => {
+                format!("zone:{}:{}", timestamp, zone_name)
+            }
+            LogEvent::LevelUp { timestamp, character_name, level, .. } => {
+                format!("level:{}:{}:{}", timestamp, character_name, level)
+            }
+            LogEvent::Death { timestamp, character_name } => {
+                format!("death:{}:{}", timestamp, character_name)
+            }
+            LogEvent::InstanceDetails { timestamp } => {
+                format!("instance:{}", timestamp)
+            }
+            LogEvent::Login { timestamp } => {
+                format!("login:{}", timestamp)
             }
         }
     }
@@ -157,29 +202,30 @@ impl LogWatcher {
     /// Parse a log line into an event
     fn parse_line(line: &str) -> Option<LogEvent> {
         lazy_static::lazy_static! {
-            // Pattern: 2024/01/15 12:34:56 12345678 abc [INFO Client 1234] You have entered The Coast.
+            // Pattern: 2024/01/15 12:34:56 12345678 abc [INFO Client 1234] : You have entered The Coast.
+            // Note: POE log format has "] : " before the message
             static ref ZONE_ENTER: Regex = Regex::new(
-                r"(\d{4}/\d{2}/\d{2} \d{2}:\d{2}:\d{2}).*\] You have entered (.+)\."
+                r"(\d{4}/\d{2}/\d{2} \d{2}:\d{2}:\d{2}).*\] :? ?You have entered (.+)\."
             ).unwrap();
 
-            // Pattern: 2024/01/15 12:34:56 12345678 abc [INFO Client 1234] CharName (Witch) is now level 10
+            // Pattern: 2024/01/15 12:34:56 12345678 abc [INFO Client 1234] : CharName (Witch) is now level 10
             static ref LEVEL_UP: Regex = Regex::new(
-                r"(\d{4}/\d{2}/\d{2} \d{2}:\d{2}:\d{2}).*\] (.+?) \((.+?)\) is now level (\d+)"
+                r"(\d{4}/\d{2}/\d{2} \d{2}:\d{2}:\d{2}).*\] :? ?(.+?) \((.+?)\) is now level (\d+)"
             ).unwrap();
 
-            // Pattern: 2024/01/15 12:34:56 12345678 abc [INFO Client 1234] CharName has been slain.
+            // Pattern: 2024/01/15 12:34:56 12345678 abc [INFO Client 1234] : CharName has been slain.
             static ref DEATH: Regex = Regex::new(
-                r"(\d{4}/\d{2}/\d{2} \d{2}:\d{2}:\d{2}).*\] (.+?) has been slain\."
+                r"(\d{4}/\d{2}/\d{2} \d{2}:\d{2}:\d{2}).*\] :? ?(.+?) has been slain\."
             ).unwrap();
 
             // Pattern: Got Instance Details
             static ref INSTANCE_DETAILS: Regex = Regex::new(
-                r"(\d{4}/\d{2}/\d{2} \d{2}:\d{2}:\d{2}).*\] Got Instance Details"
+                r"(\d{4}/\d{2}/\d{2} \d{2}:\d{2}:\d{2}).*\] :? ?Got Instance Details"
             ).unwrap();
 
             // Pattern: Connecting to instance server
             static ref LOGIN: Regex = Regex::new(
-                r"(\d{4}/\d{2}/\d{2} \d{2}:\d{2}:\d{2}).*\] Connecting to instance server"
+                r"(\d{4}/\d{2}/\d{2} \d{2}:\d{2}:\d{2}).*\] :? ?Connecting to instance server"
             ).unwrap();
         }
 
@@ -259,6 +305,15 @@ mod tests {
 
     #[test]
     fn test_parse_zone_enter() {
+        // Test with colon format (actual POE format)
+        let line = "2024/01/15 12:34:56 12345678 abc [INFO Client 1234] : You have entered The Coast.";
+        let event = LogWatcher::parse_line(line);
+        assert!(matches!(event, Some(LogEvent::ZoneEnter { zone_name, .. }) if zone_name == "The Coast"));
+    }
+
+    #[test]
+    fn test_parse_zone_enter_no_colon() {
+        // Test without colon format (backwards compatibility)
         let line = "2024/01/15 12:34:56 12345678 abc [INFO Client 1234] You have entered The Coast.";
         let event = LogWatcher::parse_line(line);
         assert!(matches!(event, Some(LogEvent::ZoneEnter { zone_name, .. }) if zone_name == "The Coast"));
@@ -266,7 +321,7 @@ mod tests {
 
     #[test]
     fn test_parse_level_up() {
-        let line = "2024/01/15 12:34:56 12345678 abc [INFO Client 1234] TestChar (Witch) is now level 10";
+        let line = "2024/01/15 12:34:56 12345678 abc [INFO Client 1234] : TestChar (Witch) is now level 10";
         let event = LogWatcher::parse_line(line);
         assert!(matches!(
             event,
@@ -277,7 +332,7 @@ mod tests {
 
     #[test]
     fn test_parse_death() {
-        let line = "2024/01/15 12:34:56 12345678 abc [INFO Client 1234] TestChar has been slain.";
+        let line = "2024/01/15 12:34:56 12345678 abc [INFO Client 1234] : TestChar has been slain.";
         let event = LogWatcher::parse_line(line);
         assert!(matches!(event, Some(LogEvent::Death { character_name, .. }) if character_name == "TestChar"));
     }

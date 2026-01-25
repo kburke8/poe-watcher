@@ -1,6 +1,12 @@
 import { create } from 'zustand';
 import type { Breakpoint, Settings, ViewMode } from '../types';
-import { defaultBreakpoints } from '../config/breakpoints';
+import {
+  defaultBreakpoints,
+  applySpeedrunPreset,
+  applyMinimalPreset,
+  applyTownsOnlyPreset,
+  resetToDefault,
+} from '../config/breakpoints';
 
 interface SettingsState extends Settings {
   // UI state
@@ -15,8 +21,18 @@ interface SettingsState extends Settings {
   setSoundEnabled: (enabled: boolean) => void;
   setBreakpoints: (breakpoints: Breakpoint[]) => void;
   toggleBreakpoint: (name: string) => void;
+  toggleSnapshotCapture: (name: string) => void;
   setCurrentView: (view: ViewMode) => void;
   loadSettings: (settings: Partial<Settings>) => void;
+  // Breakpoint management
+  moveBreakpoint: (name: string, direction: 'up' | 'down') => void;
+  setAllBreakpoints: (enabled: boolean) => void;
+  setActBreakpoints: (act: number, enabled: boolean) => void;
+  // Presets
+  applySpeedrunPreset: () => void;
+  applyMinimalPreset: () => void;
+  applyTownsOnlyPreset: () => void;
+  resetBreakpoints: () => void;
 }
 
 export const useSettingsStore = create<SettingsState>((set) => ({
@@ -45,10 +61,69 @@ export const useSettingsStore = create<SettingsState>((set) => ({
     ),
   })),
 
+  toggleSnapshotCapture: (name) => set((state) => ({
+    breakpoints: state.breakpoints.map((bp) =>
+      bp.name === name ? { ...bp, captureSnapshot: !bp.captureSnapshot } : bp
+    ),
+  })),
+
   setCurrentView: (view) => set({ currentView: view }),
 
   loadSettings: (settings) => set((state) => ({
     ...state,
     ...settings,
   })),
+
+  moveBreakpoint: (name, direction) => set((state) => {
+    const breakpoints = [...state.breakpoints];
+    const index = breakpoints.findIndex((bp) => bp.name === name);
+    if (index === -1) return state;
+
+    const newIndex = direction === 'up' ? index - 1 : index + 1;
+    if (newIndex < 0 || newIndex >= breakpoints.length) return state;
+
+    // Swap positions
+    [breakpoints[index], breakpoints[newIndex]] = [breakpoints[newIndex], breakpoints[index]];
+    return { breakpoints };
+  }),
+
+  setAllBreakpoints: (enabled) => set((state) => ({
+    breakpoints: state.breakpoints.map((bp) => ({ ...bp, isEnabled: enabled })),
+  })),
+
+  setActBreakpoints: (act, enabled) => set((state) => ({
+    breakpoints: state.breakpoints.map((bp) =>
+      bp.trigger.act === act ? { ...bp, isEnabled: enabled } : bp
+    ),
+  })),
+
+  applySpeedrunPreset: () => set((state) => {
+    console.log('[Store] applySpeedrunPreset called, current breakpoints:', state.breakpoints.length);
+    const newBreakpoints = applySpeedrunPreset(state.breakpoints);
+    console.log('[Store] New breakpoints:', newBreakpoints.length, 'enabled:', newBreakpoints.filter(bp => bp.isEnabled).length);
+    return { breakpoints: newBreakpoints };
+  }),
+
+  applyMinimalPreset: () => set((state) => ({
+    breakpoints: applyMinimalPreset(state.breakpoints),
+  })),
+
+  applyTownsOnlyPreset: () => set((state) => ({
+    breakpoints: applyTownsOnlyPreset(state.breakpoints),
+  })),
+
+  resetBreakpoints: () => {
+    // Clear localStorage to remove any corrupted data
+    try {
+      localStorage.removeItem('poe-watcher-breakpoints');
+      console.log('[Store] Cleared breakpoints from localStorage');
+    } catch (e) {
+      console.error('[Store] Failed to clear localStorage:', e);
+    }
+    const defaults = resetToDefault();
+    console.log('[Store] Resetting to', defaults.length, 'default breakpoints');
+    return set({
+      breakpoints: defaults,
+    });
+  },
 }));

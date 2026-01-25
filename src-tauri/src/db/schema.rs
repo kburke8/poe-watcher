@@ -9,6 +9,7 @@ use anyhow::Result;
 // ============================================================================
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct Run {
     pub id: i64,
     pub character_name: String,
@@ -85,6 +86,17 @@ impl Run {
         let run = stmt.query_row([id], Run::from_row).ok();
         Ok(run)
     }
+
+    pub fn delete(id: i64) -> Result<()> {
+        let conn = get_db()?;
+        // Delete associated snapshots first
+        conn.execute("DELETE FROM snapshots WHERE run_id = ?1", params![id])?;
+        // Delete associated splits
+        conn.execute("DELETE FROM splits WHERE run_id = ?1", params![id])?;
+        // Delete the run
+        conn.execute("DELETE FROM runs WHERE id = ?1", params![id])?;
+        Ok(())
+    }
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -103,6 +115,7 @@ pub struct NewRun {
 // ============================================================================
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct Split {
     pub id: i64,
     pub run_id: i64,
@@ -169,6 +182,7 @@ pub struct NewSplit {
 // ============================================================================
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct Snapshot {
     pub id: i64,
     pub run_id: i64,
@@ -229,6 +243,20 @@ impl Snapshot {
             .filter_map(|r| r.ok())
             .collect();
         Ok(snapshots)
+    }
+
+    pub fn get_by_id(id: i64) -> Result<Option<Snapshot>> {
+        let conn = get_db()?;
+        let mut stmt = conn.prepare("SELECT * FROM snapshots WHERE id = ?1")?;
+        let snapshot = stmt.query_row([id], Snapshot::from_row).ok();
+        Ok(snapshot)
+    }
+
+    pub fn get_by_split(split_id: i64) -> Result<Option<Snapshot>> {
+        let conn = get_db()?;
+        let mut stmt = conn.prepare("SELECT * FROM snapshots WHERE split_id = ?1")?;
+        let snapshot = stmt.query_row([split_id], Snapshot::from_row).ok();
+        Ok(snapshot)
     }
 }
 

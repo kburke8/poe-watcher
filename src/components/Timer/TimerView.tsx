@@ -3,6 +3,7 @@ import { useRunStore } from '../../stores/runStore';
 import { TimerDisplay } from './TimerDisplay';
 import { TimerControls } from './TimerControls';
 import { SplitList } from '../Splits/SplitList';
+import type { TimerState } from '../../types';
 
 export function TimerView() {
   const { timer, updateElapsed, currentRun } = useRunStore();
@@ -56,6 +57,34 @@ export function TimerView() {
                 </span>
               </div>
             )}
+
+            {/* Zone and Town/Hideout Time */}
+            <div className="mt-4 pt-4 border-t border-[--color-border]">
+              <div className="flex justify-between text-sm mb-2">
+                <div className="flex items-center gap-2">
+                  <span className="text-[--color-text-muted]">Zone:</span>
+                  <span className={`text-[--color-text] ${timer.inTown ? 'text-yellow-400' : ''} ${timer.inHideout ? 'text-blue-400' : ''}`}>
+                    {timer.currentZone || 'None'}
+                    {timer.inTown && ' (Town)'}
+                    {timer.inHideout && ' (Hideout)'}
+                  </span>
+                </div>
+              </div>
+              <div className="flex gap-6 text-sm">
+                <div className="flex items-center gap-2">
+                  <span className="text-yellow-400/70">Town:</span>
+                  <span className="timer-display text-[--color-text]">
+                    {formatTime(getCurrentTownTime(timer))}
+                  </span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <span className="text-blue-400/70">Hideout:</span>
+                  <span className="timer-display text-[--color-text]">
+                    {formatTime(getCurrentHideoutTime(timer))}
+                  </span>
+                </div>
+              </div>
+            </div>
           </div>
 
           <TimerControls />
@@ -97,4 +126,22 @@ function formatTime(ms: number): string {
     return `${hours}:${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}.${centiseconds.toString().padStart(2, '0')}`;
   }
   return `${minutes}:${seconds.toString().padStart(2, '0')}.${centiseconds.toString().padStart(2, '0')}`;
+}
+
+// Calculate current town time including time currently in town
+function getCurrentTownTime(timer: TimerState): number {
+  let total = timer.townTimeMs;
+  if (timer.inTown && timer.townEnteredAt !== null) {
+    total += Date.now() - timer.townEnteredAt;
+  }
+  return total;
+}
+
+// Calculate current hideout time including time currently in hideout
+function getCurrentHideoutTime(timer: TimerState): number {
+  let total = timer.hideoutTimeMs;
+  if (timer.inHideout && timer.hideoutEnteredAt !== null) {
+    total += Date.now() - timer.hideoutEnteredAt;
+  }
+  return total;
 }
