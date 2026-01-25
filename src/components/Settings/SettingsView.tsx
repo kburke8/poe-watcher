@@ -1,3 +1,4 @@
+import { useState, useMemo } from 'react';
 import { invoke } from '@tauri-apps/api/core';
 import { open } from '@tauri-apps/plugin-dialog';
 import { useSettingsStore } from '../../stores/settingsStore';
@@ -16,7 +17,39 @@ export function SettingsView() {
     setOverlayOpacity,
     setSoundEnabled,
     toggleBreakpoint,
+    toggleSnapshotCapture,
+    moveBreakpoint,
+    setAllBreakpoints,
+    setActBreakpoints,
+    applySpeedrunPreset,
+    applyMinimalPreset,
+    applyTownsOnlyPreset,
+    resetBreakpoints,
   } = useSettingsStore();
+
+  // Filter state for breakpoints
+  const [actFilter, setActFilter] = useState<number | 'all' | 'level'>('all');
+  const [saveStatus, setSaveStatus] = useState<'idle' | 'saving' | 'saved' | 'error'>('idle');
+
+  // Breakpoints are loaded and auto-saved in App.tsx
+
+  // Get unique acts from breakpoints
+  const acts = useMemo(() => {
+    const actSet = new Set<number>();
+    breakpoints.forEach((bp) => {
+      if (bp.trigger.act !== undefined) {
+        actSet.add(bp.trigger.act);
+      }
+    });
+    return Array.from(actSet).sort((a, b) => a - b);
+  }, [breakpoints]);
+
+  // Filtered breakpoints
+  const filteredBreakpoints = useMemo(() => {
+    if (actFilter === 'all') return breakpoints;
+    if (actFilter === 'level') return breakpoints.filter((bp) => bp.trigger.type === 'level');
+    return breakpoints.filter((bp) => bp.trigger.act === actFilter);
+  }, [breakpoints, actFilter]);
 
   const handleBrowseLogPath = async () => {
     try {
@@ -50,7 +83,9 @@ export function SettingsView() {
   };
 
   const handleSaveSettings = async () => {
+    setSaveStatus('saving');
     try {
+      // Save core settings to backend
       await invoke('save_settings', {
         settings: {
           poe_log_path: poeLogPath,
@@ -60,8 +95,39 @@ export function SettingsView() {
           sound_enabled: soundEnabled,
         },
       });
+
+      // Save breakpoints to localStorage (not stored in backend)
+      // Deduplicate before saving
+      try {
+        const seen = new Set<string>();
+        const deduplicated = breakpoints.filter((bp) => {
+          if (seen.has(bp.name)) return false;
+          seen.add(bp.name);
+          return true;
+        });
+        localStorage.setItem(BREAKPOINTS_STORAGE_KEY, JSON.stringify(deduplicated));
+        console.log('Saved breakpoints to localStorage:', deduplicated.length);
+      } catch (e) {
+        console.error('Failed to save breakpoints to localStorage:', e);
+      }
+
+      // Restart log watcher with new path
+      if (poeLogPath) {
+        try {
+          await invoke('stop_log_watcher');
+        } catch {
+          // Ignore if not running
+        }
+        await invoke('start_log_watcher', { logPath: poeLogPath });
+        console.log('Log watcher restarted for:', poeLogPath);
+      }
+
+      setSaveStatus('saved');
+      setTimeout(() => setSaveStatus('idle'), 2000);
     } catch (error) {
       console.error('Failed to save settings:', error);
+      setSaveStatus('error');
+      setTimeout(() => setSaveStatus('idle'), 3000);
     }
   };
 
@@ -89,13 +155,13 @@ export function SettingsView() {
                 />
                 <button
                   onClick={handleBrowseLogPath}
-                  className="px-4 py-2 bg-[--color-surface-elevated] text-[--color-text] rounded-lg hover:bg-[--color-border] transition-colors"
+                  className="px-4 py-2 bg-[--color-surface] text-[--color-text] rounded-lg border-2 border-[--color-poe-gold]/40 shadow-sm hover:border-[--color-poe-gold]/70 hover:shadow-md active:scale-95 active:shadow-none transition-all duration-100 font-medium"
                 >
                   Browse
                 </button>
                 <button
                   onClick={handleDetectLogPath}
-                  className="px-4 py-2 bg-[--color-poe-gold] text-[--color-poe-darker] rounded-lg hover:bg-[--color-poe-gold-light] transition-colors"
+                  className="px-4 py-2 bg-[--color-poe-gold] text-[--color-poe-darker] rounded-lg border border-[--color-poe-gold-light] shadow-sm hover:bg-[--color-poe-gold-light] hover:shadow-md active:scale-95 active:shadow-none transition-all duration-100 font-semibold"
                 >
                   Auto-detect
                 </button>
@@ -135,12 +201,12 @@ export function SettingsView() {
               </div>
               <button
                 onClick={() => setOverlayEnabled(!overlayEnabled)}
-                className={`w-12 h-6 rounded-full transition-colors ${
+                className={`w-12 h-6 rounded-full transition-all duration-150 active:scale-95 ${
                   overlayEnabled ? 'bg-[--color-poe-gold]' : 'bg-[--color-surface-elevated]'
                 }`}
               >
                 <div
-                  className={`w-5 h-5 rounded-full bg-white transition-transform ${
+                  className={`w-5 h-5 rounded-full bg-white shadow transition-transform duration-150 ${
                     overlayEnabled ? 'translate-x-6' : 'translate-x-0.5'
                   }`}
                 />
@@ -175,12 +241,12 @@ export function SettingsView() {
               </div>
               <button
                 onClick={() => setSoundEnabled(!soundEnabled)}
-                className={`w-12 h-6 rounded-full transition-colors ${
+                className={`w-12 h-6 rounded-full transition-all duration-150 active:scale-95 ${
                   soundEnabled ? 'bg-[--color-poe-gold]' : 'bg-[--color-surface-elevated]'
                 }`}
               >
                 <div
-                  className={`w-5 h-5 rounded-full bg-white transition-transform ${
+                  className={`w-5 h-5 rounded-full bg-white shadow transition-transform duration-150 ${
                     soundEnabled ? 'translate-x-6' : 'translate-x-0.5'
                   }`}
                 />
@@ -193,50 +259,233 @@ export function SettingsView() {
         <section className="mb-8">
           <h2 className="text-lg font-semibold text-[--color-text] mb-4">Breakpoints</h2>
           <div className="bg-[--color-surface] rounded-lg overflow-hidden">
-            <div className="p-4 border-b border-[--color-border]">
+            {/* Filter and bulk actions */}
+            <div className="p-4 border-b border-[--color-border] space-y-3">
               <p className="text-sm text-[--color-text-muted]">
-                Toggle which breakpoints trigger automatic splits.
+                Toggle which breakpoints trigger automatic splits. Breakpoints are matched sequentially - only the next expected split will trigger.
               </p>
-            </div>
-            <div className="max-h-80 overflow-auto">
-              {breakpoints.map((bp) => (
-                <div
-                  key={bp.name}
-                  className="flex items-center justify-between p-3 border-b border-[--color-border] last:border-0"
+
+              {/* Preset row */}
+              <div className="flex flex-wrap items-center gap-2">
+                <span className="text-sm text-[--color-text-muted]">Presets:</span>
+                <button
+                  onClick={applySpeedrunPreset}
+                  className="px-4 py-2 text-sm bg-[--color-poe-gold] text-[--color-poe-darker] rounded-md border border-[--color-poe-gold-light] shadow-sm hover:bg-[--color-poe-gold-light] hover:shadow-md active:scale-95 active:shadow-none transition-all font-semibold"
                 >
-                  <div className="flex items-center gap-3">
-                    <span className="text-sm">{getTypeIcon(bp.type)}</span>
-                    <span className="text-[--color-text]">{bp.name}</span>
-                    <span className="text-xs text-[--color-text-muted] bg-[--color-surface-elevated] px-2 py-0.5 rounded">
-                      {bp.type}
-                    </span>
-                  </div>
+                  Speedrun (Default)
+                </button>
+                <button
+                  onClick={applyMinimalPreset}
+                  className="px-4 py-2 text-sm bg-[--color-surface] text-[--color-text] rounded-md border-2 border-[--color-poe-gold]/40 shadow-sm hover:border-[--color-poe-gold]/70 hover:shadow-md active:scale-95 active:shadow-none transition-all font-medium"
+                >
+                  Minimal
+                </button>
+                <button
+                  onClick={applyTownsOnlyPreset}
+                  className="px-4 py-2 text-sm bg-[--color-surface] text-[--color-text] rounded-md border-2 border-[--color-poe-gold]/40 shadow-sm hover:border-[--color-poe-gold]/70 hover:shadow-md active:scale-95 active:shadow-none transition-all font-medium"
+                >
+                  Towns Only
+                </button>
+                <button
+                  onClick={resetBreakpoints}
+                  className="px-4 py-2 text-sm bg-[--color-surface] text-[--color-text] rounded-md border-2 border-[--color-poe-gold]/40 shadow-sm hover:border-[--color-poe-gold]/70 hover:shadow-md active:scale-95 active:shadow-none transition-all font-medium"
+                >
+                  Reset
+                </button>
+              </div>
+
+              {/* Filter row */}
+              <div className="flex flex-wrap items-center gap-2">
+                <span className="text-sm text-[--color-text-muted]">Filter:</span>
+                <button
+                  onClick={() => setActFilter('all')}
+                  className={`px-3 py-1.5 text-sm rounded-md border-2 transition-all active:scale-95 font-medium ${
+                    actFilter === 'all'
+                      ? 'bg-[--color-poe-gold] text-[--color-poe-darker] border-[--color-poe-gold-light] shadow-sm'
+                      : 'bg-[--color-surface] text-[--color-text] border-[--color-poe-gold]/30 hover:border-[--color-poe-gold]/60'
+                  }`}
+                >
+                  All
+                </button>
+                {acts.map((act) => (
                   <button
-                    onClick={() => toggleBreakpoint(bp.name)}
-                    className={`w-10 h-5 rounded-full transition-colors ${
-                      bp.isEnabled ? 'bg-[--color-timer-ahead]' : 'bg-[--color-surface-elevated]'
+                    key={act}
+                    onClick={() => setActFilter(act)}
+                    className={`px-3 py-1.5 text-sm rounded-md border-2 transition-all active:scale-95 font-medium ${
+                      actFilter === act
+                        ? 'bg-[--color-poe-gold] text-[--color-poe-darker] border-[--color-poe-gold-light] shadow-sm'
+                        : 'bg-[--color-surface] text-[--color-text] border-[--color-poe-gold]/30 hover:border-[--color-poe-gold]/60'
                     }`}
                   >
-                    <div
-                      className={`w-4 h-4 rounded-full bg-white transition-transform ${
-                        bp.isEnabled ? 'translate-x-5' : 'translate-x-0.5'
-                      }`}
-                    />
+                    Act {act}
                   </button>
+                ))}
+                <button
+                  onClick={() => setActFilter('level')}
+                  className={`px-3 py-1.5 text-sm rounded-md border-2 transition-all active:scale-95 font-medium ${
+                    actFilter === 'level'
+                      ? 'bg-[--color-poe-gold] text-[--color-poe-darker] border-[--color-poe-gold-light] shadow-sm'
+                      : 'bg-[--color-surface] text-[--color-text] border-[--color-poe-gold]/30 hover:border-[--color-poe-gold]/60'
+                  }`}
+                >
+                  Levels
+                </button>
+              </div>
+
+              {/* Bulk action row */}
+              <div className="flex flex-wrap items-center gap-2">
+                <span className="text-sm text-[--color-text-muted]">Quick:</span>
+                <button
+                  onClick={() => setAllBreakpoints(true)}
+                  className="px-3 py-1.5 text-sm bg-[--color-timer-ahead] text-white rounded-md border border-green-400 shadow-sm hover:brightness-110 hover:shadow-md active:scale-95 active:shadow-none transition-all font-medium"
+                >
+                  Enable All
+                </button>
+                <button
+                  onClick={() => setAllBreakpoints(false)}
+                  className="px-3 py-1.5 text-sm bg-[--color-timer-behind] text-white rounded-md border border-red-400 shadow-sm hover:brightness-110 hover:shadow-md active:scale-95 active:shadow-none transition-all font-medium"
+                >
+                  Disable All
+                </button>
+                {actFilter !== 'all' && actFilter !== 'level' && (
+                  <>
+                    <span className="text-[--color-text-muted]">|</span>
+                    <button
+                      onClick={() => setActBreakpoints(actFilter, true)}
+                      className="px-3 py-1.5 text-sm bg-[--color-surface] text-[--color-text] rounded-md border-2 border-[--color-poe-gold]/40 shadow-sm hover:border-[--color-poe-gold]/70 hover:shadow-md active:scale-95 active:shadow-none transition-all font-medium"
+                    >
+                      Enable Act {actFilter}
+                    </button>
+                    <button
+                      onClick={() => setActBreakpoints(actFilter, false)}
+                      className="px-3 py-1.5 text-sm bg-[--color-surface] text-[--color-text] rounded-md border-2 border-[--color-poe-gold]/40 shadow-sm hover:border-[--color-poe-gold]/70 hover:shadow-md active:scale-95 active:shadow-none transition-all font-medium"
+                    >
+                      Disable Act {actFilter}
+                    </button>
+                  </>
+                )}
+              </div>
+            </div>
+
+            {/* Breakpoint list */}
+            <div className="max-h-96 overflow-auto">
+              {filteredBreakpoints.length === 0 ? (
+                <div className="p-4 text-center text-[--color-text-muted]">
+                  No breakpoints match the current filter.
                 </div>
-              ))}
+              ) : (
+                filteredBreakpoints.map((bp, index) => (
+                  <div
+                    key={`${index}-${bp.name}`}
+                    className="flex items-center justify-between p-3 border-b border-[--color-border] last:border-0 hover:bg-[--color-surface-elevated]/50"
+                  >
+                    <div className="flex items-center gap-3 flex-1 min-w-0">
+                      <span className="text-sm flex-shrink-0">{getTypeIcon(bp.type)}</span>
+                      <span className={`truncate ${bp.isEnabled ? 'text-[--color-text]' : 'text-[--color-text-muted]'}`}>{bp.name}</span>
+                      <span className="text-xs text-[--color-text-muted] bg-[--color-surface-elevated] px-2 py-0.5 rounded flex-shrink-0">
+                        {bp.type}
+                      </span>
+                      {bp.trigger.act && (
+                        <span className="text-xs text-[--color-text-muted] flex-shrink-0">
+                          A{bp.trigger.act}
+                        </span>
+                      )}
+                    </div>
+                    <div className="flex items-center gap-3 flex-shrink-0">
+                      {/* Move buttons */}
+                      <div className="flex gap-1">
+                        <button
+                          onClick={() => moveBreakpoint(bp.name, 'up')}
+                          disabled={index === 0}
+                          className="p-1 text-[--color-text-muted] hover:text-[--color-text] disabled:opacity-30 disabled:cursor-not-allowed active:scale-90 transition-all"
+                          title="Move up"
+                        >
+                          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 15l7-7 7 7" />
+                          </svg>
+                        </button>
+                        <button
+                          onClick={() => moveBreakpoint(bp.name, 'down')}
+                          disabled={index === filteredBreakpoints.length - 1}
+                          className="p-1 text-[--color-text-muted] hover:text-[--color-text] disabled:opacity-30 disabled:cursor-not-allowed active:scale-90 transition-all"
+                          title="Move down"
+                        >
+                          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                          </svg>
+                        </button>
+                      </div>
+                      {/* Snapshot toggle */}
+                      <button
+                        onClick={() => toggleSnapshotCapture(bp.name)}
+                        disabled={!bp.isEnabled}
+                        className={`p-1.5 rounded transition-all active:scale-90 ${
+                          bp.captureSnapshot && bp.isEnabled
+                            ? 'text-amber-400 bg-amber-400/20 border border-amber-400/50'
+                            : bp.isEnabled
+                            ? 'text-zinc-500 hover:text-zinc-300 border border-transparent hover:border-zinc-600'
+                            : 'text-zinc-600 border border-transparent opacity-30 cursor-not-allowed'
+                        }`}
+                        title={bp.captureSnapshot ? 'Snapshot enabled - click to disable' : 'Click to enable snapshot capture'}
+                      >
+                        <svg className="w-4 h-4" fill={bp.captureSnapshot && bp.isEnabled ? 'currentColor' : 'none'} stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z" />
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 13a3 3 0 11-6 0 3 3 0 016 0z" />
+                        </svg>
+                      </button>
+                      {/* Split toggle */}
+                      <button
+                        onClick={() => toggleBreakpoint(bp.name)}
+                        className={`w-10 h-5 rounded-full transition-all duration-150 active:scale-95 border ${
+                          bp.isEnabled
+                            ? 'bg-green-600 border-green-500'
+                            : 'bg-zinc-700 border-zinc-600'
+                        }`}
+                        title={bp.isEnabled ? 'Split enabled' : 'Enable split'}
+                      >
+                        <div
+                          className={`w-4 h-4 rounded-full bg-white shadow transition-transform duration-150 ${
+                            bp.isEnabled ? 'translate-x-5' : 'translate-x-0.5'
+                          }`}
+                        />
+                      </button>
+                    </div>
+                  </div>
+                ))
+              )}
+            </div>
+
+            {/* Count info */}
+            <div className="p-3 border-t border-[--color-border] text-xs text-[--color-text-muted]">
+              {filteredBreakpoints.filter((bp) => bp.isEnabled).length} of {filteredBreakpoints.length} enabled
+              {actFilter !== 'all' && ` (filtered from ${breakpoints.length} total)`}
             </div>
           </div>
         </section>
 
         {/* Save button */}
-        <div className="flex gap-3">
+        <div className="flex gap-3 items-center">
           <button
             onClick={handleSaveSettings}
-            className="px-6 py-3 bg-[--color-poe-gold] text-[--color-poe-darker] font-semibold rounded-lg hover:bg-[--color-poe-gold-light] transition-colors"
+            disabled={saveStatus === 'saving'}
+            className={`px-6 py-3 font-semibold rounded-lg border shadow-md transition-all duration-100 ${
+              saveStatus === 'saving'
+                ? 'bg-[--color-surface-elevated] text-[--color-text-muted] border-[--color-border] cursor-wait shadow-none'
+                : saveStatus === 'saved'
+                ? 'bg-[--color-timer-ahead] text-white border-green-400'
+                : saveStatus === 'error'
+                ? 'bg-[--color-timer-behind] text-white border-red-400'
+                : 'bg-[--color-poe-gold] text-[--color-poe-darker] border-[--color-poe-gold-light] hover:bg-[--color-poe-gold-light] hover:shadow-lg active:scale-95 active:shadow-sm'
+            }`}
           >
-            Save Settings
+            {saveStatus === 'saving' ? 'Saving...' :
+             saveStatus === 'saved' ? 'Saved!' :
+             saveStatus === 'error' ? 'Error!' :
+             'Save Settings'}
           </button>
+          {saveStatus === 'error' && (
+            <span className="text-[--color-timer-behind] text-sm">Check console for details</span>
+          )}
         </div>
       </div>
     </div>

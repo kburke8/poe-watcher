@@ -185,6 +185,14 @@ impl PoeApiClient {
         }
 
         let text = response.text().await?;
+
+        // Debug: log the character portion of the response
+        if let Ok(json) = serde_json::from_str::<serde_json::Value>(&text) {
+            if let Some(character) = json.get("character") {
+                println!("[API get_items] Character data from API: {}", character);
+            }
+        }
+
         self.cache_response(&url, text.clone(), Duration::from_secs(30)).await;
 
         Ok(serde_json::from_str(&text)?)
@@ -234,14 +242,19 @@ impl PoeApiClient {
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct PoeCharacter {
+    #[serde(default)]
     pub name: String,
+    #[serde(default)]
     pub league: String,
-    #[serde(rename = "classId")]
+    #[serde(rename = "classId", default)]
     pub class_id: u32,
-    #[serde(rename = "ascendancyClass")]
+    #[serde(rename = "ascendancyClass", default)]
     pub ascendancy_class: u32,
+    #[serde(default)]
     pub class: String,
+    #[serde(default)]
     pub level: u32,
+    #[serde(default)]
     pub experience: u64,
 }
 
@@ -253,46 +266,78 @@ pub struct CharacterItems {
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct PoeCharacterInfo {
+    #[serde(default)]
     pub name: String,
+    #[serde(default)]
     pub league: String,
-    #[serde(rename = "classId")]
+    #[serde(rename = "classId", default)]
     pub class_id: u32,
-    #[serde(rename = "ascendancyClass")]
+    #[serde(rename = "ascendancyClass", default)]
     pub ascendancy_class: u32,
+    #[serde(default)]
     pub class: String,
+    #[serde(default)]
     pub level: u32,
+    #[serde(default)]
     pub experience: u64,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct PoeItem {
+    #[serde(default)]
     pub id: String,
+    #[serde(default)]
     pub name: String,
-    #[serde(rename = "typeLine")]
+    #[serde(default)]
     pub type_line: String,
-    #[serde(rename = "inventoryId")]
+    #[serde(default)]
     pub inventory_id: String,
-    #[serde(rename = "socketedItems", default)]
+    #[serde(default)]
     pub socketed_items: Vec<PoeItem>,
     #[serde(default)]
     pub sockets: Vec<PoeSocket>,
-    #[serde(rename = "explicitMods", default)]
+    #[serde(default)]
     pub explicit_mods: Vec<String>,
-    #[serde(rename = "implicitMods", default)]
+    #[serde(default)]
     pub implicit_mods: Vec<String>,
-    #[serde(rename = "frameType")]
+    #[serde(default)]
     pub frame_type: u32,
     pub x: Option<u32>,
     pub y: Option<u32>,
+    #[serde(default)]
     pub w: u32,
+    #[serde(default)]
     pub h: u32,
     #[serde(rename = "ilvl", default)]
     pub item_level: u32,
+    #[serde(default)]
+    pub properties: Vec<ItemProperty>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ItemProperty {
+    #[serde(default)]
+    pub name: String,
+    #[serde(default)]
+    pub values: Vec<PropertyValue>,
+}
+
+// POE API returns values as [value, display_mode] where value can be string or number
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(untagged)]
+pub enum PropertyValue {
+    StringValue(String, u32),
+    NumberValue(f64, u32),
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct PoeSocket {
+    #[serde(default)]
     pub group: u32,
+    #[serde(default)]
     pub attr: String,
 }
 
