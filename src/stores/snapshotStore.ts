@@ -159,15 +159,21 @@ export function parseItems(itemsJson: string): PoeItem[] {
   }
 }
 
-export function parsePassives(passiveTreeJson: string): { hashes: number[]; hashesEx: number[] } {
+export function parsePassives(passiveTreeJson: string): {
+  hashes: number[];
+  hashesEx: number[];
+  masteryEffects: Record<string, number>;  // nodeId -> effectId
+} {
   try {
     const data = JSON.parse(passiveTreeJson);
     return {
       hashes: data.hashes || [],
-      hashesEx: data.hashes_ex || [],
+      hashesEx: data.hashes_ex || data.hashesEx || [],
+      // Handle both snake_case (from simulate) and camelCase (from capture)
+      masteryEffects: data.mastery_effects || data.masteryEffects || {},
     };
   } catch {
-    return { hashes: [], hashesEx: [] };
+    return { hashes: [], hashesEx: [], masteryEffects: {} };
   }
 }
 
@@ -176,7 +182,12 @@ export function getEquippedItems(items: PoeItem[]): Map<string, PoeItem> {
   for (const item of items) {
     // inventoryId indicates equipped slot
     if (item.inventoryId && !item.inventoryId.startsWith('Stash')) {
-      equipped.set(item.inventoryId, item);
+      // Handle flasks specially - they all have inventoryId "Flask" but different x positions
+      if (item.inventoryId === 'Flask' && item.x !== undefined) {
+        equipped.set(`Flask${item.x + 1}`, item);
+      } else {
+        equipped.set(item.inventoryId, item);
+      }
     }
   }
   return equipped;

@@ -348,7 +348,7 @@ pub struct PassiveSkills {
     pub hashes: Vec<u32>,
     #[serde(default)]
     pub hashes_ex: Vec<u32>,
-    #[serde(rename = "masteryEffects", default)]
+    #[serde(default)]
     pub mastery_effects: HashMap<String, u32>,
 }
 
