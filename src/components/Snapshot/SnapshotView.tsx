@@ -6,6 +6,7 @@ import { useSettingsStore } from '../../stores/settingsStore';
 import { EquipmentGrid } from './EquipmentGrid';
 import { SkillsDisplay } from './SkillsDisplay';
 import { PassivesSummary } from './PassivesSummary';
+import { PassiveTree } from './PassiveTree';
 import { exportToPob, shareOnPobbIn } from '../../utils/pobExport';
 import type { Run, Split, Snapshot } from '../../types';
 
@@ -15,7 +16,7 @@ interface SimulateResponse {
   snapshot_id: number;
 }
 
-type TabType = 'equipment' | 'skills' | 'passives';
+type TabType = 'equipment' | 'passives';
 
 export function SnapshotView() {
   const { runs, currentRun } = useRunStore();
@@ -333,7 +334,7 @@ function SnapshotDetail({
   }, [items]);
 
   const passives = useMemo(() => {
-    if (!selectedSnapshot) return { hashes: [], hashesEx: [] };
+    if (!selectedSnapshot) return { hashes: [], hashesEx: [], masteryEffects: {} };
     return parsePassives(selectedSnapshot.passiveTreeJson);
   }, [selectedSnapshot]);
 
@@ -448,7 +449,7 @@ function SnapshotDetail({
           {/* Tabs */}
           <div className="px-6 border-b border-[--color-border]">
             <div className="flex gap-4">
-              {(['equipment', 'skills', 'passives'] as TabType[]).map((tab) => (
+              {(['equipment', 'passives'] as TabType[]).map((tab) => (
                 <button
                   key={tab}
                   onClick={() => setActiveTab(tab)}
@@ -458,7 +459,7 @@ function SnapshotDetail({
                       : 'text-[--color-text-muted] border-transparent hover:text-[--color-text] hover:border-[--color-poe-gold]/50'
                   }`}
                 >
-                  {tab}
+                  {tab === 'equipment' ? 'Gear & Skills' : tab}
                 </button>
               ))}
             </div>
@@ -466,14 +467,35 @@ function SnapshotDetail({
 
           {/* Tab content */}
           <div className="flex-1 overflow-auto p-6">
-            {activeTab === 'equipment' && <EquipmentGrid items={equippedItems} />}
-            {activeTab === 'skills' && <SkillsDisplay items={items} />}
+            {activeTab === 'equipment' && (
+              <div className="grid grid-cols-[auto_1fr_1fr] gap-6">
+                {/* Equipment grid - column 1 */}
+                <div className="shrink-0">
+                  <EquipmentGrid items={equippedItems} />
+                </div>
+                {/* Skills panel - columns 2 & 3 */}
+                <div className="col-span-2">
+                  <div className="text-sm text-[#6a6a8a] mb-3">Socketed Gems</div>
+                  <SkillsDisplay items={items} compact columns={2} />
+                </div>
+              </div>
+            )}
             {activeTab === 'passives' && (
-              <PassivesSummary
-                hashes={passives.hashes}
-                hashesEx={passives.hashesEx}
-                characterLevel={selectedSnapshot.characterLevel}
-              />
+              <div className="space-y-4">
+                <PassiveTree
+                  allocatedNodes={passives.hashes}
+                  masterySelections={passives.masteryEffects}
+                  characterClass={run.class}
+                  ascendancy={run.ascendancy || undefined}
+                  width={Math.min(900, window.innerWidth - 450)}
+                  height={550}
+                />
+                <PassivesSummary
+                  hashes={passives.hashes}
+                  hashesEx={passives.hashesEx}
+                  characterLevel={selectedSnapshot.characterLevel}
+                />
+              </div>
             )}
           </div>
 

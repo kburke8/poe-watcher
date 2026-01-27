@@ -441,7 +441,8 @@ pub async fn simulate_snapshot(
         .await
         .map_err(|e| format!("Failed to fetch passives: {}", e))?;
 
-    println!("[Simulate] Got {} items, {} passives", items_data.items.len(), passives_data.hashes.len());
+    println!("[Simulate] Got {} items, {} passives, {} masteries",
+        items_data.items.len(), passives_data.hashes.len(), passives_data.mastery_effects.len());
 
     // The API's 'class' field contains either:
     // - A base class name (Marauder, Ranger, etc.) if not ascended
@@ -508,6 +509,7 @@ pub async fn simulate_snapshot(
     let passives_json = serde_json::to_string(&serde_json::json!({
         "hashes": passives_data.hashes,
         "hashes_ex": passives_data.hashes_ex,
+        "mastery_effects": passives_data.mastery_effects,
     })).unwrap_or_default();
 
     println!("[Simulate] Items JSON length: {}, first 200 chars: {}",
