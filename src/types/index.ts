@@ -15,6 +15,12 @@ export interface Run {
   townTimeMs?: number;
   isCompleted: boolean;
   isPersonalBest: boolean;
+  // Breakpoint tracking
+  breakpointPreset?: string | null;
+  enabledBreakpoints?: string[] | null;
+  // Reference run support
+  isReference?: boolean;
+  sourceName?: string | null;
 }
 
 export interface Split {
@@ -25,6 +31,9 @@ export interface Split {
   splitTimeMs: number;
   deltaMs: number | null;
   segmentTimeMs: number;
+  // Town/hideout time tracking (cumulative at this split)
+  townTimeMs: number;
+  hideoutTimeMs: number;
 }
 
 export type BreakpointType = 'zone' | 'level' | 'boss' | 'act' | 'lab' | 'custom';
@@ -185,4 +194,50 @@ export interface SplitTime {
 }
 
 // UI state
-export type ViewMode = 'timer' | 'snapshots' | 'comparison' | 'settings';
+export type ViewMode = 'timer' | 'snapshots' | 'comparison' | 'history' | 'settings';
+
+// Filtering and analytics
+export interface RunFilters {
+  class?: string;
+  ascendancy?: string;
+  category?: string;
+  league?: string;
+  breakpointPreset?: string;
+  isCompleted?: boolean;
+  includeReference?: boolean;
+}
+
+export interface RunStats {
+  totalRuns: number;
+  completedRuns: number;
+  averageTimeMs: number | null;
+  bestTimeMs: number | null;
+}
+
+export interface SplitStat {
+  breakpointName: string;
+  averageTimeMs: number;
+  bestTimeMs: number;
+  averageTownTimeMs: number;
+  runCount: number;
+}
+
+// Reference run data for manual entry
+export interface ReferenceRunData {
+  sourceName: string;
+  characterName?: string;
+  class: string;
+  ascendancy?: string;
+  category: string;
+  league?: string;
+  breakpointPreset?: string;
+  enabledBreakpoints?: string;
+  totalTimeMs: number;
+  splits: ReferenceSplitData[];
+}
+
+export interface ReferenceSplitData {
+  breakpointName: string;
+  breakpointType: string;
+  splitTimeMs: number;
+}

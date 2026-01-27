@@ -76,8 +76,12 @@ export function useTauriEvents() {
       ? timer.elapsedMs - timer.splits[timer.splits.length - 1].splitTimeMs
       : timer.elapsedMs;
 
+    // Get current town/hideout time from timer state
+    const townTimeMs = timer.townTimeMs;
+    const hideoutTimeMs = timer.hideoutTimeMs;
+
     console.log('[useTauriEvents] Triggering split:', breakpointName, 'at', splitTimeMs, 'ms',
-      'captureSnapshot:', shouldCaptureSnapshot);
+      'captureSnapshot:', shouldCaptureSnapshot, 'townTime:', townTimeMs, 'hideoutTime:', hideoutTimeMs);
 
     // Add split to local state
     addSplit({
@@ -86,6 +90,8 @@ export function useTauriEvents() {
       splitTimeMs,
       segmentTimeMs,
       deltaMs: null,
+      townTimeMs,
+      hideoutTimeMs,
     });
 
     // Send to backend with snapshot capture request
@@ -100,6 +106,8 @@ export function useTauriEvents() {
               split_time_ms: splitTimeMs,
               delta_ms: null,
               segment_time_ms: segmentTimeMs,
+              town_time_ms: townTimeMs,
+              hideout_time_ms: hideoutTimeMs,
             },
             capture_snapshot: shouldCaptureSnapshot,
             account_name: accountName || null,

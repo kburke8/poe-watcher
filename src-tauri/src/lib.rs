@@ -85,6 +85,10 @@ pub fn run() {
             get_runs,
             get_run,
             delete_run,
+            get_runs_filtered,
+            get_run_stats,
+            get_split_stats,
+            create_reference_run,
             // Splits
             add_split,
             get_splits,

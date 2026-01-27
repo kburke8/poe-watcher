@@ -7,6 +7,7 @@ import { Sidebar } from "./components/Sidebar";
 import { TimerView } from "./components/Timer/TimerView";
 import { SnapshotView } from "./components/Snapshot/SnapshotView";
 import { ComparisonView } from "./components/Comparison/ComparisonView";
+import { HistoryView } from "./components/History/HistoryView";
 import { SettingsView } from "./components/Settings/SettingsView";
 import { defaultBreakpoints } from "./config/breakpoints";
 import type { Breakpoint } from "./types";
@@ -133,6 +134,8 @@ function App() {
         return <SnapshotView />;
       case 'comparison':
         return <ComparisonView />;
+      case 'history':
+        return <HistoryView />;
       case 'settings':
         return <SettingsView />;
       default:

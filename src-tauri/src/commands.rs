@@ -1,5 +1,8 @@
 use crate::api_client::PoeApiClient;
-use crate::db::{NewRun, NewSplit, NewSnapshot, PersonalBest, Run, Settings, Snapshot, Split, GoldSplit};
+use crate::db::{
+    NewRun, NewSplit, NewSnapshot, PersonalBest, Run, Settings, Snapshot, Split, GoldSplit,
+    RunFilters, RunStats, SplitStat, ReferenceRunData,
+};
 use crate::log_watcher::{detect_log_path, LogWatcher};
 use anyhow::Result;
 use once_cell::sync::OnceCell;
@@ -122,6 +125,47 @@ pub async fn get_run(run_id: i64) -> Result<Option<Run>, String> {
 #[tauri::command]
 pub async fn delete_run(run_id: i64) -> Result<(), String> {
     Run::delete(run_id).map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+pub async fn get_runs_filtered(filters: RunFilters) -> Result<Vec<Run>, String> {
+    Run::get_filtered(&filters).map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+pub async fn get_run_stats(filters: RunFilters) -> Result<RunStats, String> {
+    Run::get_stats(&filters).map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+pub async fn get_split_stats(filters: RunFilters) -> Result<Vec<SplitStat>, String> {
+    Split::get_stats(&filters).map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+pub async fn create_reference_run(data: ReferenceRunData) -> Result<i64, String> {
+    // Insert the reference run
+    let run_id = Run::insert_reference(&data).map_err(|e| e.to_string())?;
+
+    // Insert all splits for the reference run
+    let mut prev_time = 0i64;
+    for split_data in &data.splits {
+        let segment_time = split_data.split_time_ms - prev_time;
+        let new_split = NewSplit {
+            run_id,
+            breakpoint_type: split_data.breakpoint_type.clone(),
+            breakpoint_name: split_data.breakpoint_name.clone(),
+            split_time_ms: split_data.split_time_ms,
+            delta_ms: None,
+            segment_time_ms: segment_time,
+            town_time_ms: 0,
+            hideout_time_ms: 0,
+        };
+        Split::insert(&new_split).map_err(|e| e.to_string())?;
+        prev_time = split_data.split_time_ms;
+    }
+
+    Ok(run_id)
 }
 
 // ============================================================================
@@ -486,6 +530,8 @@ pub async fn simulate_snapshot(
         league: items_data.character.league.clone(),
         category: "test".to_string(),
         started_at: chrono::Utc::now().to_rfc3339(),
+        breakpoint_preset: None,
+        enabled_breakpoints: None,
     };
 
     let run_id = Run::insert(&new_run).map_err(|e| format!("Failed to create run: {}", e))?;
@@ -499,6 +545,8 @@ pub async fn simulate_snapshot(
         split_time_ms: 60000, // 1 minute
         delta_ms: None,
         segment_time_ms: 60000,
+        town_time_ms: 0,
+        hideout_time_ms: 0,
     };
 
     let split_id = Split::insert(&new_split).map_err(|e| format!("Failed to create split: {}", e))?;

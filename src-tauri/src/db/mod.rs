@@ -6,7 +6,12 @@ use rusqlite::Connection;
 use std::path::PathBuf;
 use std::sync::Mutex;
 
-pub use schema::*;
+pub use schema::{
+    Run, NewRun, RunFilters, RunStats, ReferenceRunData,
+    Split, NewSplit, SplitStat,
+    Snapshot, NewSnapshot,
+    PersonalBest, GoldSplit, Settings,
+};
 
 static DB: OnceCell<Mutex<Connection>> = OnceCell::new();
 
@@ -76,4 +81,5 @@ fn run_migrations(conn: &Connection) -> Result<()> {
 /// Database migrations
 const MIGRATIONS: &[(&str, &str)] = &[
     ("001_initial_schema", include_str!("migrations/001_initial_schema.sql")),
+    ("002_add_breakpoint_tracking", include_str!("migrations/002_add_breakpoint_tracking.sql")),
 ];
