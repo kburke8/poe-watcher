@@ -33,6 +33,10 @@ export function useHotkeys() {
 
         if (run) {
           try {
+            // Get breakpoint preset info
+            const presetName = useSettingsStore.getState().getCurrentPresetName();
+            const enabledBreakpoints = useSettingsStore.getState().getEnabledBreakpointNames();
+
             const dbRunId = await invoke<number>('create_run', {
               run: {
                 character_name: run.characterName || run.character || 'Unknown',
@@ -42,9 +46,11 @@ export function useHotkeys() {
                 league: run.league || 'Standard',
                 category: run.category || 'any%',
                 started_at: run.startedAt || new Date().toISOString(),
+                breakpoint_preset: presetName,
+                enabled_breakpoints: JSON.stringify(enabledBreakpoints),
               },
             });
-            console.log('[useHotkeys] Run created in database with ID:', dbRunId);
+            console.log('[useHotkeys] Run created in database with ID:', dbRunId, 'preset:', presetName);
             setRunId(dbRunId);
           } catch (error) {
             console.error('[useHotkeys] Failed to create run in database:', error);

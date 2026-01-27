@@ -11,6 +11,7 @@ const navItems: NavItem[] = [
   { id: 'timer', label: 'Timer', icon: '⏱' },
   { id: 'snapshots', label: 'Snapshots', icon: '📸' },
   { id: 'comparison', label: 'Compare', icon: '📊' },
+  { id: 'history', label: 'History', icon: '📋' },
   { id: 'settings', label: 'Settings', icon: '⚙' },
 ];
 

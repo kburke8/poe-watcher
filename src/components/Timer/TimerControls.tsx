@@ -17,6 +17,10 @@ export function TimerControls() {
     // If this is a fresh start (not a resume), create the run in the database
     if (run && timer.elapsedMs === 0) {
       try {
+        // Get breakpoint preset info
+        const presetName = useSettingsStore.getState().getCurrentPresetName();
+        const enabledBreakpoints = useSettingsStore.getState().getEnabledBreakpointNames();
+
         const dbRunId = await invoke<number>('create_run', {
           run: {
             character_name: run.characterName || run.character || 'Unknown',
@@ -26,9 +30,11 @@ export function TimerControls() {
             league: run.league || 'Standard',
             category: run.category || 'any%',
             started_at: run.startedAt || new Date().toISOString(),
+            breakpoint_preset: presetName,
+            enabled_breakpoints: JSON.stringify(enabledBreakpoints),
           },
         });
-        console.log('[TimerControls] Run created in database with ID:', dbRunId);
+        console.log('[TimerControls] Run created in database with ID:', dbRunId, 'preset:', presetName);
         setRunId(dbRunId);
       } catch (error) {
         console.error('[TimerControls] Failed to create run in database:', error);

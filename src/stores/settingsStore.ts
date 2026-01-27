@@ -6,6 +6,7 @@ import {
   applyMinimalPreset,
   applyTownsOnlyPreset,
   resetToDefault,
+  speedrunEnabledBreakpoints,
 } from '../config/breakpoints';
 
 interface SettingsState extends Settings {
@@ -33,6 +34,9 @@ interface SettingsState extends Settings {
   applyMinimalPreset: () => void;
   applyTownsOnlyPreset: () => void;
   resetBreakpoints: () => void;
+  // Preset detection helpers
+  getCurrentPresetName: () => string;
+  getEnabledBreakpointNames: () => string[];
 }
 
 export const useSettingsStore = create<SettingsState>((set) => ({
@@ -125,5 +129,50 @@ export const useSettingsStore = create<SettingsState>((set) => ({
     return set({
       breakpoints: defaults,
     });
+  },
+
+  // Detect current preset based on enabled breakpoints
+  getCurrentPresetName: () => {
+    const state = useSettingsStore.getState();
+    const enabledNames = state.breakpoints
+      .filter((bp) => bp.isEnabled)
+      .map((bp) => bp.name);
+
+    // Check if it matches speedrun preset
+    const speedrunSet = new Set(speedrunEnabledBreakpoints);
+    const enabledSet = new Set(enabledNames);
+    if (
+      speedrunSet.size === enabledSet.size &&
+      [...speedrunSet].every((name) => enabledSet.has(name))
+    ) {
+      return 'speedrun';
+    }
+
+    // Check if it matches minimal preset (only act transitions)
+    const actBreakpoints = state.breakpoints.filter((bp) => bp.type === 'act');
+    const minimalNames = actBreakpoints.map((bp) => bp.name);
+    const minimalSet = new Set(minimalNames);
+    if (
+      minimalSet.size === enabledSet.size &&
+      [...minimalSet].every((name) => enabledSet.has(name))
+    ) {
+      return 'minimal';
+    }
+
+    // Check if no breakpoints are enabled
+    if (enabledNames.length === 0) {
+      return 'none';
+    }
+
+    // Otherwise it's a custom configuration
+    return 'custom';
+  },
+
+  // Get list of enabled breakpoint names
+  getEnabledBreakpointNames: () => {
+    const state = useSettingsStore.getState();
+    return state.breakpoints
+      .filter((bp) => bp.isEnabled)
+      .map((bp) => bp.name);
   },
 }));

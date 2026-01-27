@@ -1,5 +1,6 @@
 import { create } from 'zustand';
-import type { Run, Split, SplitTime, TimerState } from '../types';
+import { invoke } from '@tauri-apps/api/core';
+import type { Run, Split, SplitTime, TimerState, RunFilters, RunStats, SplitStat } from '../types';
 
 interface RunState {
   // Current run
@@ -13,6 +14,12 @@ interface RunState {
   runs: Run[];
   personalBests: Map<string, number>;
   goldSplits: Map<string, number>;
+
+  // Filtering state
+  filters: RunFilters;
+  filteredRuns: Run[];
+  runStats: RunStats | null;
+  splitStats: SplitStat[];
 
   // Actions
   startRun: (run: Omit<Run, 'id' | 'isCompleted' | 'isPersonalBest' | 'endedAt' | 'totalTimeMs'>) => void;
@@ -33,6 +40,13 @@ interface RunState {
   setSplits: (splits: Split[]) => void;
   setPersonalBests: (pbs: Map<string, number>) => void;
   setGoldSplits: (golds: Map<string, number>) => void;
+
+  // Filtering actions
+  setFilters: (filters: Partial<RunFilters>) => void;
+  clearFilters: () => void;
+  loadFilteredRuns: () => Promise<void>;
+  loadRunStats: () => Promise<void>;
+  loadSplitStats: () => Promise<void>;
 }
 
 const initialTimerState: TimerState = {
@@ -59,6 +73,12 @@ export const useRunStore = create<RunState>((set, get) => ({
   runs: [],
   personalBests: new Map(),
   goldSplits: new Map(),
+
+  // Filtering state
+  filters: {},
+  filteredRuns: [],
+  runStats: null,
+  splitStats: [],
 
   // Run actions
   startRun: (runData) => {
@@ -249,4 +269,46 @@ export const useRunStore = create<RunState>((set, get) => ({
   setSplits: (splits) => set({ splits }),
   setPersonalBests: (pbs) => set({ personalBests: pbs }),
   setGoldSplits: (golds) => set({ goldSplits: golds }),
+
+  // Filtering actions
+  setFilters: (newFilters) => set((state) => ({
+    filters: { ...state.filters, ...newFilters },
+  })),
+
+  clearFilters: () => set({
+    filters: {},
+    filteredRuns: [],
+    runStats: null,
+    splitStats: [],
+  }),
+
+  loadFilteredRuns: async () => {
+    try {
+      const { filters } = get();
+      const runs = await invoke<Run[]>('get_runs_filtered', { filters });
+      set({ filteredRuns: runs });
+    } catch (error) {
+      console.error('[RunStore] Failed to load filtered runs:', error);
+    }
+  },
+
+  loadRunStats: async () => {
+    try {
+      const { filters } = get();
+      const stats = await invoke<RunStats>('get_run_stats', { filters });
+      set({ runStats: stats });
+    } catch (error) {
+      console.error('[RunStore] Failed to load run stats:', error);
+    }
+  },
+
+  loadSplitStats: async () => {
+    try {
+      const { filters } = get();
+      const stats = await invoke<SplitStat[]>('get_split_stats', { filters });
+      set({ splitStats: stats });
+    } catch (error) {
+      console.error('[RunStore] Failed to load split stats:', error);
+    }
+  },
 }));
