@@ -100,14 +100,14 @@ export function useTauriEvents() {
         await invoke('add_split', {
           request: {
             split: {
-              run_id: currentRun.id,
-              breakpoint_type: breakpointType,
-              breakpoint_name: breakpointName,
-              split_time_ms: splitTimeMs,
-              delta_ms: null,
-              segment_time_ms: segmentTimeMs,
-              town_time_ms: townTimeMs,
-              hideout_time_ms: hideoutTimeMs,
+              runId: currentRun.id,
+              breakpointType: breakpointType,
+              breakpointName: breakpointName,
+              splitTimeMs: splitTimeMs,
+              deltaMs: null,
+              segmentTimeMs: segmentTimeMs,
+              townTimeMs: townTimeMs,
+              hideoutTimeMs: hideoutTimeMs,
             },
             capture_snapshot: shouldCaptureSnapshot,
             account_name: accountName || null,
