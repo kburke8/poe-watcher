@@ -3,7 +3,7 @@ import type { Breakpoint } from '../types';
 // All POE zones organized by act - comprehensive list for speedrunning
 export const defaultBreakpoints: Breakpoint[] = [
   // ===== ACT 1 =====
-  { name: 'Twilight Strand', type: 'zone', trigger: { type: 'zone', zoneName: 'The Twilight Strand', act: 1 }, isEnabled: false, captureSnapshot: false },
+  { name: 'Twilight Strand', type: 'zone', trigger: { type: 'zone', zoneName: 'The Twilight Strand', act: 1 }, isEnabled: true, captureSnapshot: true },
   { name: 'The Coast', type: 'zone', trigger: { type: 'zone', zoneName: 'The Coast', act: 1 }, isEnabled: true, captureSnapshot: false },
   { name: 'The Tidal Island', type: 'zone', trigger: { type: 'zone', zoneName: 'The Tidal Island', act: 1 }, isEnabled: false, captureSnapshot: false },
   { name: 'The Mud Flats', type: 'zone', trigger: { type: 'zone', zoneName: 'The Mud Flats', act: 1 }, isEnabled: false, captureSnapshot: false },
@@ -22,7 +22,7 @@ export const defaultBreakpoints: Breakpoint[] = [
 
   // ===== ACT 2 =====
   // Post-Merveil - first zone after Act 1 boss
-  { name: 'The Southern Forest', type: 'zone', trigger: { type: 'zone', zoneName: 'The Southern Forest', act: 2 }, isEnabled: false, captureSnapshot: true },
+  { name: 'The Southern Forest', type: 'zone', trigger: { type: 'zone', zoneName: 'The Southern Forest', act: 2 }, isEnabled: true, captureSnapshot: true },
   // Act 2 town start
   { name: 'The Forest Encampment', type: 'act', trigger: { type: 'zone', zoneName: 'The Forest Encampment', act: 2 }, isEnabled: true, captureSnapshot: true },
   { name: 'The Old Fields', type: 'zone', trigger: { type: 'zone', zoneName: 'The Old Fields', act: 2 }, isEnabled: false, captureSnapshot: false },
@@ -40,7 +40,7 @@ export const defaultBreakpoints: Breakpoint[] = [
 
   // ===== ACT 3 =====
   // Post-Vaal Oversoul - first zone after Act 2 boss
-  { name: 'The City of Sarn', type: 'zone', trigger: { type: 'zone', zoneName: 'The City of Sarn', act: 3 }, isEnabled: false, captureSnapshot: true },
+  { name: 'The City of Sarn', type: 'zone', trigger: { type: 'zone', zoneName: 'The City of Sarn', act: 3 }, isEnabled: true, captureSnapshot: true },
   // Act 3 town start
   { name: 'The Sarn Encampment', type: 'act', trigger: { type: 'zone', zoneName: 'The Sarn Encampment', act: 3 }, isEnabled: true, captureSnapshot: true },
   { name: 'The Slums', type: 'zone', trigger: { type: 'zone', zoneName: 'The Slums', act: 3 }, isEnabled: false, captureSnapshot: false },
@@ -62,7 +62,7 @@ export const defaultBreakpoints: Breakpoint[] = [
 
   // ===== ACT 4 =====
   // Post-Dominus - first zone after Act 3 boss
-  { name: 'The Aqueduct', type: 'zone', trigger: { type: 'zone', zoneName: 'The Aqueduct', act: 4 }, isEnabled: false, captureSnapshot: true },
+  { name: 'The Aqueduct', type: 'zone', trigger: { type: 'zone', zoneName: 'The Aqueduct', act: 4 }, isEnabled: true, captureSnapshot: true },
   // Act 4 town start
   { name: 'Highgate (A4)', type: 'act', trigger: { type: 'zone', zoneName: 'Highgate', act: 4 }, isEnabled: true, captureSnapshot: true },
   { name: 'The Dried Lake', type: 'zone', trigger: { type: 'zone', zoneName: 'The Dried Lake', act: 4 }, isEnabled: false, captureSnapshot: false },
@@ -79,7 +79,7 @@ export const defaultBreakpoints: Breakpoint[] = [
 
   // ===== ACT 5 =====
   // Post-Malachai - first zone after Act 4 boss
-  { name: 'The Slave Pens', type: 'zone', trigger: { type: 'zone', zoneName: 'The Slave Pens', act: 5 }, isEnabled: false, captureSnapshot: true },
+  { name: 'The Slave Pens', type: 'zone', trigger: { type: 'zone', zoneName: 'The Slave Pens', act: 5 }, isEnabled: true, captureSnapshot: true },
   // Act 5 town start
   { name: 'Overseer Tower', type: 'act', trigger: { type: 'zone', zoneName: "Overseer's Tower", act: 5 }, isEnabled: true, captureSnapshot: true },
   { name: 'The Control Blocks', type: 'zone', trigger: { type: 'zone', zoneName: 'The Control Blocks', act: 5 }, isEnabled: false, captureSnapshot: false },
@@ -93,7 +93,7 @@ export const defaultBreakpoints: Breakpoint[] = [
   { name: 'The Cathedral Rooftop', type: 'boss', trigger: { type: 'zone', zoneName: 'The Cathedral Rooftop', act: 5 }, isEnabled: true, captureSnapshot: false },
 
   // ===== ACT 6 =====
-  { name: 'Twilight Strand (A6)', type: 'zone', trigger: { type: 'zone', zoneName: 'The Twilight Strand', act: 6 }, isEnabled: false, captureSnapshot: false },
+  { name: 'Twilight Strand (A6)', type: 'zone', trigger: { type: 'zone', zoneName: 'The Twilight Strand', act: 6 }, isEnabled: true, captureSnapshot: true },
   // Act 6 town start (also post-Kitava Act 5)
   { name: 'Lioneyes Watch (A6)', type: 'act', trigger: { type: 'zone', zoneName: "Lioneye's Watch", act: 6 }, isEnabled: true, captureSnapshot: true },
   { name: 'The Coast (A6)', type: 'zone', trigger: { type: 'zone', zoneName: 'The Coast', act: 6 }, isEnabled: false, captureSnapshot: false },
@@ -113,7 +113,7 @@ export const defaultBreakpoints: Breakpoint[] = [
 
   // ===== ACT 7 =====
   // Post-Brine King - first zone after Act 6 boss
-  { name: 'The Broken Bridge', type: 'zone', trigger: { type: 'zone', zoneName: 'The Broken Bridge', act: 7 }, isEnabled: false, captureSnapshot: true },
+  { name: 'The Broken Bridge', type: 'zone', trigger: { type: 'zone', zoneName: 'The Broken Bridge', act: 7 }, isEnabled: true, captureSnapshot: true },
   { name: 'The Crossroads (A7)', type: 'zone', trigger: { type: 'zone', zoneName: 'The Crossroads', act: 7 }, isEnabled: false, captureSnapshot: false },
   { name: 'The Fellshrine Ruins', type: 'zone', trigger: { type: 'zone', zoneName: 'The Fellshrine Ruins', act: 7 }, isEnabled: false, captureSnapshot: false },
   { name: 'The Crypt (A7)', type: 'zone', trigger: { type: 'zone', zoneName: 'The Crypt', act: 7 }, isEnabled: false, captureSnapshot: false },
@@ -132,7 +132,7 @@ export const defaultBreakpoints: Breakpoint[] = [
 
   // ===== ACT 8 =====
   // Post-Arakaali - first zone after Act 7 boss
-  { name: 'The Sarn Ramparts', type: 'zone', trigger: { type: 'zone', zoneName: 'The Sarn Ramparts', act: 8 }, isEnabled: false, captureSnapshot: true },
+  { name: 'The Sarn Ramparts', type: 'zone', trigger: { type: 'zone', zoneName: 'The Sarn Ramparts', act: 8 }, isEnabled: true, captureSnapshot: true },
   // Act 8 town start
   { name: 'The Sarn Encampment (A8)', type: 'act', trigger: { type: 'zone', zoneName: 'The Sarn Encampment', act: 8 }, isEnabled: true, captureSnapshot: true },
   { name: 'The Toxic Conduits', type: 'zone', trigger: { type: 'zone', zoneName: 'The Toxic Conduits', act: 8 }, isEnabled: false, captureSnapshot: false },
@@ -154,7 +154,7 @@ export const defaultBreakpoints: Breakpoint[] = [
 
   // ===== ACT 9 =====
   // Post-Lunaris/Solaris - first zone after Act 8 boss
-  { name: 'The Blood Aqueduct', type: 'zone', trigger: { type: 'zone', zoneName: 'The Blood Aqueduct', act: 9 }, isEnabled: false, captureSnapshot: true },
+  { name: 'The Blood Aqueduct', type: 'zone', trigger: { type: 'zone', zoneName: 'The Blood Aqueduct', act: 9 }, isEnabled: true, captureSnapshot: true },
   // Act 9 town start
   { name: 'Highgate (A9)', type: 'act', trigger: { type: 'zone', zoneName: 'Highgate', act: 9 }, isEnabled: true, captureSnapshot: true },
   { name: 'The Descent', type: 'zone', trigger: { type: 'zone', zoneName: 'The Descent', act: 9 }, isEnabled: false, captureSnapshot: false },
@@ -170,7 +170,7 @@ export const defaultBreakpoints: Breakpoint[] = [
 
   // ===== ACT 10 =====
   // Post-Depraved Trinity - first zone after Act 9 boss
-  { name: 'The Cathedral Rooftop (A10)', type: 'zone', trigger: { type: 'zone', zoneName: 'The Cathedral Rooftop', act: 10 }, isEnabled: false, captureSnapshot: true },
+  { name: 'The Cathedral Rooftop (A10)', type: 'zone', trigger: { type: 'zone', zoneName: 'The Cathedral Rooftop', act: 10 }, isEnabled: true, captureSnapshot: true },
   // Act 10 town start
   { name: 'Oriath Docks', type: 'act', trigger: { type: 'zone', zoneName: 'Oriath Docks', act: 10 }, isEnabled: true, captureSnapshot: true },
   { name: 'The Ravaged Square', type: 'zone', trigger: { type: 'zone', zoneName: 'The Ravaged Square', act: 10 }, isEnabled: false, captureSnapshot: false },
@@ -235,35 +235,45 @@ export function isHideoutZone(zoneName: string): boolean {
 // (Kept as exported reference for documentation/tooling purposes)
 export const speedrunEnabledBreakpoints = [
   // Act 1
+  'Twilight Strand',
   'The Coast',
   'The Upper Prison',
   'The Cavern of Anger',
   // Act 2
+  'The Southern Forest',
   'The Forest Encampment',
   'The Chamber of Sins 1',
   'The Ancient Pyramid',
   // Act 3
+  'The City of Sarn',
   'The Sarn Encampment',
   'The Upper Sceptre of God',
   // Act 4
+  'The Aqueduct',
   'Highgate (A4)',
   'The Harvest',
   // Act 5
+  'The Slave Pens',
   'Overseer Tower',
   'The Cathedral Rooftop',
   // Act 6
+  'Twilight Strand (A6)',
   'Lioneyes Watch (A6)',
   'The Brine King Reef',
   // Act 7
+  'The Broken Bridge',
   'The Bridge Encampment',
   'The Temple of Decay 2',
   // Act 8
+  'The Sarn Ramparts',
   'The Sarn Encampment (A8)',
   'The Harbour Bridge',
   // Act 9
+  'The Blood Aqueduct',
   'Highgate (A9)',
   'The Belly of the Beast (A9)',
   // Act 10
+  'The Cathedral Rooftop (A10)',
   'Oriath Docks',
   'The Feeding Trough',
 ] as const;
@@ -271,27 +281,48 @@ export const speedrunEnabledBreakpoints = [
 // Act 1 speedrun order (Tidal Island after Mud Flats and Submerged Passage)
 // This is for reference on typical speedrun routing
 
+// First zone of each act - always enabled with snapshots across all presets
+export const actFirstZones = [
+  'Twilight Strand',       // Act 1
+  'The Southern Forest',   // Act 2
+  'The City of Sarn',      // Act 3
+  'The Aqueduct',          // Act 4
+  'The Slave Pens',        // Act 5
+  'Twilight Strand (A6)',  // Act 6
+  'The Broken Bridge',     // Act 7
+  'The Sarn Ramparts',     // Act 8
+  'The Blood Aqueduct',    // Act 9
+  'The Cathedral Rooftop (A10)', // Act 10
+] as const;
+
+function isActFirstZone(name: string): boolean {
+  return (actFirstZones as readonly string[]).includes(name);
+}
+
 // Preset functions for quick configuration
 export function applySpeedrunPreset(breakpoints: Breakpoint[]): Breakpoint[] {
   return breakpoints.map((bp) => ({
     ...bp,
-    isEnabled: speedrunEnabledBreakpoints.includes(bp.name as typeof speedrunEnabledBreakpoints[number]),
+    isEnabled: isActFirstZone(bp.name) || speedrunEnabledBreakpoints.includes(bp.name as typeof speedrunEnabledBreakpoints[number]),
+    captureSnapshot: isActFirstZone(bp.name) ? true : bp.captureSnapshot,
   }));
 }
 
 export function applyMinimalPreset(breakpoints: Breakpoint[]): Breakpoint[] {
-  // Only act transitions
+  // Act transitions + first zone of each act
   return breakpoints.map((bp) => ({
     ...bp,
-    isEnabled: bp.type === 'act',
+    isEnabled: bp.type === 'act' || isActFirstZone(bp.name),
+    captureSnapshot: isActFirstZone(bp.name) || bp.type === 'act' ? true : bp.captureSnapshot,
   }));
 }
 
 export function applyTownsOnlyPreset(breakpoints: Breakpoint[]): Breakpoint[] {
-  // Only town zones
+  // Town zones + first zone of each act
   return breakpoints.map((bp) => ({
     ...bp,
-    isEnabled: bp.type === 'act',
+    isEnabled: bp.type === 'act' || isActFirstZone(bp.name),
+    captureSnapshot: isActFirstZone(bp.name) || bp.type === 'act' ? true : bp.captureSnapshot,
   }));
 }
 
