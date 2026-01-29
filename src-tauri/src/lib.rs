@@ -28,7 +28,11 @@ pub fn run() {
                             let shortcut_str = shortcut_ref.to_string();
                             if shortcut_str.contains("Space") {
                                 let _ = handle.emit("global-shortcut", "toggle-timer");
+                            } else if shortcut_str.contains("Shift") && shortcut_str.to_lowercase().contains("o") {
+                                // Ctrl+Shift+O - toggle overlay lock
+                                let _ = handle.emit("global-shortcut", "toggle-overlay-lock");
                             } else if shortcut_str.to_lowercase().contains("o") {
+                                // Ctrl+O - toggle overlay window
                                 let _ = handle.emit("global-shortcut", "toggle-overlay");
                             }
                         }
@@ -78,6 +82,11 @@ pub fn run() {
             let overlay_shortcut: Shortcut = "Ctrl+O".parse().expect("Invalid shortcut");
             app.global_shortcut().register(overlay_shortcut)?;
             println!("[GlobalShortcut] Registered Ctrl+O for overlay");
+
+            // Register global hotkey: Ctrl+Shift+O to toggle overlay lock
+            let lock_shortcut: Shortcut = "Ctrl+Shift+O".parse().expect("Invalid shortcut");
+            app.global_shortcut().register(lock_shortcut)?;
+            println!("[GlobalShortcut] Registered Ctrl+Shift+O for overlay lock");
 
             Ok(())
         })
