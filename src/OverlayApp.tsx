@@ -131,11 +131,11 @@ export function OverlayApp() {
     <div
       className={`w-full h-full rounded-lg overflow-hidden ${isLocked ? '' : 'drag-handle'}`}
       style={{
-        backgroundColor: `rgba(12, 12, 14, ${Math.max(state.opacity, 0.85)})`,
+        backgroundColor: '#0c0c0e',
         border: isLocked
-          ? '2px solid rgba(100, 100, 100, 0.4)'
-          : '2px solid rgba(175, 96, 37, 0.7)',
-        boxShadow: '0 4px 12px rgba(0, 0, 0, 0.5)',
+          ? '2px solid #3a3a3e'
+          : '2px solid #af6025',
+        boxShadow: '0 4px 12px rgba(0, 0, 0, 0.8)',
       }}
       onMouseDown={handleMouseDown}
     >
