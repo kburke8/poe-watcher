@@ -82,4 +82,5 @@ fn run_migrations(conn: &Connection) -> Result<()> {
 const MIGRATIONS: &[(&str, &str)] = &[
     ("001_initial_schema", include_str!("migrations/001_initial_schema.sql")),
     ("002_add_breakpoint_tracking", include_str!("migrations/002_add_breakpoint_tracking.sql")),
+    ("003_add_overlay_position", include_str!("migrations/003_add_overlay_position.sql")),
 ];
