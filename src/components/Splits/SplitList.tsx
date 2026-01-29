@@ -26,6 +26,16 @@ export function SplitList() {
           </div>
         ) : (
           <div className="divide-y divide-[--color-border]">
+            {/* Column headers */}
+            <div className="px-4 py-2 flex items-center gap-3 bg-[--color-surface] border-b border-[--color-border] sticky top-0">
+              <span className="w-5" />
+              <span className="flex-1 text-xs text-[--color-text-muted] uppercase tracking-wide">Split</span>
+              <div className="flex items-center gap-3">
+                <span className="text-xs text-[--color-text-muted] uppercase tracking-wide min-w-[50px] text-right">Seg</span>
+                <span className="text-xs text-[--color-text-muted] uppercase tracking-wide min-w-[55px] text-right">+/−</span>
+                <span className="text-xs text-[--color-text-muted] uppercase tracking-wide min-w-[50px] text-right">Time</span>
+              </div>
+            </div>
             {enabledBreakpoints.map((bp, index) => {
               const split = completedSplits[index];
               const isNext = index === completedSplits.length;

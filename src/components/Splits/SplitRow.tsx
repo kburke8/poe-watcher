@@ -23,8 +23,6 @@ export function SplitRow({
 }: SplitRowProps) {
   const typeIcon = getTypeIcon(type);
   const deltaColor = getDeltaColor(delta);
-  // segmentTime is passed for future use (e.g., showing segment comparison)
-  void segmentTime;
   const rowBg = isNext
     ? 'bg-[--color-surface-elevated]'
     : isCompleted
@@ -32,7 +30,7 @@ export function SplitRow({
     : 'opacity-50';
 
   return (
-    <div className={`px-4 py-3 flex items-center gap-3 ${rowBg}`}>
+    <div className={`px-4 py-2 flex items-center gap-3 ${rowBg}`}>
       {/* Type icon */}
       <span className="text-sm w-5 text-center" title={type}>
         {typeIcon}
@@ -43,23 +41,36 @@ export function SplitRow({
         <span className={`text-sm truncate block ${isCompleted ? 'text-[--color-text]' : 'text-[--color-text-muted]'}`}>
           {name}
         </span>
-        {isBestSegment && isCompleted && (
-          <span className="text-xs text-[--color-timer-gold]">Best Segment!</span>
-        )}
       </div>
 
-      {/* Times */}
+      {/* Times - right side */}
       {isCompleted && (
-        <div className="text-right">
-          {/* Delta */}
-          {delta !== null && (
-            <div className={`timer-display text-sm ${deltaColor}`}>
-              {formatDelta(delta)}
+        <div className="flex items-center gap-3">
+          {/* Segment time - gold color if best segment */}
+          <div className="text-right min-w-[50px]">
+            <div className={`timer-display text-sm ${isBestSegment ? 'text-[--color-timer-gold]' : 'text-[--color-text]'}`}>
+              {formatTime(segmentTime ?? 0)}
             </div>
-          )}
-          {/* Split time */}
-          <div className="timer-display text-xs text-[--color-text-muted]">
-            {formatTime(splitTime ?? 0)}
+          </div>
+
+          {/* Delta to PB */}
+          <div className="text-right min-w-[55px]">
+            {delta !== null ? (
+              <div className={`timer-display text-sm ${deltaColor}`}>
+                {formatDelta(delta)}
+              </div>
+            ) : (
+              <div className="timer-display text-sm text-[--color-text-muted]">
+                —
+              </div>
+            )}
+          </div>
+
+          {/* Cumulative split time */}
+          <div className="text-right min-w-[50px]">
+            <div className="timer-display text-xs text-[--color-text-muted]">
+              {formatTime(splitTime ?? 0)}
+            </div>
           </div>
         </div>
       )}

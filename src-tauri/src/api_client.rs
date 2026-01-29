@@ -195,7 +195,10 @@ impl PoeApiClient {
 
         self.cache_response(&url, text.clone(), Duration::from_secs(30)).await;
 
-        Ok(serde_json::from_str(&text)?)
+        // Try to parse, with better error context
+        serde_json::from_str(&text).map_err(|e| {
+            anyhow::anyhow!("Failed to parse items: {} - Response: {}", e, &text[..text.len().min(200)])
+        })
     }
 
     /// Get passive skills for a character (public API)
@@ -230,9 +233,16 @@ impl PoeApiClient {
         }
 
         let text = response.text().await?;
+
+        // Debug: log raw response for troubleshooting
+        println!("[API get_passive_skills] Raw response (first 500 chars): {}", &text[..text.len().min(500)]);
+
         self.cache_response(&url, text.clone(), Duration::from_secs(30)).await;
 
-        Ok(serde_json::from_str(&text)?)
+        // Try to parse, with better error context
+        serde_json::from_str(&text).map_err(|e| {
+            anyhow::anyhow!("Failed to parse passive skills: {} - Response: {}", e, &text[..text.len().min(200)])
+        })
     }
 }
 
@@ -327,12 +337,8 @@ pub struct ItemProperty {
 }
 
 // POE API returns values as [value, display_mode] where value can be string or number
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(untagged)]
-pub enum PropertyValue {
-    StringValue(String, u32),
-    NumberValue(f64, u32),
-}
+// Handle multiple possible formats from the API
+pub type PropertyValue = serde_json::Value;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
@@ -345,11 +351,67 @@ pub struct PoeSocket {
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct PassiveSkills {
+    #[serde(default)]
     pub hashes: Vec<u32>,
     #[serde(default)]
     pub hashes_ex: Vec<u32>,
-    #[serde(default)]
+    #[serde(default, deserialize_with = "deserialize_mastery_effects")]
     pub mastery_effects: HashMap<String, u32>,
+}
+
+/// Custom deserializer for mastery_effects that handles both map and array formats
+fn deserialize_mastery_effects<'de, D>(deserializer: D) -> Result<HashMap<String, u32>, D::Error>
+where
+    D: serde::Deserializer<'de>,
+{
+    use serde::de::{self, Visitor, MapAccess, SeqAccess};
+    use std::fmt;
+
+    struct MasteryEffectsVisitor;
+
+    impl<'de> Visitor<'de> for MasteryEffectsVisitor {
+        type Value = HashMap<String, u32>;
+
+        fn expecting(&self, formatter: &mut fmt::Formatter) -> fmt::Result {
+            formatter.write_str("a map or array of mastery effects")
+        }
+
+        fn visit_map<M>(self, mut map: M) -> Result<Self::Value, M::Error>
+        where
+            M: MapAccess<'de>,
+        {
+            let mut result = HashMap::new();
+            while let Some((key, value)) = map.next_entry::<String, u32>()? {
+                result.insert(key, value);
+            }
+            Ok(result)
+        }
+
+        fn visit_seq<S>(self, mut seq: S) -> Result<Self::Value, S::Error>
+        where
+            S: SeqAccess<'de>,
+        {
+            let mut result = HashMap::new();
+            let mut idx = 0;
+            // Handle array format - just skip it or convert indices to keys
+            while let Some(value) = seq.next_element::<serde_json::Value>()? {
+                if let Some(v) = value.as_u64() {
+                    result.insert(idx.to_string(), v as u32);
+                }
+                idx += 1;
+            }
+            Ok(result)
+        }
+
+        fn visit_unit<E>(self) -> Result<Self::Value, E>
+        where
+            E: de::Error,
+        {
+            Ok(HashMap::new())
+        }
+    }
+
+    deserializer.deserialize_any(MasteryEffectsVisitor)
 }
 
 impl Default for PoeApiClient {

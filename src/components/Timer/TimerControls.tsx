@@ -4,7 +4,7 @@ import { useSettingsStore } from '../../stores/settingsStore';
 
 export function TimerControls() {
   const { timer, currentRun, startTimer, stopTimer, resetRun, endRun, setRunId } = useRunStore();
-  const { accountName } = useSettingsStore();
+  const { accountName, testCharacterName } = useSettingsStore();
 
   const handleStart = async () => {
     // Start the timer (creates local run state)
@@ -23,15 +23,15 @@ export function TimerControls() {
 
         const dbRunId = await invoke<number>('create_run', {
           run: {
-            character_name: run.characterName || run.character || 'Unknown',
-            account_name: accountName || '',
+            characterName: run.characterName || run.character || testCharacterName || 'Unknown',
+            accountName: accountName || '',
             class: run.class || 'Unknown',
             ascendancy: run.ascendancy || null,
             league: run.league || 'Standard',
             category: run.category || 'any%',
-            started_at: run.startedAt || new Date().toISOString(),
-            breakpoint_preset: presetName,
-            enabled_breakpoints: JSON.stringify(enabledBreakpoints),
+            startedAt: run.startedAt || new Date().toISOString(),
+            breakpointPreset: presetName,
+            enabledBreakpoints: JSON.stringify(enabledBreakpoints),
           },
         });
         console.log('[TimerControls] Run created in database with ID:', dbRunId, 'preset:', presetName);
@@ -47,32 +47,28 @@ export function TimerControls() {
   };
 
   const handleReset = () => {
-    if (confirm('Are you sure you want to reset the current run?')) {
-      resetRun();
-    }
+    resetRun();
   };
 
   const handleEnd = async () => {
-    if (confirm('End and save the current run?')) {
-      const state = useRunStore.getState();
-      const run = state.currentRun;
-      const totalTimeMs = state.timer.elapsedMs;
+    const state = useRunStore.getState();
+    const run = state.currentRun;
+    const totalTimeMs = state.timer.elapsedMs;
 
-      // Complete the run in the database if it has a valid ID
-      if (run?.id) {
-        try {
-          const isPb = await invoke<boolean>('complete_run', {
-            runId: run.id,
-            totalTimeMs,
-          });
-          console.log('[TimerControls] Run completed in database, isPB:', isPb);
-        } catch (error) {
-          console.error('[TimerControls] Failed to complete run in database:', error);
-        }
+    // Complete the run in the database if it has a valid ID
+    if (run?.id) {
+      try {
+        const isPb = await invoke<boolean>('complete_run', {
+          runId: run.id,
+          totalTimeMs,
+        });
+        console.log('[TimerControls] Run completed in database, isPB:', isPb);
+      } catch (error) {
+        console.error('[TimerControls] Failed to complete run in database:', error);
       }
-
-      endRun();
     }
+
+    endRun();
   };
 
   const handleManualSplit = async () => {

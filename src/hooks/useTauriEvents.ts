@@ -62,26 +62,36 @@ export function useTauriEvents() {
 
     // Determine if we should capture a snapshot
     // Check the breakpoint's captureSnapshot setting
-    const { breakpoints } = useSettingsStore.getState();
+    const { breakpoints, testCharacterName } = useSettingsStore.getState();
     const matchedBreakpoint = breakpoints.find(bp => bp.name === breakpointName);
-    const characterName = currentRun?.characterName || currentRun?.character;
+    const detectedCharacter = currentRun?.characterName || currentRun?.character;
+    // Use detected character if valid, otherwise fall back to test character name
+    const characterName = (detectedCharacter && detectedCharacter !== 'Unknown')
+      ? detectedCharacter
+      : testCharacterName;
     const hasValidCharacter = characterName && characterName !== 'Unknown';
     const shouldCaptureSnapshot =
       matchedBreakpoint?.captureSnapshot &&
       accountName &&
       hasValidCharacter;
 
-    const splitTimeMs = timer.elapsedMs;
-    const segmentTimeMs = timer.splits.length > 0
-      ? timer.elapsedMs - timer.splits[timer.splits.length - 1].splitTimeMs
+    // Calculate actual elapsed time - timer.elapsedMs is only updated during UI renders
+    const actualElapsedMs = timer.isRunning && timer.startTime
+      ? Date.now() - timer.startTime
       : timer.elapsedMs;
+
+    const splitTimeMs = actualElapsedMs;
+    const segmentTimeMs = timer.splits.length > 0
+      ? actualElapsedMs - timer.splits[timer.splits.length - 1].splitTimeMs
+      : actualElapsedMs;
 
     // Get current town/hideout time from timer state
     const townTimeMs = timer.townTimeMs;
     const hideoutTimeMs = timer.hideoutTimeMs;
 
     console.log('[useTauriEvents] Triggering split:', breakpointName, 'at', splitTimeMs, 'ms',
-      'captureSnapshot:', shouldCaptureSnapshot, 'townTime:', townTimeMs, 'hideoutTime:', hideoutTimeMs);
+      'captureSnapshot:', shouldCaptureSnapshot, 'account:', accountName, 'character:', characterName,
+      'townTime:', townTimeMs, 'hideoutTime:', hideoutTimeMs);
 
     // Add split to local state
     addSplit({
@@ -193,17 +203,35 @@ export function useTauriEvents() {
           // Auto-detect character name from level-up event
           if (payload.character_name) {
             const { currentRun } = useRunStore.getState();
+            const { testCharacterName } = useSettingsStore.getState();
             const currentChar = currentRun?.characterName || currentRun?.character;
-            if (currentRun && (!currentChar || currentChar === 'Unknown')) {
-              console.log('[useTauriEvents] Auto-detected character name:', payload.character_name);
+            // Update if no character, unknown, or still using the test/placeholder name
+            const shouldUpdate = !currentChar || currentChar === 'Unknown' || currentChar === testCharacterName;
+            if (currentRun && shouldUpdate) {
+              const newCharName = payload.character_name;
+              const newClass = payload.character_class || currentRun.class;
+              console.log('[useTauriEvents] Auto-detected character name:', newCharName, '(was:', currentChar, ')');
+
+              // Update local state
               useRunStore.setState({
                 currentRun: {
                   ...currentRun,
-                  character: payload.character_name,
-                  characterName: payload.character_name,
-                  class: payload.character_class || currentRun.class,
+                  character: newCharName,
+                  characterName: newCharName,
+                  class: newClass,
                 },
               });
+
+              // Update database record
+              if (currentRun.id) {
+                invoke('update_run_character', {
+                  runId: currentRun.id,
+                  characterName: newCharName,
+                  class: newClass,
+                }).catch((err) => {
+                  console.error('[useTauriEvents] Failed to update run character in database:', err);
+                });
+              }
             }
           }
 
@@ -266,7 +294,7 @@ export function useTauriEvents() {
     });
 
     const unlistenSnapshotFailed = listen<SnapshotFailedPayload>('snapshot-failed', (event) => {
-      console.log('[useTauriEvents] Snapshot failed:', event.payload);
+      console.error('[useTauriEvents] Snapshot failed for split', event.payload.split_id, '- Error:', event.payload.error);
       addFailedCapture(event.payload.split_id, event.payload.error);
     });
 

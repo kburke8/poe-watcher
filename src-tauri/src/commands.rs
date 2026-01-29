@@ -98,6 +98,11 @@ pub async fn create_run(run: NewRun) -> Result<i64, String> {
 }
 
 #[tauri::command]
+pub async fn update_run_character(run_id: i64, character_name: String, class: String) -> Result<(), String> {
+    Run::update_character(run_id, &character_name, &class).map_err(|e| e.to_string())
+}
+
+#[tauri::command]
 pub async fn complete_run(run_id: i64, total_time_ms: i64) -> Result<bool, String> {
     Run::complete(run_id, total_time_ms).map_err(|e| e.to_string())?;
 
@@ -243,6 +248,30 @@ pub async fn manual_split() -> Result<(), String> {
 // Snapshot Commands
 // ============================================================================
 
+/// Map ascendancy class ID to ascendancy name
+fn get_ascendancy_name(class: &str, ascendancy_class: u32) -> Option<String> {
+    // ascendancy_class 0 means no ascendancy
+    if ascendancy_class == 0 {
+        return None;
+    }
+
+    // Mapping based on PoE class/ascendancy structure
+    // Each class has 3 ascendancies (1, 2, 3)
+    let ascendancies: &[&str] = match class {
+        "Scion" => &["Ascendant"],
+        "Marauder" => &["Juggernaut", "Berserker", "Chieftain"],
+        "Ranger" => &["Warden", "Deadeye", "Pathfinder"], // Warden replaced Raider
+        "Witch" => &["Necromancer", "Elementalist", "Occultist"],
+        "Duelist" => &["Slayer", "Gladiator", "Champion"],
+        "Templar" => &["Inquisitor", "Hierophant", "Guardian"],
+        "Shadow" => &["Assassin", "Saboteur", "Trickster"],
+        _ => return None,
+    };
+
+    let index = (ascendancy_class as usize).saturating_sub(1);
+    ascendancies.get(index).map(|s| s.to_string())
+}
+
 /// Async function to capture a snapshot for a split
 async fn capture_snapshot_for_split(
     app_handle: AppHandle,
@@ -256,10 +285,16 @@ async fn capture_snapshot_for_split(
 
     // Fetch items
     let items_result = client.get_items(&account_name, &character_name).await;
-    let (items_json, character_level) = match items_result {
+    let (items_json, character_level, char_class, ascendancy_class, league) = match items_result {
         Ok(data) => {
             let items_json = serde_json::to_string(&data.items).unwrap_or_else(|_| "[]".to_string());
-            (items_json, data.character.level as i32)
+            (
+                items_json,
+                data.character.level as i32,
+                data.character.class.clone(),
+                data.character.ascendancy_class,
+                data.character.league.clone(),
+            )
         }
         Err(e) => {
             let _ = app_handle.emit("snapshot-failed", serde_json::json!({
@@ -269,6 +304,17 @@ async fn capture_snapshot_for_split(
             return;
         }
     };
+
+    // Update run's class/ascendancy if we got valid data from API
+    if !char_class.is_empty() && char_class != "Unknown" {
+        let ascendancy_name = get_ascendancy_name(&char_class, ascendancy_class);
+        let league_opt = if league.is_empty() { None } else { Some(league.as_str()) };
+        if let Err(e) = Run::update_class_info(run_id, &char_class, ascendancy_name.as_deref(), league_opt) {
+            println!("[Snapshot] Failed to update run class info: {}", e);
+        } else {
+            println!("[Snapshot] Updated run {} class to {} / {:?}", run_id, char_class, ascendancy_name);
+        }
+    }
 
     // Fetch passive skills
     let passives_result = client.get_passive_skills(&account_name, &character_name).await;
@@ -659,4 +705,49 @@ pub async fn upload_to_pobbin(pob_code: String) -> Result<PobbInResponse, String
         status,
         text.chars().take(200).collect::<String>()
     ))
+}
+
+// ============================================================================
+// Image Proxy Commands (for CORS bypass)
+// ============================================================================
+
+use base64::{Engine as _, engine::general_purpose::STANDARD as BASE64};
+
+#[tauri::command]
+pub async fn proxy_image(url: String) -> Result<String, String> {
+    // Only allow proxying from trusted domains
+    if !url.starts_with("https://web.poecdn.com/") {
+        return Err("Only poecdn.com URLs are allowed".to_string());
+    }
+
+    let client = reqwest::Client::new();
+    let response = client
+        .get(&url)
+        .header("User-Agent", "POE-Watcher/0.1.0 (speedrun tracker)")
+        .send()
+        .await
+        .map_err(|e| format!("Failed to fetch image: {}", e))?;
+
+    if !response.status().is_success() {
+        return Err(format!("Image fetch failed with status: {}", response.status()));
+    }
+
+    // Get content type
+    let content_type = response
+        .headers()
+        .get("content-type")
+        .and_then(|v| v.to_str().ok())
+        .unwrap_or("image/png")
+        .to_string();
+
+    // Get bytes and convert to base64
+    let bytes = response
+        .bytes()
+        .await
+        .map_err(|e| format!("Failed to read image bytes: {}", e))?;
+
+    let base64_data = BASE64.encode(&bytes);
+
+    // Return as data URL
+    Ok(format!("data:{};base64,{}", content_type, base64_data))
 }

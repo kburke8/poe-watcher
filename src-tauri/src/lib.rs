@@ -81,6 +81,7 @@ pub fn run() {
             stop_log_watcher,
             // Runs
             create_run,
+            update_run_character,
             complete_run,
             get_runs,
             get_run,
@@ -108,6 +109,8 @@ pub fn run() {
             fetch_passive_tree,
             // PoB Export
             upload_to_pobbin,
+            // Image Proxy (CORS bypass)
+            proxy_image,
             // Debug/Test
             simulate_snapshot,
         ])

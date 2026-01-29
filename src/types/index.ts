@@ -118,6 +118,7 @@ export interface BreakpointTrigger {
 export interface Settings {
   poeLogPath: string;
   accountName: string;
+  testCharacterName: string; // Fallback character name for testing when not detected from game
   checkUpdates: boolean;
   overlayEnabled: boolean;
   overlayOpacity: number;

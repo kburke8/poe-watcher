@@ -50,5 +50,8 @@ anyhow = "1"
 # URL encoding
 urlencoding = "2"
 
+# Base64 encoding
+base64 = "0.22"
+
 [features]
 custom-protocol = ["tauri/custom-protocol"]
