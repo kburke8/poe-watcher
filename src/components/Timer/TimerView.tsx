@@ -1,4 +1,5 @@
-import { useEffect, useRef } from 'react';
+import { useEffect, useRef, useState, useCallback } from 'react';
+import { invoke } from '@tauri-apps/api/core';
 import { useRunStore } from '../../stores/runStore';
 import { TimerDisplay } from './TimerDisplay';
 import { TimerControls } from './TimerControls';
@@ -8,6 +9,16 @@ import type { TimerState } from '../../types';
 export function TimerView() {
   const { timer, updateElapsed, currentRun } = useRunStore();
   const animationRef = useRef<number | null>(null);
+  const [overlayOpen, setOverlayOpen] = useState(false);
+
+  const toggleOverlay = useCallback(async () => {
+    try {
+      const isOpen = await invoke<boolean>('toggle_overlay');
+      setOverlayOpen(isOpen);
+    } catch (error) {
+      console.error('Failed to toggle overlay:', error);
+    }
+  }, []);
 
   // Update timer every frame when running
   useEffect(() => {
@@ -32,13 +43,29 @@ export function TimerView() {
   return (
     <div className="h-full flex flex-col p-6">
       {/* Header */}
-      <div className="mb-6">
-        <h1 className="text-2xl font-bold text-[--color-text]">Speedrun Timer</h1>
-        {currentRun && (
-          <p className="text-[--color-text-muted] mt-1">
-            {currentRun.characterName} - {currentRun.class} ({currentRun.league})
-          </p>
-        )}
+      <div className="mb-6 flex items-start justify-between">
+        <div>
+          <h1 className="text-2xl font-bold text-[--color-text]">Speedrun Timer</h1>
+          {currentRun && (
+            <p className="text-[--color-text-muted] mt-1">
+              {currentRun.characterName} - {currentRun.class} ({currentRun.league})
+            </p>
+          )}
+        </div>
+        <button
+          onClick={toggleOverlay}
+          className={`flex items-center gap-2 px-3 py-2 rounded-lg border transition-all active:scale-95 ${
+            overlayOpen
+              ? 'bg-[--color-poe-gold]/20 border-[--color-poe-gold] text-[--color-poe-gold]'
+              : 'bg-[--color-surface] border-[--color-border] text-[--color-text-muted] hover:border-[--color-poe-gold]/50 hover:text-[--color-text]'
+          }`}
+          title="Toggle overlay (Ctrl+O)"
+        >
+          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9.75 17L9 20l-1 1h8l-1-1-.75-3M3 13h18M5 17h14a2 2 0 002-2V5a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
+          </svg>
+          <span className="text-sm">Overlay</span>
+        </button>
       </div>
 
       {/* Main timer area */}
