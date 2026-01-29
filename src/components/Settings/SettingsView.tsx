@@ -1,4 +1,4 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useCallback } from 'react';
 import { invoke } from '@tauri-apps/api/core';
 import { open } from '@tauri-apps/plugin-dialog';
 import { useSettingsStore } from '../../stores/settingsStore';
@@ -34,6 +34,17 @@ export function SettingsView() {
   // Filter state for breakpoints
   const [actFilter, setActFilter] = useState<number | 'all' | 'level'>('all');
   const [saveStatus, setSaveStatus] = useState<'idle' | 'saving' | 'saved' | 'error'>('idle');
+  const [overlayOpen, setOverlayOpen] = useState(false);
+
+  // Toggle overlay window
+  const handleToggleOverlay = useCallback(async () => {
+    try {
+      const isOpen = await invoke<boolean>('toggle_overlay');
+      setOverlayOpen(isOpen);
+    } catch (error) {
+      console.error('Failed to toggle overlay:', error);
+    }
+  }, []);
 
   // Breakpoints are loaded and auto-saved in App.tsx
 
@@ -247,6 +258,23 @@ export function SettingsView() {
                 onChange={(e) => setOverlayOpacity(parseFloat(e.target.value))}
                 className="w-full"
               />
+            </div>
+
+            <div className="flex items-center justify-between pt-2 border-t border-[--color-border]">
+              <div>
+                <div className="text-[--color-text]">Test Overlay</div>
+                <div className="text-xs text-[--color-text-muted]">Open overlay to test position (Ctrl+O)</div>
+              </div>
+              <button
+                onClick={handleToggleOverlay}
+                className={`px-4 py-2 text-sm rounded-md border-2 transition-all active:scale-95 font-medium ${
+                  overlayOpen
+                    ? 'bg-[--color-timer-behind] text-white border-red-400'
+                    : 'bg-[--color-surface] text-[--color-text] border-[--color-poe-gold]/40 hover:border-[--color-poe-gold]/70'
+                }`}
+              >
+                {overlayOpen ? 'Close Overlay' : 'Open Overlay'}
+              </button>
             </div>
           </div>
         </section>

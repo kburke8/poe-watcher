@@ -24,7 +24,13 @@ pub fn run() {
                     if event.state() == ShortcutState::Pressed {
                         println!("[GlobalShortcut] {} pressed", shortcut_ref);
                         if let Some(handle) = app_handle_for_handler.lock().ok().and_then(|guard| guard.clone()) {
-                            let _ = handle.emit("global-shortcut", "toggle-timer");
+                            // Determine which shortcut was pressed
+                            let shortcut_str = shortcut_ref.to_string();
+                            if shortcut_str.contains("Space") {
+                                let _ = handle.emit("global-shortcut", "toggle-timer");
+                            } else if shortcut_str.to_lowercase().contains("o") {
+                                let _ = handle.emit("global-shortcut", "toggle-overlay");
+                            }
                         }
                     }
                 })
@@ -67,6 +73,11 @@ pub fn run() {
             let shortcut: Shortcut = "Ctrl+Space".parse().expect("Invalid shortcut");
             app.global_shortcut().register(shortcut)?;
             println!("[GlobalShortcut] Registered Ctrl+Space");
+
+            // Register global hotkey: Ctrl+O to toggle overlay
+            let overlay_shortcut: Shortcut = "Ctrl+O".parse().expect("Invalid shortcut");
+            app.global_shortcut().register(overlay_shortcut)?;
+            println!("[GlobalShortcut] Registered Ctrl+O for overlay");
 
             Ok(())
         })
@@ -111,6 +122,12 @@ pub fn run() {
             upload_to_pobbin,
             // Image Proxy (CORS bypass)
             proxy_image,
+            // Overlay
+            open_overlay,
+            close_overlay,
+            toggle_overlay,
+            set_overlay_position,
+            get_overlay_position,
             // Debug/Test
             simulate_snapshot,
         ])

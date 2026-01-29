@@ -9,7 +9,7 @@ use once_cell::sync::OnceCell;
 use serde::{Deserialize, Serialize};
 use std::path::PathBuf;
 use std::sync::Mutex;
-use tauri::{AppHandle, Emitter};
+use tauri::{AppHandle, Emitter, Manager, WebviewUrl, WebviewWindowBuilder};
 
 // Global state
 static LOG_WATCHER: OnceCell<Mutex<Option<LogWatcher>>> = OnceCell::new();
@@ -750,4 +750,82 @@ pub async fn proxy_image(url: String) -> Result<String, String> {
 
     // Return as data URL
     Ok(format!("data:{};base64,{}", content_type, base64_data))
+}
+
+// ============================================================================
+// Overlay Commands
+// ============================================================================
+
+#[tauri::command]
+pub async fn open_overlay(app_handle: AppHandle) -> Result<(), String> {
+    // Check if overlay already exists
+    if app_handle.get_webview_window("overlay").is_some() {
+        println!("[Overlay] Window already exists, focusing");
+        if let Some(window) = app_handle.get_webview_window("overlay") {
+            window.set_focus().map_err(|e| e.to_string())?;
+        }
+        return Ok(());
+    }
+
+    // Load saved position
+    let (saved_x, saved_y) = Settings::get_overlay_position().unwrap_or((None, None));
+
+    // Build the overlay window
+    let mut builder = WebviewWindowBuilder::new(
+        &app_handle,
+        "overlay",
+        WebviewUrl::App("overlay.html".into()),
+    )
+    .title("POE Watcher Overlay")
+    .inner_size(320.0, 180.0)
+    .decorations(false)
+    .transparent(true)
+    .always_on_top(true)
+    .skip_taskbar(true)
+    .resizable(false);
+
+    // Set position if saved
+    if let (Some(x), Some(y)) = (saved_x, saved_y) {
+        builder = builder.position(x as f64, y as f64);
+    }
+
+    builder.build().map_err(|e| e.to_string())?;
+    println!("[Overlay] Window created");
+
+    Ok(())
+}
+
+#[tauri::command]
+pub async fn close_overlay(app_handle: AppHandle) -> Result<(), String> {
+    if let Some(window) = app_handle.get_webview_window("overlay") {
+        window.close().map_err(|e| e.to_string())?;
+        println!("[Overlay] Window closed");
+    }
+    Ok(())
+}
+
+#[tauri::command]
+pub async fn toggle_overlay(app_handle: AppHandle) -> Result<bool, String> {
+    if let Some(window) = app_handle.get_webview_window("overlay") {
+        // Window exists - close it
+        window.close().map_err(|e| e.to_string())?;
+        println!("[Overlay] Window closed (toggled off)");
+        Ok(false)
+    } else {
+        // Window doesn't exist - open it
+        open_overlay(app_handle).await?;
+        Ok(true)
+    }
+}
+
+#[tauri::command]
+pub async fn set_overlay_position(x: i32, y: i32) -> Result<(), String> {
+    Settings::save_overlay_position(x, y).map_err(|e| e.to_string())?;
+    println!("[Overlay] Position saved: ({}, {})", x, y);
+    Ok(())
+}
+
+#[tauri::command]
+pub async fn get_overlay_position() -> Result<(Option<i32>, Option<i32>), String> {
+    Settings::get_overlay_position().map_err(|e| e.to_string())
 }

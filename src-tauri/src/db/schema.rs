@@ -699,6 +699,8 @@ pub struct Settings {
     pub overlay_enabled: bool,
     pub overlay_opacity: f64,
     pub sound_enabled: bool,
+    pub overlay_x: Option<i32>,
+    pub overlay_y: Option<i32>,
 }
 
 impl Default for Settings {
@@ -709,6 +711,8 @@ impl Default for Settings {
             overlay_enabled: false,
             overlay_opacity: 0.8,
             sound_enabled: true,
+            overlay_x: None,
+            overlay_y: None,
         }
     }
 }
@@ -717,7 +721,7 @@ impl Settings {
     pub fn load() -> Result<Settings> {
         let conn = get_db()?;
         let result = conn.query_row(
-            "SELECT poe_log_path, account_name, overlay_enabled, overlay_opacity, sound_enabled FROM settings WHERE id = 1",
+            "SELECT poe_log_path, account_name, overlay_enabled, overlay_opacity, sound_enabled, overlay_x, overlay_y FROM settings WHERE id = 1",
             [],
             |row| {
                 Ok(Settings {
@@ -726,6 +730,8 @@ impl Settings {
                     overlay_enabled: row.get(2)?,
                     overlay_opacity: row.get(3)?,
                     sound_enabled: row.get(4)?,
+                    overlay_x: row.get(5)?,
+                    overlay_y: row.get(6)?,
                 })
             },
         );
@@ -739,22 +745,48 @@ impl Settings {
     pub fn save(settings: &Settings) -> Result<()> {
         let conn = get_db()?;
         conn.execute(
-            "INSERT INTO settings (id, poe_log_path, account_name, overlay_enabled, overlay_opacity, sound_enabled)
-             VALUES (1, ?1, ?2, ?3, ?4, ?5)
+            "INSERT INTO settings (id, poe_log_path, account_name, overlay_enabled, overlay_opacity, sound_enabled, overlay_x, overlay_y)
+             VALUES (1, ?1, ?2, ?3, ?4, ?5, ?6, ?7)
              ON CONFLICT(id) DO UPDATE SET
                 poe_log_path = excluded.poe_log_path,
                 account_name = excluded.account_name,
                 overlay_enabled = excluded.overlay_enabled,
                 overlay_opacity = excluded.overlay_opacity,
-                sound_enabled = excluded.sound_enabled",
+                sound_enabled = excluded.sound_enabled,
+                overlay_x = excluded.overlay_x,
+                overlay_y = excluded.overlay_y",
             params![
                 settings.poe_log_path,
                 settings.account_name,
                 settings.overlay_enabled,
                 settings.overlay_opacity,
                 settings.sound_enabled,
+                settings.overlay_x,
+                settings.overlay_y,
             ],
         )?;
         Ok(())
+    }
+
+    pub fn save_overlay_position(x: i32, y: i32) -> Result<()> {
+        let conn = get_db()?;
+        conn.execute(
+            "UPDATE settings SET overlay_x = ?1, overlay_y = ?2 WHERE id = 1",
+            params![x, y],
+        )?;
+        Ok(())
+    }
+
+    pub fn get_overlay_position() -> Result<(Option<i32>, Option<i32>)> {
+        let conn = get_db()?;
+        let result = conn.query_row(
+            "SELECT overlay_x, overlay_y FROM settings WHERE id = 1",
+            [],
+            |row| Ok((row.get(0)?, row.get(1)?)),
+        );
+        match result {
+            Ok(pos) => Ok(pos),
+            Err(_) => Ok((None, None)),
+        }
     }
 }

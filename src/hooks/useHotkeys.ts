@@ -97,17 +97,29 @@ export function useHotkeys() {
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [hotkeys]);
 
+  // Toggle overlay
+  const toggleOverlay = useCallback(async () => {
+    try {
+      const isOpen = await invoke<boolean>('toggle_overlay');
+      console.log('[useHotkeys] Overlay toggled:', isOpen ? 'opened' : 'closed');
+    } catch (error) {
+      console.error('[useHotkeys] Failed to toggle overlay:', error);
+    }
+  }, []);
+
   // Listen for global shortcut events from the backend (works when window is not focused)
   useEffect(() => {
     const unlistenGlobal = listen<string>('global-shortcut', (event) => {
       console.log('[useHotkeys] Global shortcut received:', event.payload);
       if (event.payload === 'toggle-timer') {
         toggleTimer();
+      } else if (event.payload === 'toggle-overlay') {
+        toggleOverlay();
       }
     });
 
     return () => {
       unlistenGlobal.then((fn) => fn());
     };
-  }, [toggleTimer]);
+  }, [toggleTimer, toggleOverlay]);
 }

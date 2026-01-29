@@ -4,6 +4,7 @@ import { useSettingsStore } from "./stores/settingsStore";
 import { useRunStore } from "./stores/runStore";
 import { useTauriEvents } from "./hooks/useTauriEvents";
 import { useHotkeys } from "./hooks/useHotkeys";
+import { useOverlaySync } from "./hooks/useOverlaySync";
 import { Sidebar } from "./components/Sidebar";
 import { TimerView } from "./components/Timer/TimerView";
 import { SnapshotView } from "./components/Snapshot/SnapshotView";
@@ -25,6 +26,9 @@ function App() {
 
   // Initialize global hotkeys (Ctrl+Space to start/pause timer)
   useHotkeys();
+
+  // Sync state to overlay window
+  useOverlaySync();
 
   // Auto-save breakpoints to localStorage whenever they change (after initial load)
   useEffect(() => {
