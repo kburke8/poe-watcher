@@ -82,6 +82,15 @@ impl Run {
         Ok(())
     }
 
+    pub fn update_character(id: i64, character_name: &str, class: &str) -> Result<()> {
+        let conn = get_db()?;
+        conn.execute(
+            "UPDATE runs SET character_name = ?1, class = ?2 WHERE id = ?3",
+            params![character_name, class, id],
+        )?;
+        Ok(())
+    }
+
     pub fn get_all() -> Result<Vec<Run>> {
         let conn = get_db()?;
         let mut stmt = conn.prepare("SELECT * FROM runs ORDER BY started_at DESC")?;
@@ -107,6 +116,35 @@ impl Run {
         conn.execute("DELETE FROM splits WHERE run_id = ?1", params![id])?;
         // Delete the run
         conn.execute("DELETE FROM runs WHERE id = ?1", params![id])?;
+        Ok(())
+    }
+
+    /// Update class and ascendancy for a run (used when API data is fetched)
+    pub fn update_class_info(id: i64, class: &str, ascendancy: Option<&str>, league: Option<&str>) -> Result<()> {
+        let conn = get_db()?;
+
+        // Update class if it's 'Unknown'
+        conn.execute(
+            "UPDATE runs SET class = ?1 WHERE id = ?2 AND class = 'Unknown'",
+            params![class, id],
+        )?;
+
+        // Update ascendancy if it's NULL (even if class was already set)
+        if let Some(asc) = ascendancy {
+            conn.execute(
+                "UPDATE runs SET ascendancy = ?1 WHERE id = ?2 AND ascendancy IS NULL",
+                params![asc, id],
+            )?;
+        }
+
+        // Update league if provided and current league is empty
+        if let Some(lg) = league {
+            conn.execute(
+                "UPDATE runs SET league = ?1 WHERE id = ?2 AND (league IS NULL OR league = '')",
+                params![lg, id],
+            )?;
+        }
+
         Ok(())
     }
 

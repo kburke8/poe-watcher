@@ -7,7 +7,7 @@ import { EquipmentGrid } from './EquipmentGrid';
 import { SkillsDisplay } from './SkillsDisplay';
 import { PassivesSummary } from './PassivesSummary';
 import { PassiveTree } from './PassiveTree';
-import { exportToPob, shareOnPobbIn } from '../../utils/pobExport';
+import { exportToPob, shareOnPobbIn, exportAllToPob, shareAllOnPobbIn } from '../../utils/pobExport';
 import type { Run, Split, Snapshot } from '../../types';
 
 interface SimulateResponse {
@@ -19,7 +19,17 @@ interface SimulateResponse {
 type TabType = 'equipment' | 'passives';
 
 export function SnapshotView() {
-  const { runs, currentRun } = useRunStore();
+  const { runs: rawRuns, currentRun } = useRunStore();
+
+  // Deduplicate runs by ID to prevent React key errors
+  const runs = useMemo(() => {
+    const seen = new Set<number>();
+    return rawRuns.filter((run) => {
+      if (seen.has(run.id)) return false;
+      seen.add(run.id);
+      return true;
+    });
+  }, [rawRuns]);
   const {
     snapshots,
     selectedSnapshotId,
@@ -34,6 +44,15 @@ export function SnapshotView() {
 
   const [selectedRunId, setSelectedRunId] = useState<number | null>(null);
   const [runSplits, setRunSplits] = useState<Split[]>([]);
+
+  // Load runs on mount
+  useEffect(() => {
+    invoke<Run[]>('get_runs')
+      .then((loadedRuns) => {
+        useRunStore.getState().setRuns(loadedRuns);
+      })
+      .catch(console.error);
+  }, []);
 
   // Select current run by default if active
   useEffect(() => {
@@ -61,8 +80,6 @@ export function SnapshotView() {
   const [simError, setSimError] = useState<string | null>(null);
 
   const handleDeleteRun = useCallback(async (runId: number) => {
-    if (!confirm('Delete this run and all its snapshots?')) return;
-
     try {
       await invoke('delete_run', { runId });
       // Reload runs from store
@@ -77,6 +94,24 @@ export function SnapshotView() {
       alert('Failed to delete run: ' + String(error));
     }
   }, [selectedRunId]);
+
+  const handleDeleteAll = useCallback(async () => {
+    try {
+      // Delete all runs (except active current run)
+      for (const run of runs) {
+        if (!currentRun || run.id !== currentRun.id || currentRun.isCompleted) {
+          await invoke('delete_run', { runId: run.id });
+        }
+      }
+      // Reload runs from store
+      const updatedRuns = await invoke<Run[]>('get_runs');
+      useRunStore.getState().setRuns(updatedRuns);
+      setSelectedRunId(null);
+    } catch (error) {
+      console.error('Failed to delete all runs:', error);
+      alert('Failed to delete all runs: ' + String(error));
+    }
+  }, [runs, currentRun]);
 
   const handleSimulate = useCallback(async () => {
     const charName = prompt('Enter character name to simulate:', 'beerdz_');
@@ -141,8 +176,17 @@ export function SnapshotView() {
       <div className="flex-1 flex gap-6 min-h-0">
         {/* Run list */}
         <div className="w-80 bg-[--color-surface] rounded-lg overflow-hidden flex flex-col flex-shrink-0">
-          <div className="p-4 border-b border-[--color-border]">
+          <div className="p-4 border-b border-[--color-border] flex items-center justify-between">
             <h2 className="font-semibold text-[--color-text]">Runs</h2>
+            {runs.length > 0 && (
+              <button
+                onClick={handleDeleteAll}
+                className="px-2 py-1 text-xs text-[--color-text-muted] hover:text-red-400 hover:bg-red-400/10 rounded transition-colors"
+                title="Delete all runs"
+              >
+                Delete All
+              </button>
+            )}
           </div>
           <div className="flex-1 overflow-auto">
             {runs.length === 0 && !currentRun ? (
@@ -288,10 +332,14 @@ function SnapshotDetail({
   onSelectSnapshot,
   onRetryCapture,
 }: SnapshotDetailProps) {
+  const { accountName } = useSettingsStore();
   const [activeTab, setActiveTab] = useState<TabType>('equipment');
   const [exportStatus, setExportStatus] = useState<'idle' | 'loading' | 'success' | 'error'>('idle');
   const [shareStatus, setShareStatus] = useState<'idle' | 'loading' | 'success' | 'error'>('idle');
   const [shareUrl, setShareUrl] = useState<string | null>(null);
+  const [exportAllStatus, setExportAllStatus] = useState<'idle' | 'loading' | 'success' | 'error'>('idle');
+  const [shareAllStatus, setShareAllStatus] = useState<'idle' | 'loading' | 'success' | 'error'>('idle');
+  const [shareAllUrl, setShareAllUrl] = useState<string | null>(null);
 
   const handleExportToPob = async () => {
     if (!selectedSnapshot) return;
@@ -320,6 +368,35 @@ function SnapshotDetail({
       console.error('Share failed:', error);
       setShareStatus('error');
       setTimeout(() => setShareStatus('idle'), 3000);
+    }
+  };
+
+  const handleExportAllToPob = async () => {
+    if (snapshots.length === 0) return;
+    setExportAllStatus('loading');
+    try {
+      await exportAllToPob(snapshots, run, splits, accountName);
+      setExportAllStatus('success');
+      setTimeout(() => setExportAllStatus('idle'), 2000);
+    } catch (error) {
+      console.error('Export all failed:', error);
+      setExportAllStatus('error');
+      setTimeout(() => setExportAllStatus('idle'), 3000);
+    }
+  };
+
+  const handleShareAllOnPobbIn = async () => {
+    if (snapshots.length === 0) return;
+    setShareAllStatus('loading');
+    try {
+      const url = await shareAllOnPobbIn(snapshots, run, splits, accountName);
+      setShareAllUrl(url);
+      setShareAllStatus('success');
+      window.open(url, '_blank');
+    } catch (error) {
+      console.error('Share all failed:', error);
+      setShareAllStatus('error');
+      setTimeout(() => setShareAllStatus('idle'), 3000);
     }
   };
 
@@ -364,7 +441,7 @@ function SnapshotDetail({
           {run.characterName || run.character || 'Unknown'}
         </h2>
         <p className="text-[--color-text-muted]">
-          {run.class} {run.league && `- ${run.league}`}
+          {run.ascendancy || run.class || 'Unknown'} {run.league && `- ${run.league}`}
         </p>
       </div>
 
@@ -500,33 +577,63 @@ function SnapshotDetail({
           </div>
 
           {/* Export buttons */}
-          <div className="p-6 pt-0 flex gap-3 items-center">
-            <button
-              className="px-4 py-2 bg-[--color-poe-gold] text-[--color-poe-darker] rounded-lg font-medium hover:bg-[--color-poe-gold-light] transition-colors disabled:opacity-50"
-              onClick={handleExportToPob}
-              disabled={exportStatus === 'loading'}
-            >
-              {exportStatus === 'loading' ? 'Copying...' : exportStatus === 'success' ? 'Copied!' : 'Export to PoB'}
-            </button>
-            <button
-              className="px-4 py-2 bg-[--color-surface-elevated] text-[--color-text] rounded-lg font-medium hover:bg-[--color-border] transition-colors disabled:opacity-50"
-              onClick={handleShareOnPobbIn}
-              disabled={shareStatus === 'loading'}
-            >
-              {shareStatus === 'loading' ? 'Uploading...' : shareStatus === 'success' ? 'Shared!' : 'Share on pobb.in'}
-            </button>
-            {shareStatus === 'success' && shareUrl && (
-              <a
-                href={shareUrl}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="text-sm text-[--color-poe-gold] hover:underline"
+          <div className="p-6 pt-0 space-y-3">
+            {/* Single snapshot export */}
+            <div className="flex gap-3 items-center">
+              <span className="text-sm text-[--color-text-muted] w-24">This snapshot:</span>
+              <button
+                className="px-4 py-2 bg-[--color-poe-gold] text-[--color-poe-darker] rounded-lg font-medium hover:bg-[--color-poe-gold-light] transition-colors disabled:opacity-50"
+                onClick={handleExportToPob}
+                disabled={exportStatus === 'loading'}
               >
-                {shareUrl}
-              </a>
-            )}
-            {(exportStatus === 'error' || shareStatus === 'error') && (
-              <span className="text-sm text-red-400">Failed - check console</span>
+                {exportStatus === 'loading' ? 'Copying...' : exportStatus === 'success' ? 'Copied!' : 'Export to PoB'}
+              </button>
+              <button
+                className="px-4 py-2 bg-[--color-surface-elevated] text-[--color-text] rounded-lg font-medium hover:bg-[--color-border] transition-colors disabled:opacity-50"
+                onClick={handleShareOnPobbIn}
+                disabled={shareStatus === 'loading'}
+              >
+                {shareStatus === 'loading' ? 'Uploading...' : shareStatus === 'success' ? 'Shared!' : 'Share on pobb.in'}
+              </button>
+              {shareStatus === 'success' && shareUrl && (
+                <a href={shareUrl} target="_blank" rel="noopener noreferrer" className="text-sm text-[--color-poe-gold] hover:underline truncate max-w-xs">
+                  {shareUrl}
+                </a>
+              )}
+              {(exportStatus === 'error' || shareStatus === 'error') && (
+                <span className="text-sm text-red-400">Failed</span>
+              )}
+            </div>
+
+            {/* All snapshots export */}
+            {snapshots.length > 1 && (
+              <div className="flex gap-3 items-center">
+                <span className="text-sm text-[--color-text-muted] w-24">All ({snapshots.length}):</span>
+                <button
+                  className="px-4 py-2 bg-[--color-poe-gold] text-[--color-poe-darker] rounded-lg font-medium hover:bg-[--color-poe-gold-light] transition-colors disabled:opacity-50"
+                  onClick={handleExportAllToPob}
+                  disabled={exportAllStatus === 'loading'}
+                  title="Export all snapshots as separate item/skill/tree sets"
+                >
+                  {exportAllStatus === 'loading' ? 'Copying...' : exportAllStatus === 'success' ? 'Copied!' : 'Export All to PoB'}
+                </button>
+                <button
+                  className="px-4 py-2 bg-[--color-surface-elevated] text-[--color-text] rounded-lg font-medium hover:bg-[--color-border] transition-colors disabled:opacity-50"
+                  onClick={handleShareAllOnPobbIn}
+                  disabled={shareAllStatus === 'loading'}
+                  title="Share all snapshots as one build with multiple sets"
+                >
+                  {shareAllStatus === 'loading' ? 'Uploading...' : shareAllStatus === 'success' ? 'Shared!' : 'Share All on pobb.in'}
+                </button>
+                {shareAllStatus === 'success' && shareAllUrl && (
+                  <a href={shareAllUrl} target="_blank" rel="noopener noreferrer" className="text-sm text-[--color-poe-gold] hover:underline truncate max-w-xs">
+                    {shareAllUrl}
+                  </a>
+                )}
+                {(exportAllStatus === 'error' || shareAllStatus === 'error') && (
+                  <span className="text-sm text-red-400">Failed</span>
+                )}
+              </div>
             )}
           </div>
         </>

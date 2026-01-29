@@ -3,16 +3,20 @@ import { invoke } from '@tauri-apps/api/core';
 import { open } from '@tauri-apps/plugin-dialog';
 import { useSettingsStore } from '../../stores/settingsStore';
 
+const BREAKPOINTS_STORAGE_KEY = 'poe-watcher-breakpoints';
+
 export function SettingsView() {
   const {
     poeLogPath,
     accountName,
+    testCharacterName,
     overlayEnabled,
     overlayOpacity,
     soundEnabled,
     breakpoints,
     setLogPath,
     setAccountName,
+    setTestCharacterName,
     setOverlayEnabled,
     setOverlayOpacity,
     setSoundEnabled,
@@ -185,6 +189,23 @@ export function SettingsView() {
               />
               <p className="text-xs text-[--color-text-muted] mt-2">
                 Required for fetching character data from the POE API. Your profile must be set to public.
+              </p>
+            </div>
+
+            {/* Test character name */}
+            <div>
+              <label className="block text-sm text-[--color-text-muted] mb-2">
+                Test Character Name
+              </label>
+              <input
+                type="text"
+                value={testCharacterName}
+                onChange={(e) => setTestCharacterName(e.target.value)}
+                placeholder="beerdz_layoutguy"
+                className="w-full p-3 bg-[--color-surface-elevated] border border-[--color-border] rounded-lg text-[--color-text] placeholder-[--color-text-muted]"
+              />
+              <p className="text-xs text-[--color-text-muted] mt-2">
+                Fallback character name for snapshots when not detected from game events.
               </p>
             </div>
           </div>

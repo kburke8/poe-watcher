@@ -1,6 +1,7 @@
 import { create } from 'zustand';
 import { invoke } from '@tauri-apps/api/core';
 import type { Run, Split, SplitTime, TimerState, RunFilters, RunStats, SplitStat } from '../types';
+import { useSettingsStore } from './settingsStore';
 
 interface RunState {
   // Current run
@@ -166,6 +167,8 @@ export const useRunStore = create<RunState>((set, get) => ({
   // Timer actions
   startTimer: () => {
     const { currentRun } = get();
+    // Get test character name from settings store for fallback
+    const { testCharacterName } = useSettingsStore.getState();
 
     // Create a default run if none exists
     if (!currentRun) {
@@ -173,7 +176,8 @@ export const useRunStore = create<RunState>((set, get) => ({
         id: Date.now(),
         category: 'any%',
         class: 'Unknown',
-        character: 'Unknown',
+        character: testCharacterName || 'Unknown',
+        characterName: testCharacterName || 'Unknown',
         startedAt: new Date().toISOString(),
         isCompleted: false,
         isPersonalBest: false,

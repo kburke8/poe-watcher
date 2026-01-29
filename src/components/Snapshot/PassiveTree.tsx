@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState, useCallback } from 'react';
+import { invoke } from '@tauri-apps/api/core';
 
 interface MasteryEffect {
   effect: number;
@@ -183,6 +184,16 @@ async function loadImage(url: string): Promise<HTMLImageElement> {
     return imageCache.get(url)!;
   }
 
+  // Proxy poecdn.com URLs through Rust backend to bypass CORS
+  let imageUrl = url;
+  if (url.includes('poecdn.com')) {
+    try {
+      imageUrl = await invoke<string>('proxy_image', { url });
+    } catch (err) {
+      console.warn('Failed to proxy image, falling back to direct load:', err);
+    }
+  }
+
   return new Promise((resolve, reject) => {
     const img = new Image();
     img.crossOrigin = 'anonymous';
@@ -191,7 +202,7 @@ async function loadImage(url: string): Promise<HTMLImageElement> {
       resolve(img);
     };
     img.onerror = reject;
-    img.src = url;
+    img.src = imageUrl;
   });
 }
 
@@ -586,11 +597,23 @@ export function PassiveTree({
         const drawW = coords.w * scale;
         const drawH = coords.h * scale;
 
+        // Clip to circle for all nodes except jewels (which are diamonds)
+        if (!node.isJewelSocket) {
+          ctx.save();
+          ctx.beginPath();
+          ctx.arc(x, y, radius * 1.1, 0, Math.PI * 2);
+          ctx.clip();
+        }
+
         ctx.drawImage(
           image,
           coords.x, coords.y, coords.w, coords.h,
           x - drawW / 2, y - drawH / 2, drawW, drawH
         );
+
+        if (!node.isJewelSocket) {
+          ctx.restore();
+        }
         continue;
       }
 

@@ -1,6 +1,7 @@
 import { useEffect } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import { useSettingsStore } from "./stores/settingsStore";
+import { useRunStore } from "./stores/runStore";
 import { useTauriEvents } from "./hooks/useTauriEvents";
 import { useHotkeys } from "./hooks/useHotkeys";
 import { Sidebar } from "./components/Sidebar";
@@ -10,7 +11,7 @@ import { ComparisonView } from "./components/Comparison/ComparisonView";
 import { HistoryView } from "./components/History/HistoryView";
 import { SettingsView } from "./components/Settings/SettingsView";
 import { defaultBreakpoints } from "./config/breakpoints";
-import type { Breakpoint } from "./types";
+import type { Breakpoint, PersonalBest, GoldSplit, Split } from "./types";
 
 const BREAKPOINTS_STORAGE_KEY = 'poe-watcher-breakpoints';
 
@@ -118,8 +119,49 @@ function App() {
             console.log('Log watcher started for auto-detected path:', detectedPath);
           }
         }
+
+        // Load PB splits and gold splits for comparison
+        await loadPbAndGoldSplits();
       } catch (error) {
         console.error('Failed to initialize:', error);
+      }
+    };
+
+    const loadPbAndGoldSplits = async () => {
+      try {
+        // Load personal bests to get PB run IDs
+        const pbs = await invoke<PersonalBest[]>('get_personal_bests');
+        console.log('[App] Loaded personal bests:', pbs.length);
+
+        // Build map of PB split times: key = "category-class-breakpointName" -> splitTimeMs
+        const pbSplitMap = new Map<string, number>();
+
+        for (const pb of pbs) {
+          try {
+            // Get splits for this PB run
+            const splits = await invoke<Split[]>('get_splits', { runId: pb.runId });
+            for (const split of splits) {
+              const key = `${pb.category}-${pb.class}-${split.breakpointName}`;
+              pbSplitMap.set(key, split.splitTimeMs);
+            }
+          } catch (e) {
+            console.warn('[App] Failed to load splits for PB run:', pb.runId, e);
+          }
+        }
+        console.log('[App] Built PB split map with', pbSplitMap.size, 'entries');
+        useRunStore.getState().setPersonalBests(pbSplitMap);
+
+        // Load gold splits (best segment times)
+        const golds = await invoke<GoldSplit[]>('get_gold_splits');
+        const goldMap = new Map<string, number>();
+        for (const gold of golds) {
+          const key = `${gold.category}-${gold.breakpointName}`;
+          goldMap.set(key, gold.bestSegmentMs);
+        }
+        console.log('[App] Loaded gold splits:', goldMap.size);
+        useRunStore.getState().setGoldSplits(goldMap);
+      } catch (error) {
+        console.error('[App] Failed to load PB/gold splits:', error);
       }
     };
 

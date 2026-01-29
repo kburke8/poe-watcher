@@ -16,6 +16,7 @@ interface SettingsState extends Settings {
   // Actions
   setLogPath: (path: string) => void;
   setAccountName: (name: string) => void;
+  setTestCharacterName: (name: string) => void;
   setCheckUpdates: (enabled: boolean) => void;
   setOverlayEnabled: (enabled: boolean) => void;
   setOverlayOpacity: (opacity: number) => void;
@@ -43,6 +44,7 @@ export const useSettingsStore = create<SettingsState>((set) => ({
   // Default settings
   poeLogPath: '',
   accountName: '',
+  testCharacterName: 'beerdz_layoutguy',
   checkUpdates: true,
   overlayEnabled: false,
   overlayOpacity: 0.8,
@@ -53,6 +55,7 @@ export const useSettingsStore = create<SettingsState>((set) => ({
   // Actions
   setLogPath: (path) => set({ poeLogPath: path }),
   setAccountName: (name) => set({ accountName: name }),
+  setTestCharacterName: (name) => set({ testCharacterName: name }),
   setCheckUpdates: (enabled) => set({ checkUpdates: enabled }),
   setOverlayEnabled: (enabled) => set({ overlayEnabled: enabled }),
   setOverlayOpacity: (opacity) => set({ overlayOpacity: opacity }),

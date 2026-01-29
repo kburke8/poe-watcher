@@ -14,7 +14,7 @@ interface HotkeyConfig {
 
 export function useHotkeys() {
   const { timer, startTimer, stopTimer, setRunId } = useRunStore();
-  const { accountName } = useSettingsStore();
+  const { accountName, testCharacterName } = useSettingsStore();
 
   // Toggle timer (start/pause)
   const toggleTimer = useCallback(async () => {
@@ -39,15 +39,15 @@ export function useHotkeys() {
 
             const dbRunId = await invoke<number>('create_run', {
               run: {
-                character_name: run.characterName || run.character || 'Unknown',
-                account_name: accountName || '',
+                characterName: run.characterName || run.character || testCharacterName || 'Unknown',
+                accountName: accountName || '',
                 class: run.class || 'Unknown',
                 ascendancy: run.ascendancy || null,
                 league: run.league || 'Standard',
                 category: run.category || 'any%',
-                started_at: run.startedAt || new Date().toISOString(),
-                breakpoint_preset: presetName,
-                enabled_breakpoints: JSON.stringify(enabledBreakpoints),
+                startedAt: run.startedAt || new Date().toISOString(),
+                breakpointPreset: presetName,
+                enabledBreakpoints: JSON.stringify(enabledBreakpoints),
               },
             });
             console.log('[useHotkeys] Run created in database with ID:', dbRunId, 'preset:', presetName);
@@ -58,7 +58,7 @@ export function useHotkeys() {
         }
       }
     }
-  }, [timer.isRunning, timer.elapsedMs, startTimer, stopTimer, setRunId, accountName]);
+  }, [timer.isRunning, timer.elapsedMs, startTimer, stopTimer, setRunId, accountName, testCharacterName]);
 
   // Define hotkeys
   const hotkeys: HotkeyConfig[] = [

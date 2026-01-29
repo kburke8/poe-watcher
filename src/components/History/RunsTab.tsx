@@ -46,17 +46,11 @@ export function RunsTab() {
   };
 
   const handleDelete = async (run: Run) => {
-    if (
-      confirm(
-        `Delete run for ${run.characterName || run.character}?\nThis action cannot be undone.`
-      )
-    ) {
-      try {
-        await invoke('delete_run', { runId: run.id });
-        loadFilteredRuns();
-      } catch (error) {
-        console.error('[RunsTab] Failed to delete run:', error);
-      }
+    try {
+      await invoke('delete_run', { runId: run.id });
+      loadFilteredRuns();
+    } catch (error) {
+      console.error('[RunsTab] Failed to delete run:', error);
     }
   };
 
