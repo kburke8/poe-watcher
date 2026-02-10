@@ -68,6 +68,11 @@ coverage/
 *.pfx
 *.jks
 
+# Local build scripts (machine-specific)
+build.cmd
+dev.cmd
+build-install.ps1
+
 # Misc
 *.bak
 *.tmp
