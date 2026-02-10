@@ -7,7 +7,7 @@ use std::time::{Duration, Instant};
 use tokio::sync::Mutex;
 
 const POE_API_BASE: &str = "https://www.pathofexile.com";
-const USER_AGENT: &str = "POE-Watcher/0.1.0 (contact: poe-watcher@example.com)";
+const USER_AGENT: &str = "POE-Watcher/0.1.0 (contact: kburke.dev@gmail.com)";
 
 /// Rate limiter using token bucket algorithm
 struct RateLimiter {
@@ -186,13 +186,6 @@ impl PoeApiClient {
 
         let text = response.text().await?;
 
-        // Debug: log the character portion of the response
-        if let Ok(json) = serde_json::from_str::<serde_json::Value>(&text) {
-            if let Some(character) = json.get("character") {
-                println!("[API get_items] Character data from API: {}", character);
-            }
-        }
-
         self.cache_response(&url, text.clone(), Duration::from_secs(30)).await;
 
         // Try to parse, with better error context
@@ -233,9 +226,6 @@ impl PoeApiClient {
         }
 
         let text = response.text().await?;
-
-        // Debug: log raw response for troubleshooting
-        println!("[API get_passive_skills] Raw response (first 500 chars): {}", &text[..text.len().min(500)]);
 
         self.cache_response(&url, text.clone(), Duration::from_secs(30)).await;
 

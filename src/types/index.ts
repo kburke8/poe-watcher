@@ -79,7 +79,8 @@ export type LogEventType =
   | 'level_up'
   | 'death'
   | 'instance_details'
-  | 'login';
+  | 'login'
+  | 'kitava_affliction';
 
 export interface ZoneEnterEvent {
   zoneName: string;
@@ -108,10 +109,27 @@ export interface Breakpoint {
 }
 
 export interface BreakpointTrigger {
-  type: 'zone' | 'level' | 'boss';
+  type: 'zone' | 'level' | 'boss' | 'kitava';
   zoneName?: string;
   act?: number;
   level?: number;
+  penalty?: number;
+}
+
+// Wizard configuration for guided breakpoint setup
+export interface WizardConfig {
+  endAct: 5 | 10;
+  runType: 'any_percent' | 'hundred_percent';
+  verbosity: 'every_zone' | 'key_zones' | 'bosses_only' | 'acts_only';
+  snapshotFrequency: 'bosses_only' | 'acts_only';
+  routes: {
+    act1: 'standard' | 'early_dweller';
+    act2: 'standard' | 'early_crypt';
+    act4: 'standard' | 'kaom_first';
+    act6SkipLily: boolean;
+    act6AddTidal: boolean;
+    act8: 'standard' | 'legacy';
+  };
 }
 
 // Settings
@@ -124,6 +142,7 @@ export interface Settings {
   overlayOpacity: number;
   soundEnabled: boolean;
   breakpoints: Breakpoint[];
+  wizardConfig?: WizardConfig;
 }
 
 // POE API types

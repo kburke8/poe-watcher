@@ -190,7 +190,7 @@ async function loadImage(url: string): Promise<HTMLImageElement> {
     try {
       imageUrl = await invoke<string>('proxy_image', { url });
     } catch (err) {
-      console.warn('Failed to proxy image, falling back to direct load:', err);
+      // Proxy failed, fall back to direct load
     }
   }
 
@@ -344,7 +344,7 @@ export function PassiveTree({
         await Promise.all(loadPromises);
         setSpritesLoaded(true);
       } catch (err) {
-        console.warn('Failed to load some sprites:', err);
+        // Some sprites failed to load, continue without them
         // Continue without sprites
         setSpritesLoaded(true);
       } finally {

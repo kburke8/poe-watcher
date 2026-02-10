@@ -2,7 +2,7 @@
 
 ## Project Overview
 
-POE Watcher is a local desktop application for tracking Path of Exile speedruns. It monitors the game's Client.txt log file, captures breakpoints during gameplay, and creates snapshots for analysis.
+POE Watcher is a local desktop application for tracking Path of Exile speedruns. It monitors the game's Client.txt log file, captures breakpoints during gameplay, creates snapshots for analysis, and provides an in-game overlay for live timer display.
 
 ## Technology Stack
 
@@ -22,12 +22,23 @@ POE Watcher is a local desktop application for tracking Path of Exile speedruns.
 - Log file watching uses the `notify` crate with debouncing
 - Database operations are synchronous within Rust, async from frontend
 - API client implements rate limiting with token bucket algorithm
+- Overlay window created dynamically via `WebviewWindowBuilder` (not declared in tauri.conf.json)
+- Cross-window communication uses `sync_overlay_state` command to emit events through Rust
 
 ### Frontend (React)
-- State split into `runStore` (timer/splits) and `settingsStore` (config)
+- State split into `runStore` (timer/splits), `settingsStore` (config/breakpoints), and `snapshotStore` (snapshots)
 - Tauri events bridge log watcher to React state
 - All time values stored as milliseconds (i64)
 - Timer updates via `requestAnimationFrame` for smooth display
+- Breakpoint configuration uses a wizard system (`BreakpointWizard` + `wizardRoutes.ts`) with category/verbosity/snapshot-frequency steps
+- Category is derived from wizard config via `getWizardCategory()` in `wizardRoutes.ts`
+
+### Overlay Window
+- Separate Tauri window with its own HTML entry point (`overlay.html`) and React root (`OverlayApp.tsx`)
+- Always-on-top, transparent, decorationless
+- Receives state from main window via Rust event relay (`overlay-state-update`)
+- Supports lock mode (click-through) and position persistence
+- Global shortcuts: `Ctrl+O` toggle, `Ctrl+Shift+O` lock toggle
 
 ### Database Schema
 - `runs`: Speedrun attempts with character info
@@ -60,10 +71,13 @@ POE Watcher is a local desktop application for tracking Path of Exile speedruns.
 ```
 src/                    # React frontend
   components/           # UI components by feature
+    Overlay/            # Overlay window components
+    Settings/           # Settings + BreakpointWizard + RouteCustomizations
   stores/               # Zustand stores
-  hooks/                # Custom React hooks
+  hooks/                # Custom React hooks (useOverlaySync, useHotkeys, useTauriEvents)
   types/                # TypeScript interfaces
-  config/               # Static configuration
+  config/               # Static configuration (breakpoints.ts, wizardRoutes.ts)
+  utils/                # Utility functions (pobExport.ts)
 
 src-tauri/src/          # Rust backend
   db/                   # Database module
@@ -94,6 +108,7 @@ src-tauri/src/          # Rust backend
 - Rust: Unit tests for log parsing patterns
 - Frontend: Manual testing for now (Playwright later)
 - API: Mock responses for rate limit testing
+- `simulate_snapshot` command exists in `commands.rs` for dev testing but is not registered in the production invoke handler
 
 ## Build & Run
 
@@ -107,8 +122,6 @@ npm run tauri build
 
 ## Known Issues & TODOs
 
-- [ ] PoB sidecar not yet integrated (Python process)
-- [ ] Overlay window not implemented
 - [ ] Lab completion detection needs refinement
 - [ ] Zone act disambiguation uses heuristics
 

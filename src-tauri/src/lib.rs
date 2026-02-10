@@ -24,11 +24,14 @@ pub fn run() {
             tauri_plugin_global_shortcut::Builder::new()
                 .with_handler(move |_app, shortcut_ref, event| {
                     if event.state() == ShortcutState::Pressed {
-                        println!("[GlobalShortcut] {} pressed", shortcut_ref);
                         if let Some(handle) = app_handle_for_handler.lock().ok().and_then(|guard| guard.clone()) {
                             // Determine which shortcut was pressed
                             let shortcut_str = shortcut_ref.to_string();
-                            if shortcut_str.contains("Space") {
+                            if shortcut_str.contains("Shift") && shortcut_str.contains("Space") {
+                                let _ = handle.emit("global-shortcut", "reset-timer");
+                            } else if shortcut_str.contains("Alt") && shortcut_str.contains("Space") {
+                                let _ = handle.emit("global-shortcut", "manual-snapshot");
+                            } else if shortcut_str.contains("Space") {
                                 let _ = handle.emit("global-shortcut", "toggle-timer");
                             } else if shortcut_str.contains("Shift") && shortcut_str.to_lowercase().contains("o") {
                                 // Ctrl+Shift+O - toggle overlay lock
@@ -67,9 +70,7 @@ pub fn run() {
                         let log_path = settings.poe_log_path.clone();
                         // Spawn async task to start watcher via command
                         tauri::async_runtime::spawn(async move {
-                            if let Err(e) = commands::start_log_watcher(handle, log_path).await {
-                                eprintln!("Failed to start log watcher: {}", e);
-                            }
+                            let _ = commands::start_log_watcher(handle, log_path).await;
                         });
                     }
                 }
@@ -77,22 +78,19 @@ pub fn run() {
 
             // Register global hotkeys (ignore errors if already registered from previous instance)
             let shortcut: Shortcut = "Ctrl+Space".parse().expect("Invalid shortcut");
-            match app.global_shortcut().register(shortcut) {
-                Ok(_) => println!("[GlobalShortcut] Registered Ctrl+Space"),
-                Err(e) => eprintln!("[GlobalShortcut] Failed to register Ctrl+Space (may already be registered): {}", e),
-            }
+            let _ = app.global_shortcut().register(shortcut);
+
+            let reset_shortcut: Shortcut = "Ctrl+Shift+Space".parse().expect("Invalid shortcut");
+            let _ = app.global_shortcut().register(reset_shortcut);
+
+            let snapshot_shortcut: Shortcut = "Ctrl+Alt+Space".parse().expect("Invalid shortcut");
+            let _ = app.global_shortcut().register(snapshot_shortcut);
 
             let overlay_shortcut: Shortcut = "Ctrl+O".parse().expect("Invalid shortcut");
-            match app.global_shortcut().register(overlay_shortcut) {
-                Ok(_) => println!("[GlobalShortcut] Registered Ctrl+O for overlay"),
-                Err(e) => eprintln!("[GlobalShortcut] Failed to register Ctrl+O (may already be registered): {}", e),
-            }
+            let _ = app.global_shortcut().register(overlay_shortcut);
 
             let lock_shortcut: Shortcut = "Ctrl+Shift+O".parse().expect("Invalid shortcut");
-            match app.global_shortcut().register(lock_shortcut) {
-                Ok(_) => println!("[GlobalShortcut] Registered Ctrl+Shift+O for overlay lock"),
-                Err(e) => eprintln!("[GlobalShortcut] Failed to register Ctrl+Shift+O (may already be registered): {}", e),
-            }
+            let _ = app.global_shortcut().register(lock_shortcut);
 
             Ok(())
         })
@@ -105,6 +103,7 @@ pub fn run() {
             // Log watcher
             start_log_watcher,
             stop_log_watcher,
+            set_log_poll_fast,
             // Runs
             create_run,
             update_run_character,
@@ -143,9 +142,21 @@ pub fn run() {
             toggle_overlay,
             set_overlay_position,
             get_overlay_position,
-            // Debug/Test
-            simulate_snapshot,
+            sync_overlay_state,
         ])
+        .on_window_event(|window, event| {
+            // When the main window is closed, close the overlay and exit
+            if let tauri::WindowEvent::CloseRequested { .. } = event {
+                if window.label() == "main" {
+                    // Close the overlay window if it exists
+                    if let Some(overlay) = window.app_handle().get_webview_window("overlay") {
+                        let _ = overlay.close();
+                    }
+                    // Exit the process so it doesn't linger
+                    window.app_handle().exit(0);
+                }
+            }
+        })
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
 }

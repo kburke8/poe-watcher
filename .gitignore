@@ -61,6 +61,13 @@ env/
 coverage/
 .nyc_output/
 
+# Signing keys
+*.key
+*.pem
+*.p12
+*.pfx
+*.jks
+
 # Misc
 *.bak
 *.tmp

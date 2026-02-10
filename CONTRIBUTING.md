@@ -14,7 +14,7 @@ Thanks for your interest in contributing! This document covers how to set up you
 
 ```bash
 # Clone the repository
-git clone https://github.com/yourusername/poe-watcher.git
+git clone https://github.com/kburke8/poe-watcher.git
 cd poe-watcher
 
 # Install Node.js dependencies

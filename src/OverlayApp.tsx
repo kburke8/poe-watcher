@@ -8,6 +8,7 @@ import { OverlaySplit } from './components/Overlay/OverlaySplit';
 import { OverlayBreakpoints } from './components/Overlay/OverlayBreakpoints';
 
 interface OverlayState {
+  startTime: number | null;
   elapsedMs: number;
   isRunning: boolean;
   currentZone: string | null;
@@ -21,6 +22,7 @@ interface OverlayState {
 }
 
 const initialState: OverlayState = {
+  startTime: null,
   elapsedMs: 0,
   isRunning: false,
   currentZone: null,
@@ -72,6 +74,11 @@ export function OverlayApp() {
     };
   }, [isLocked]);
 
+  // Ensure cursor events are enabled on mount (transparent windows on Windows may default to click-through)
+  useEffect(() => {
+    getCurrentWindow().setIgnoreCursorEvents(false);
+  }, []);
+
   // Save position when window moves
   useEffect(() => {
     const savePositionDebounced = debounce(async () => {
@@ -92,19 +99,12 @@ export function OverlayApp() {
     };
   }, []);
 
-  // Handle dragging
-  const handleMouseDown = useCallback(async (e: React.MouseEvent) => {
-    // Only allow drag from the main container, not buttons
-    if ((e.target as HTMLElement).closest('button')) {
-      return;
-    }
+  // Handle dragging (fallback for platforms where -webkit-app-region doesn't work)
+  const handleMouseDown = useCallback((e: React.MouseEvent) => {
+    if ((e.target as HTMLElement).closest('button')) return;
     if (isLocked) return;
-
-    try {
-      await getCurrentWindow().startDragging();
-    } catch (error) {
-      console.error('Failed to start dragging:', error);
-    }
+    e.preventDefault();
+    getCurrentWindow().startDragging();
   }, [isLocked]);
 
   // Toggle lock
@@ -140,19 +140,16 @@ export function OverlayApp() {
       onMouseDown={handleMouseDown}
     >
       {/* Header with controls */}
-      <div className="flex items-center justify-between px-3 py-1 border-b border-[--color-border]">
-        <span className="text-xs text-[--color-poe-gold] font-semibold">
+      <div className="flex items-center justify-between px-3 py-1" style={{ borderBottom: '1px solid #3a3a3e' }}>
+        <span className="text-xs font-semibold" style={{ color: '#af6025' }}>
           {isLocked ? 'Locked (Ctrl+Shift+O)' : 'POE Watcher'}
         </span>
         <div className="flex items-center gap-1">
           {/* Lock button */}
           <button
             onClick={handleToggleLock}
-            className={`p-1 transition-colors ${
-              isLocked
-                ? 'text-yellow-400 hover:text-yellow-300'
-                : 'text-[--color-text-muted] hover:text-[--color-text]'
-            }`}
+            className="p-1"
+            style={{ color: isLocked ? '#fbbf24' : '#9ca3af' }}
             title={isLocked ? 'Unlock overlay (Ctrl+Shift+O)' : 'Lock overlay (Ctrl+Shift+O)'}
           >
             {isLocked ? (
@@ -168,7 +165,8 @@ export function OverlayApp() {
           {/* Close button */}
           <button
             onClick={handleClose}
-            className="text-[--color-text-muted] hover:text-[--color-text] p-1"
+            className="p-1"
+            style={{ color: '#9ca3af' }}
             title="Close overlay (Ctrl+O)"
           >
             <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -181,7 +179,7 @@ export function OverlayApp() {
       {/* Content */}
       <div className="p-3 space-y-2">
         {/* Timer */}
-        <OverlayTimer elapsedMs={state.elapsedMs} isRunning={state.isRunning} />
+        <OverlayTimer startTime={state.startTime} elapsedMs={state.elapsedMs} isRunning={state.isRunning} />
 
         {/* Current zone */}
         <OverlayZone zoneName={state.currentZone} />

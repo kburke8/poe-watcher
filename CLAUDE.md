@@ -2,7 +2,7 @@
 
 ## Project Overview
 
-POE Watcher is a Tauri 2.x desktop application for tracking Path of Exile speedruns. It monitors the game's Client.txt log file, captures breakpoints, creates character snapshots, and exports to Path of Building.
+POE Watcher is a Tauri 2.x desktop application for tracking Path of Exile speedruns. It monitors the game's Client.txt log file, captures breakpoints, creates character snapshots, and exports to Path of Building. It includes an always-on-top overlay window for in-game timer display.
 
 ## Technology Stack
 
@@ -17,6 +17,8 @@ POE Watcher is a Tauri 2.x desktop application for tracking Path of Exile speedr
 
 ```
 src/                     # React frontend
+src/components/Overlay/  # Overlay window components
+src/config/              # Static config (breakpoints, wizard routes)
 src-tauri/src/           # Rust backend
 src-tauri/src/db/        # Database module
 ```
@@ -42,7 +44,7 @@ On Windows, requires Visual Studio Build Tools with C++ workload. Run builds fro
 
 ### Rust Backend
 
-- `lib.rs` - Tauri app setup, plugin registration, global hotkey setup
+- `lib.rs` - Tauri app setup, plugin registration, global hotkey setup, overlay window lifecycle
 - `commands.rs` - IPC commands exposed to frontend
 - `log_watcher.rs` - File system monitoring for Client.txt
 - `api_client.rs` - POE public API with rate limiting and caching
@@ -52,15 +54,48 @@ On Windows, requires Visual Studio Build Tools with C++ workload. Run builds fro
 ### React Frontend
 
 - `stores/runStore.ts` - Timer, splits, and run state
-- `stores/settingsStore.ts` - User settings and breakpoints
+- `stores/settingsStore.ts` - User settings, breakpoints, and wizard config
 - `stores/snapshotStore.ts` - Snapshot data and loading
 - `hooks/useTauriEvents.ts` - Backend event listeners, split triggering
-- `hooks/useHotkeys.ts` - Global keyboard shortcuts
+- `hooks/useHotkeys.ts` - Global keyboard shortcuts (including overlay toggle)
+- `hooks/useOverlaySync.ts` - Syncs timer/split state to overlay window via `sync_overlay_state`
 - `components/Timer/` - Main timer UI with splits display
-- `components/Settings/` - Configuration UI
+- `components/Settings/` - Configuration UI (BreakpointWizard, RouteCustomizations, SettingsView)
+- `components/Overlay/` - Overlay window components (OverlayTimer, OverlayZone, OverlaySplit, OverlayBreakpoints)
 - `components/Snapshot/` - Snapshot viewer, equipment grid, passive tree
 - `components/History/` - Run history and analytics
+- `config/breakpoints.ts` - Default breakpoint definitions and presets
+- `config/wizardRoutes.ts` - Wizard-based breakpoint generation from route config
 - `utils/pobExport.ts` - Path of Building XML generation
+
+### Overlay Window
+
+The overlay is a separate Tauri window (`overlay.html` / `OverlayApp.tsx`) that displays timer, current zone, last split delta, and upcoming breakpoints. Key details:
+
+- Created dynamically via `open_overlay` command using `WebviewWindowBuilder`
+- Always-on-top, transparent, decorationless, non-resizable (320x180)
+- State is relayed from the main window via `sync_overlay_state` command, which emits `overlay-state-update` events to the overlay window
+- `useOverlaySync` hook in the main window sends state on meaningful changes + periodic heartbeat (2s)
+- Position is persisted to database via `set_overlay_position` / `get_overlay_position`
+- Lock mode (`Ctrl+Shift+O`): makes overlay click-through via `setIgnoreCursorEvents`
+- Toggle via `Ctrl+O` global shortcut or settings UI button
+
+### Breakpoint Wizard System
+
+The wizard (`BreakpointWizard.tsx` + `wizardRoutes.ts`) provides guided breakpoint configuration:
+
+- **3-step wizard**: Category (end act + run type) -> Splits (verbosity level) -> Snapshots (capture frequency)
+- **WizardConfig** type includes:
+  - `endAct`: 5 or 10
+  - `runType`: 'any_percent' or 'hundred_percent'
+  - `verbosity`: 'every_zone' | 'key_zones' | 'bosses_only' | 'acts_only'
+  - `snapshotFrequency`: 'bosses_only' | 'acts_only'
+  - `routes`: per-act routing variants (early_dweller, early_crypt, kaom_first, etc.)
+- **`generateBreakpoints(config)`** in `wizardRoutes.ts` builds the full breakpoint list from config
+- **`getWizardCategory(config)`** derives the run category string (e.g., "Act 10 Any%")
+- **`RouteCustomizations`** is a separate collapsible component in settings for fine-tuning per-act route variants
+- Wizard config is stored in `settingsStore` and persisted to localStorage
+- When `setWizardConfig` is called, it regenerates breakpoints from the config
 
 ### Tauri IPC Commands
 
@@ -72,6 +107,7 @@ Commands are defined in `commands.rs` and invoked from React:
 
 **Log Watcher:**
 - `start_log_watcher` / `stop_log_watcher`
+- `set_log_poll_fast` - Toggle between normal and fast polling (for Kitava triggers)
 
 **Runs:**
 - `create_run` / `complete_run` / `get_runs` / `get_run` / `delete_run`
@@ -94,16 +130,33 @@ Commands are defined in `commands.rs` and invoked from React:
 - `upload_to_pobbin` - Share build on pobb.in
 - `proxy_image` - CORS bypass for item icons
 
+**Overlay:**
+- `open_overlay` / `close_overlay` / `toggle_overlay` - Window lifecycle
+- `set_overlay_position` / `get_overlay_position` - Position persistence
+- `sync_overlay_state` - Relay timer/split state to overlay via Rust events
+
+Note: `simulate_snapshot` exists in `commands.rs` but is NOT registered in the invoke handler. It was used for testing and is not available at runtime.
+
 ### Events
 
 The Rust backend emits events to the frontend:
-- `log-event` - Parsed log events (zone_enter, level_up, death, login)
+- `log-event` - Parsed log events (zone_enter, level_up, death, login, kitava_affliction)
 - `settings-loaded` - Initial settings from database
 - `split-trigger` - Manual or backend-triggered splits
 - `snapshot-capturing` - Snapshot capture started
 - `snapshot-complete` - Snapshot successfully captured
 - `snapshot-failed` - Snapshot capture failed
-- `global-shortcut` - Global hotkey pressed (Ctrl+Space)
+- `global-shortcut` - Global hotkey pressed (toggle-timer, reset-timer, manual-snapshot, toggle-overlay, toggle-overlay-lock)
+- `overlay-state-update` - Timer/split state sent to overlay window (emitted by `sync_overlay_state`)
+
+### Global Shortcuts
+
+Registered in `lib.rs` setup:
+- `Ctrl+Space` - Toggle timer (start/pause)
+- `Ctrl+Shift+Space` - Reset timer
+- `Ctrl+Alt+Space` - Manual snapshot capture
+- `Ctrl+O` - Toggle overlay window
+- `Ctrl+Shift+O` - Toggle overlay lock (click-through)
 
 ## Code Patterns
 
@@ -161,10 +214,11 @@ Key insight: POE logs capture **ascendancy names** (e.g., "Pathfinder") in level
 - All times stored as milliseconds (i64)
 - Character name detection happens on level_up events - update both local state and database
 - Mastery effects from API can be array or map format - use custom deserializer
+- Overlay state sync uses `invoke('sync_overlay_state')` which goes through Rust to emit to the overlay window - direct window-to-window communication is not available in Tauri 2.x
 
 ## Testing
 
-Currently manual testing only. Use the "Simulate" button in Snapshots view to create test snapshots from existing POE characters.
+Currently manual testing only. The `simulate_snapshot` command exists in `commands.rs` for development but is not registered in the production invoke handler.
 
 ## Common Issues
 
@@ -174,3 +228,4 @@ Currently manual testing only. Use the "Simulate" button in Snapshots view to cr
 - **Split times stuck**: Ensure calculating actual elapsed time, not stale `timer.elapsedMs`
 - **Wrong class in PoB export**: Check `deriveClassAndAscendancy()` handles ascendancy-as-class
 - **Snapshot capture fails**: Check API response parsing, mastery_effects format
+- **Overlay not receiving state**: Ensure `sync_overlay_state` is being called and overlay window label is "overlay"

@@ -7,15 +7,14 @@ export function OverlayBreakpoints({ breakpoints }: OverlayBreakpointsProps) {
   const visibleBreakpoints = breakpoints.slice(0, 3);
 
   return (
-    <div className="border-t border-[--color-border] pt-2">
-      <div className="text-xs text-[--color-text-muted] mb-1">Upcoming:</div>
+    <div className="pt-2" style={{ borderTop: '1px solid #3a3a3e' }}>
+      <div className="text-xs mb-1" style={{ color: '#6b7280' }}>Upcoming:</div>
       <div className="space-y-0.5">
         {visibleBreakpoints.map((bp, index) => (
           <div
             key={index}
-            className={`text-xs truncate ${
-              index === 0 ? 'text-[--color-text]' : 'text-[--color-text-muted]'
-            }`}
+            className="text-xs truncate"
+            style={{ color: index === 0 ? '#e5e5e5' : '#9ca3af' }}
             title={bp}
           >
             {index === 0 ? '> ' : '  '}

@@ -12,9 +12,10 @@ import { ComparisonView } from "./components/Comparison/ComparisonView";
 import { HistoryView } from "./components/History/HistoryView";
 import { SettingsView } from "./components/Settings/SettingsView";
 import { defaultBreakpoints } from "./config/breakpoints";
-import type { Breakpoint, PersonalBest, GoldSplit, Split } from "./types";
+import type { Breakpoint, PersonalBest, GoldSplit, Split, WizardConfig } from "./types";
 
 const BREAKPOINTS_STORAGE_KEY = 'poe-watcher-breakpoints';
+const WIZARD_CONFIG_STORAGE_KEY = 'poe-watcher-wizard-config';
 
 function App() {
   const currentView = useSettingsStore((state) => state.currentView);
@@ -44,7 +45,6 @@ function App() {
         return true;
       });
       localStorage.setItem(BREAKPOINTS_STORAGE_KEY, JSON.stringify(deduplicated));
-      console.log('[App] Auto-saved breakpoints:', deduplicated.length);
     } catch (e) {
       console.error('[App] Failed to save breakpoints:', e);
     }
@@ -80,15 +80,26 @@ function App() {
               });
 
               useSettingsStore.getState().setBreakpoints(migrated);
-              console.log('[App] Loaded breakpoints from localStorage:', migrated.length);
             }
           } else {
             // No saved breakpoints - apply speedrun preset
-            console.log('[App] No saved breakpoints, applying speedrun preset');
             useSettingsStore.getState().applySpeedrunPreset();
           }
         } catch (e) {
           console.error('[App] Failed to load breakpoints:', e);
+        }
+
+        // Load wizard config from localStorage
+        try {
+          const savedWizard = localStorage.getItem(WIZARD_CONFIG_STORAGE_KEY);
+          if (savedWizard) {
+            const parsed = JSON.parse(savedWizard) as WizardConfig;
+            if (parsed && parsed.endAct && parsed.verbosity) {
+              useSettingsStore.getState().loadSettings({ wizardConfig: parsed });
+            }
+          }
+        } catch (e) {
+          console.error('[App] Failed to load wizard config:', e);
         }
 
         // Load saved settings from backend
@@ -112,7 +123,6 @@ function App() {
           // Start log watcher if we have a path
           if (settings.poe_log_path) {
             await invoke('start_log_watcher', { logPath: settings.poe_log_path });
-            console.log('Log watcher started for:', settings.poe_log_path);
           }
         } else {
           // Try to auto-detect log path
@@ -120,7 +130,6 @@ function App() {
           if (detectedPath) {
             setLogPath(detectedPath);
             await invoke('start_log_watcher', { logPath: detectedPath });
-            console.log('Log watcher started for auto-detected path:', detectedPath);
           }
         }
 
@@ -135,7 +144,6 @@ function App() {
       try {
         // Load personal bests to get PB run IDs
         const pbs = await invoke<PersonalBest[]>('get_personal_bests');
-        console.log('[App] Loaded personal bests:', pbs.length);
 
         // Build map of PB split times: key = "category-class-breakpointName" -> splitTimeMs
         const pbSplitMap = new Map<string, number>();
@@ -148,11 +156,10 @@ function App() {
               const key = `${pb.category}-${pb.class}-${split.breakpointName}`;
               pbSplitMap.set(key, split.splitTimeMs);
             }
-          } catch (e) {
-            console.warn('[App] Failed to load splits for PB run:', pb.runId, e);
+          } catch {
+            // Skip PB runs whose splits can't be loaded
           }
         }
-        console.log('[App] Built PB split map with', pbSplitMap.size, 'entries');
         useRunStore.getState().setPersonalBests(pbSplitMap);
 
         // Load gold splits (best segment times)
@@ -162,7 +169,6 @@ function App() {
           const key = `${gold.category}-${gold.breakpointName}`;
           goldMap.set(key, gold.bestSegmentMs);
         }
-        console.log('[App] Loaded gold splits:', goldMap.size);
         useRunStore.getState().setGoldSplits(goldMap);
       } catch (error) {
         console.error('[App] Failed to load PB/gold splits:', error);

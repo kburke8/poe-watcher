@@ -1,5 +1,5 @@
 import { create } from 'zustand';
-import type { Breakpoint, Settings, ViewMode } from '../types';
+import type { Breakpoint, Settings, ViewMode, WizardConfig } from '../types';
 import {
   defaultBreakpoints,
   applySpeedrunPreset,
@@ -8,6 +8,7 @@ import {
   resetToDefault,
   speedrunEnabledBreakpoints,
 } from '../config/breakpoints';
+import { generateBreakpoints } from '../config/wizardRoutes';
 
 interface SettingsState extends Settings {
   // UI state
@@ -35,6 +36,9 @@ interface SettingsState extends Settings {
   applyMinimalPreset: () => void;
   applyTownsOnlyPreset: () => void;
   resetBreakpoints: () => void;
+  // Wizard
+  setWizardConfig: (config: WizardConfig) => void;
+  clearWizardConfig: () => void;
   // Preset detection helpers
   getCurrentPresetName: () => string;
   getEnabledBreakpointNames: () => string[];
@@ -44,12 +48,13 @@ export const useSettingsStore = create<SettingsState>((set, get) => ({
   // Default settings
   poeLogPath: '',
   accountName: '',
-  testCharacterName: 'beerdz_layoutguy',
+  testCharacterName: import.meta.env.DEV ? 'beerdz_layoutguy' : '',
   checkUpdates: true,
   overlayEnabled: false,
   overlayOpacity: 0.8,
   soundEnabled: true,
   breakpoints: defaultBreakpoints,
+  wizardConfig: undefined,
   currentView: 'timer',
 
   // Actions
@@ -105,9 +110,7 @@ export const useSettingsStore = create<SettingsState>((set, get) => ({
   })),
 
   applySpeedrunPreset: () => set((state) => {
-    console.log('[Store] applySpeedrunPreset called, current breakpoints:', state.breakpoints.length);
     const newBreakpoints = applySpeedrunPreset(state.breakpoints);
-    console.log('[Store] New breakpoints:', newBreakpoints.length, 'enabled:', newBreakpoints.filter(bp => bp.isEnabled).length);
     return { breakpoints: newBreakpoints };
   }),
 
@@ -123,16 +126,22 @@ export const useSettingsStore = create<SettingsState>((set, get) => ({
     // Clear localStorage to remove any corrupted data
     try {
       localStorage.removeItem('poe-watcher-breakpoints');
-      console.log('[Store] Cleared breakpoints from localStorage');
     } catch (e) {
       console.error('[Store] Failed to clear localStorage:', e);
     }
     const defaults = resetToDefault();
-    console.log('[Store] Resetting to', defaults.length, 'default breakpoints');
     return set({
       breakpoints: defaults,
     });
   },
+
+  // Wizard config
+  setWizardConfig: (config: WizardConfig) => {
+    const breakpoints = generateBreakpoints(config);
+    return set({ wizardConfig: config, breakpoints });
+  },
+
+  clearWizardConfig: () => set({ wizardConfig: undefined }),
 
   // Detect current preset based on enabled breakpoints
   getCurrentPresetName: () => {

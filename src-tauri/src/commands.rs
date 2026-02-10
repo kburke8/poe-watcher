@@ -88,6 +88,15 @@ pub async fn stop_log_watcher() -> Result<(), String> {
     Ok(())
 }
 
+#[tauri::command]
+pub async fn set_log_poll_fast(enabled: bool) -> Result<(), String> {
+    let guard = get_log_watcher().lock().map_err(|e| e.to_string())?;
+    if let Some(ref watcher) = *guard {
+        watcher.set_fast_polling(enabled);
+    }
+    Ok(())
+}
+
 // ============================================================================
 // Run Commands
 // ============================================================================
@@ -309,11 +318,7 @@ async fn capture_snapshot_for_split(
     if !char_class.is_empty() && char_class != "Unknown" {
         let ascendancy_name = get_ascendancy_name(&char_class, ascendancy_class);
         let league_opt = if league.is_empty() { None } else { Some(league.as_str()) };
-        if let Err(e) = Run::update_class_info(run_id, &char_class, ascendancy_name.as_deref(), league_opt) {
-            println!("[Snapshot] Failed to update run class info: {}", e);
-        } else {
-            println!("[Snapshot] Updated run {} class to {} / {:?}", run_id, char_class, ascendancy_name);
-        }
+        let _ = Run::update_class_info(run_id, &char_class, ascendancy_name.as_deref(), league_opt);
     }
 
     // Fetch passive skills
@@ -495,146 +500,6 @@ pub async fn fetch_passive_tree(
 }
 
 // ============================================================================
-// Debug/Test Commands
-// ============================================================================
-
-#[derive(Debug, Serialize, Deserialize)]
-pub struct SimulateSnapshotRequest {
-    pub account_name: String,
-    pub character_name: String,
-}
-
-#[derive(Debug, Serialize, Deserialize)]
-pub struct SimulateSnapshotResponse {
-    pub run_id: i64,
-    pub split_id: i64,
-    pub snapshot_id: i64,
-}
-
-/// Simulate a snapshot capture for testing - creates a test run with snapshot data
-#[tauri::command]
-pub async fn simulate_snapshot(
-    request: SimulateSnapshotRequest,
-) -> Result<SimulateSnapshotResponse, String> {
-    let client = get_api_client();
-
-    // Fetch character data
-    println!("[Simulate] Fetching character data for {}/{}", request.account_name, request.character_name);
-
-    let items_data = client
-        .get_items(&request.account_name, &request.character_name)
-        .await
-        .map_err(|e| format!("Failed to fetch items: {}", e))?;
-
-    let passives_data = client
-        .get_passive_skills(&request.account_name, &request.character_name)
-        .await
-        .map_err(|e| format!("Failed to fetch passives: {}", e))?;
-
-    println!("[Simulate] Got {} items, {} passives, {} masteries",
-        items_data.items.len(), passives_data.hashes.len(), passives_data.mastery_effects.len());
-
-    // The API's 'class' field contains either:
-    // - A base class name (Marauder, Ranger, etc.) if not ascended
-    // - An ascendancy name (Warden, Deadeye, etc.) if ascended
-    // We need to derive the base class from the ascendancy name if applicable
-    let class_name = &items_data.character.class;
-
-    // Map ascendancy names to their base classes
-    let (base_class, ascendancy) = match class_name.as_str() {
-        // Base classes (no ascendancy)
-        "Scion" | "Marauder" | "Ranger" | "Witch" | "Duelist" | "Templar" | "Shadow" => {
-            (class_name.as_str(), None)
-        }
-        // Scion ascendancy
-        "Ascendant" => ("Scion", Some(class_name.clone())),
-        // Marauder ascendancies
-        "Juggernaut" | "Berserker" | "Chieftain" => ("Marauder", Some(class_name.clone())),
-        // Ranger ascendancies
-        "Raider" | "Deadeye" | "Pathfinder" | "Warden" => ("Ranger", Some(class_name.clone())),
-        // Witch ascendancies
-        "Occultist" | "Elementalist" | "Necromancer" => ("Witch", Some(class_name.clone())),
-        // Duelist ascendancies
-        "Slayer" | "Gladiator" | "Champion" => ("Duelist", Some(class_name.clone())),
-        // Templar ascendancies
-        "Inquisitor" | "Hierophant" | "Guardian" => ("Templar", Some(class_name.clone())),
-        // Shadow ascendancies
-        "Assassin" | "Trickster" | "Saboteur" => ("Shadow", Some(class_name.clone())),
-        // Unknown - default to treating as base class
-        _ => (class_name.as_str(), None),
-    };
-
-    println!("[Simulate] API class: '{}' -> Base class: '{}', Ascendancy: {:?}",
-        class_name, base_class, ascendancy);
-
-    // Create a test run
-    let new_run = NewRun {
-        character_name: request.character_name.clone(),
-        account_name: request.account_name.clone(),
-        class: base_class.to_string(),
-        ascendancy,
-        league: items_data.character.league.clone(),
-        category: "test".to_string(),
-        started_at: chrono::Utc::now().to_rfc3339(),
-        breakpoint_preset: None,
-        enabled_breakpoints: None,
-    };
-
-    let run_id = Run::insert(&new_run).map_err(|e| format!("Failed to create run: {}", e))?;
-    println!("[Simulate] Created run {}", run_id);
-
-    // Create a test split
-    let new_split = NewSplit {
-        run_id,
-        breakpoint_type: "zone".to_string(),
-        breakpoint_name: "Test Zone".to_string(),
-        split_time_ms: 60000, // 1 minute
-        delta_ms: None,
-        segment_time_ms: 60000,
-        town_time_ms: 0,
-        hideout_time_ms: 0,
-    };
-
-    let split_id = Split::insert(&new_split).map_err(|e| format!("Failed to create split: {}", e))?;
-    println!("[Simulate] Created split {}", split_id);
-
-    // Create snapshot
-    let items_json = serde_json::to_string(&items_data.items).unwrap_or_default();
-    let passives_json = serde_json::to_string(&serde_json::json!({
-        "hashes": passives_data.hashes,
-        "hashes_ex": passives_data.hashes_ex,
-        "mastery_effects": passives_data.mastery_effects,
-    })).unwrap_or_default();
-
-    println!("[Simulate] Items JSON length: {}, first 200 chars: {}",
-        items_json.len(),
-        items_json.chars().take(200).collect::<String>()
-    );
-
-    let new_snapshot = NewSnapshot {
-        run_id,
-        split_id,
-        timestamp: chrono::Utc::now().to_rfc3339(),
-        elapsed_time_ms: 60000,
-        character_level: items_data.character.level as i32,
-        items_json,
-        skills_json: "[]".to_string(),
-        passive_tree_json: passives_json,
-        stats_json: "{}".to_string(),
-        pob_code: None,
-    };
-
-    let snapshot_id = Snapshot::insert(&new_snapshot).map_err(|e| format!("Failed to create snapshot: {}", e))?;
-    println!("[Simulate] Created snapshot {}", snapshot_id);
-
-    Ok(SimulateSnapshotResponse {
-        run_id,
-        split_id,
-        snapshot_id,
-    })
-}
-
-// ============================================================================
 // PoB Export Commands
 // ============================================================================
 
@@ -660,8 +525,6 @@ pub async fn upload_to_pobbin(pob_code: String) -> Result<PobbInResponse, String
     let status = response.status();
     let text = response.text().await.map_err(|e| e.to_string())?;
     let text = text.trim();
-
-    println!("[pobb.in] Status: {}, Response: {}", status, text);
 
     // Check for HTTP errors
     if !status.is_success() {
@@ -715,9 +578,10 @@ use base64::{Engine as _, engine::general_purpose::STANDARD as BASE64};
 
 #[tauri::command]
 pub async fn proxy_image(url: String) -> Result<String, String> {
-    // Only allow proxying from trusted domains
-    if !url.starts_with("https://web.poecdn.com/") {
-        return Err("Only poecdn.com URLs are allowed".to_string());
+    // Only allow proxying from trusted domains - parse URL to prevent bypass
+    let parsed = reqwest::Url::parse(&url).map_err(|_| "Invalid URL".to_string())?;
+    if parsed.host_str() != Some("web.poecdn.com") {
+        return Err("Only web.poecdn.com URLs are allowed".to_string());
     }
 
     let client = reqwest::Client::new();
@@ -760,7 +624,6 @@ pub async fn proxy_image(url: String) -> Result<String, String> {
 pub async fn open_overlay(app_handle: AppHandle) -> Result<(), String> {
     // Check if overlay already exists
     if app_handle.get_webview_window("overlay").is_some() {
-        println!("[Overlay] Window already exists, focusing");
         if let Some(window) = app_handle.get_webview_window("overlay") {
             window.set_focus().map_err(|e| e.to_string())?;
         }
@@ -790,7 +653,6 @@ pub async fn open_overlay(app_handle: AppHandle) -> Result<(), String> {
     }
 
     builder.build().map_err(|e| e.to_string())?;
-    println!("[Overlay] Window created");
 
     Ok(())
 }
@@ -799,7 +661,6 @@ pub async fn open_overlay(app_handle: AppHandle) -> Result<(), String> {
 pub async fn close_overlay(app_handle: AppHandle) -> Result<(), String> {
     if let Some(window) = app_handle.get_webview_window("overlay") {
         window.close().map_err(|e| e.to_string())?;
-        println!("[Overlay] Window closed");
     }
     Ok(())
 }
@@ -809,7 +670,6 @@ pub async fn toggle_overlay(app_handle: AppHandle) -> Result<bool, String> {
     if let Some(window) = app_handle.get_webview_window("overlay") {
         // Window exists - close it
         window.close().map_err(|e| e.to_string())?;
-        println!("[Overlay] Window closed (toggled off)");
         Ok(false)
     } else {
         // Window doesn't exist - open it
@@ -821,11 +681,18 @@ pub async fn toggle_overlay(app_handle: AppHandle) -> Result<bool, String> {
 #[tauri::command]
 pub async fn set_overlay_position(x: i32, y: i32) -> Result<(), String> {
     Settings::save_overlay_position(x, y).map_err(|e| e.to_string())?;
-    println!("[Overlay] Position saved: ({}, {})", x, y);
     Ok(())
 }
 
 #[tauri::command]
 pub async fn get_overlay_position() -> Result<(Option<i32>, Option<i32>), String> {
     Settings::get_overlay_position().map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+pub async fn sync_overlay_state(app_handle: AppHandle, state: serde_json::Value) -> Result<(), String> {
+    if let Some(overlay) = app_handle.get_webview_window("overlay") {
+        overlay.emit("overlay-state-update", state).map_err(|e| e.to_string())?;
+    }
+    Ok(())
 }

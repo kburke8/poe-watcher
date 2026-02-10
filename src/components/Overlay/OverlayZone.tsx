@@ -9,7 +9,7 @@ export function OverlayZone({ zoneName }: OverlayZoneProps) {
 
   return (
     <div className="text-center">
-      <div className="text-sm text-[--color-poe-gold] truncate" title={zoneName}>
+      <div className="text-sm truncate" style={{ color: '#d4a574' }} title={zoneName}>
         {zoneName}
       </div>
     </div>

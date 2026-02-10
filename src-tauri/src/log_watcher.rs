@@ -7,6 +7,7 @@ use std::fs::File;
 use std::io::{BufRead, BufReader, Seek, SeekFrom};
 use std::path::{Path, PathBuf};
 use std::sync::mpsc::{channel, Receiver, Sender};
+use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Arc, Mutex};
 use std::thread;
 use std::time::{Duration, Instant};
@@ -36,6 +37,10 @@ pub enum LogEvent {
     Login {
         timestamp: String,
     },
+    KitavaAffliction {
+        timestamp: String,
+        penalty: i32,
+    },
 }
 
 /// Log watcher state
@@ -44,6 +49,7 @@ pub struct LogWatcher {
     file_position: Arc<Mutex<u64>>,
     watcher: Option<RecommendedWatcher>,
     stop_tx: Option<Sender<()>>,
+    fast_polling: Arc<AtomicBool>,
 }
 
 impl LogWatcher {
@@ -54,7 +60,13 @@ impl LogWatcher {
             file_position: Arc::new(Mutex::new(0)),
             watcher: None,
             stop_tx: None,
+            fast_polling: Arc::new(AtomicBool::new(false)),
         }
+    }
+
+    /// Enable or disable fast polling mode (10ms instead of 100ms)
+    pub fn set_fast_polling(&self, enabled: bool) {
+        self.fast_polling.store(enabled, Ordering::Relaxed);
     }
 
     /// Start watching the log file
@@ -92,8 +104,9 @@ impl LogWatcher {
 
         // Spawn thread to handle file changes
         let log_path_clone = log_path.clone();
+        let fast_polling = self.fast_polling.clone();
         thread::spawn(move || {
-            Self::watch_loop(log_path_clone, file_position, rx, stop_rx, app_handle);
+            Self::watch_loop(log_path_clone, file_position, rx, stop_rx, app_handle, fast_polling);
         });
 
         Ok(())
@@ -114,9 +127,8 @@ impl LogWatcher {
         _rx: Receiver<notify::Event>,
         stop_rx: Receiver<()>,
         app_handle: AppHandle,
+        fast_polling: Arc<AtomicBool>,
     ) {
-        println!("[LogWatcher] Started watching: {:?}", log_path);
-
         // Deduplication: track recent events to prevent duplicates
         let mut recent_events: HashSet<String> = HashSet::new();
         let mut last_cleanup = Instant::now();
@@ -124,7 +136,6 @@ impl LogWatcher {
         loop {
             // Check for stop signal
             if stop_rx.try_recv().is_ok() {
-                println!("[LogWatcher] Stopped");
                 break;
             }
 
@@ -146,14 +157,14 @@ impl LogWatcher {
                     }
 
                     recent_events.insert(dedup_key);
-                    println!("[LogWatcher] Event: {:?}", event);
                     // Emit event to frontend
                     let _ = app_handle.emit("log-event", &event);
                 }
             }
 
-            // Sleep briefly before next poll
-            thread::sleep(Duration::from_millis(100));
+            // Sleep briefly before next poll (10ms in fast mode, 100ms normal)
+            let interval = if fast_polling.load(Ordering::Relaxed) { 10 } else { 100 };
+            thread::sleep(Duration::from_millis(interval));
         }
     }
 
@@ -174,6 +185,9 @@ impl LogWatcher {
             }
             LogEvent::Login { timestamp } => {
                 format!("login:{}", timestamp)
+            }
+            LogEvent::KitavaAffliction { timestamp, penalty } => {
+                format!("kitava:{}:{}", timestamp, penalty)
             }
         }
     }
@@ -227,6 +241,13 @@ impl LogWatcher {
             static ref LOGIN: Regex = Regex::new(
                 r"(\d{4}/\d{2}/\d{2} \d{2}:\d{2}:\d{2}).*\] :? ?Connecting to instance server"
             ).unwrap();
+
+            // Pattern: Kitava resistance penalty (Act 5: -30%, Act 10: -60%)
+            // Act 5: "You have been permanently weakened by Kitava's cruel affliction. You now have -30% to all Resistances."
+            // Act 10: "You have been permanently weakened by Kitava's merciless affliction. You now have a total of -60% to all Resistances."
+            static ref KITAVA_AFFLICTION: Regex = Regex::new(
+                r"(\d{4}/\d{2}/\d{2} \d{2}:\d{2}:\d{2}).*\] :? ?You have been permanently weakened by Kitava's .+ affliction\. You now have (?:a total of )?-(\d+)% to all Resistances\."
+            ).unwrap();
         }
 
         // Try to match zone enter
@@ -259,6 +280,14 @@ impl LogWatcher {
         if let Some(caps) = INSTANCE_DETAILS.captures(line) {
             return Some(LogEvent::InstanceDetails {
                 timestamp: caps[1].to_string(),
+            });
+        }
+
+        // Try to match Kitava affliction
+        if let Some(caps) = KITAVA_AFFLICTION.captures(line) {
+            return Some(LogEvent::KitavaAffliction {
+                timestamp: caps[1].to_string(),
+                penalty: caps[2].parse().unwrap_or(30),
             });
         }
 
@@ -328,6 +357,20 @@ mod tests {
             Some(LogEvent::LevelUp { character_name, character_class, level, .. })
             if character_name == "TestChar" && character_class == "Witch" && level == 10
         ));
+    }
+
+    #[test]
+    fn test_parse_kitava_act5() {
+        let line = "2021/04/29 06:47:13 130346843 bad [INFO Client 17428] : You have been permanently weakened by Kitava's cruel affliction. You now have -30% to all Resistances.";
+        let event = LogWatcher::parse_line(line);
+        assert!(matches!(event, Some(LogEvent::KitavaAffliction { penalty, .. }) if penalty == 30));
+    }
+
+    #[test]
+    fn test_parse_kitava_act10() {
+        let line = "2021/04/29 22:27:18 186752375 bad [INFO Client 2900] : You have been permanently weakened by Kitava's merciless affliction. You now have a total of -60% to all Resistances.";
+        let event = LogWatcher::parse_line(line);
+        assert!(matches!(event, Some(LogEvent::KitavaAffliction { penalty, .. }) if penalty == 60));
     }
 
     #[test]

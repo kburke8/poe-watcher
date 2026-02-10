@@ -13,7 +13,7 @@ interface HotkeyConfig {
 }
 
 export function useHotkeys() {
-  const { timer, startTimer, stopTimer, setRunId } = useRunStore();
+  const { timer, startTimer, stopTimer, resetRun, setRunId } = useRunStore();
   const { accountName, testCharacterName } = useSettingsStore();
 
   // Toggle timer (start/pause)
@@ -50,7 +50,6 @@ export function useHotkeys() {
                 enabledBreakpoints: JSON.stringify(enabledBreakpoints),
               },
             });
-            console.log('[useHotkeys] Run created in database with ID:', dbRunId, 'preset:', presetName);
             setRunId(dbRunId);
           } catch (error) {
             console.error('[useHotkeys] Failed to create run in database:', error);
@@ -60,12 +59,77 @@ export function useHotkeys() {
     }
   }, [timer.isRunning, timer.elapsedMs, startTimer, stopTimer, setRunId, accountName, testCharacterName]);
 
+  // Reset timer
+  const resetTimer = useCallback(() => {
+    resetRun();
+    // Disable fast polling on reset
+    invoke('set_log_poll_fast', { enabled: false }).catch(() => {});
+  }, [resetRun]);
+
+  // Manual snapshot capture - works whether timer is running or paused
+  const captureManualSnapshot = useCallback(async () => {
+    const { currentRun, timer: t } = useRunStore.getState();
+    if (!currentRun?.id) {
+      return;
+    }
+
+    const { accountName: acct, testCharacterName: testChar } = useSettingsStore.getState();
+    const detectedChar = currentRun.characterName || currentRun.character;
+    const charName = (detectedChar && detectedChar !== 'Unknown') ? detectedChar : testChar;
+    if (!acct || !charName || charName === 'Unknown') {
+      return;
+    }
+
+    const elapsedMs = t.isRunning && t.startTime
+      ? Date.now() - t.startTime
+      : t.elapsedMs;
+
+    const splitName = t.currentZone || 'Manual Snapshot';
+    const segmentTimeMs = t.splits.length > 0
+      ? elapsedMs - t.splits[t.splits.length - 1].splitTimeMs
+      : elapsedMs;
+
+    try {
+      await invoke('add_split', {
+        request: {
+          split: {
+            runId: currentRun.id,
+            breakpointType: 'custom',
+            breakpointName: splitName,
+            splitTimeMs: elapsedMs,
+            deltaMs: null,
+            segmentTimeMs,
+            townTimeMs: t.townTimeMs,
+            hideoutTimeMs: t.hideoutTimeMs,
+          },
+          capture_snapshot: true,
+          account_name: acct,
+          character_name: charName,
+        },
+      });
+    } catch (error) {
+      console.error('[useHotkeys] Failed to capture manual snapshot:', error);
+    }
+  }, []);
+
   // Define hotkeys
   const hotkeys: HotkeyConfig[] = [
     {
       key: ' ', // Space
       ctrl: true,
       action: toggleTimer,
+    },
+    {
+      key: ' ', // Space
+      ctrl: true,
+      shift: true,
+      action: resetTimer,
+    },
+    {
+      key: ' ', // Space
+      ctrl: true,
+      alt: true,
+      action: captureManualSnapshot,
     },
   ];
 
@@ -100,8 +164,7 @@ export function useHotkeys() {
   // Toggle overlay
   const toggleOverlay = useCallback(async () => {
     try {
-      const isOpen = await invoke<boolean>('toggle_overlay');
-      console.log('[useHotkeys] Overlay toggled:', isOpen ? 'opened' : 'closed');
+      await invoke<boolean>('toggle_overlay');
     } catch (error) {
       console.error('[useHotkeys] Failed to toggle overlay:', error);
     }
@@ -110,9 +173,12 @@ export function useHotkeys() {
   // Listen for global shortcut events from the backend (works when window is not focused)
   useEffect(() => {
     const unlistenGlobal = listen<string>('global-shortcut', (event) => {
-      console.log('[useHotkeys] Global shortcut received:', event.payload);
       if (event.payload === 'toggle-timer') {
         toggleTimer();
+      } else if (event.payload === 'reset-timer') {
+        resetTimer();
+      } else if (event.payload === 'manual-snapshot') {
+        captureManualSnapshot();
       } else if (event.payload === 'toggle-overlay') {
         toggleOverlay();
       }
@@ -121,5 +187,5 @@ export function useHotkeys() {
     return () => {
       unlistenGlobal.then((fn) => fn());
     };
-  }, [toggleTimer, toggleOverlay]);
+  }, [toggleTimer, resetTimer, captureManualSnapshot, toggleOverlay]);
 }

@@ -91,6 +91,8 @@ export const defaultBreakpoints: Breakpoint[] = [
   { name: 'The Reliquary', type: 'zone', trigger: { type: 'zone', zoneName: 'The Reliquary', act: 5 }, isEnabled: false, captureSnapshot: false },
   { name: 'The Ossuary', type: 'zone', trigger: { type: 'zone', zoneName: 'The Ossuary', act: 5 }, isEnabled: false, captureSnapshot: false },
   { name: 'The Cathedral Rooftop', type: 'boss', trigger: { type: 'zone', zoneName: 'The Cathedral Rooftop', act: 5 }, isEnabled: true, captureSnapshot: false },
+  // Kitava kill - resistance penalty message marks the actual kill
+  { name: 'Kitava (Act 5)', type: 'boss', trigger: { type: 'kitava', penalty: 30, act: 5 }, isEnabled: true, captureSnapshot: true },
 
   // ===== ACT 6 =====
   { name: 'Twilight Strand (A6)', type: 'zone', trigger: { type: 'zone', zoneName: 'The Twilight Strand', act: 6 }, isEnabled: true, captureSnapshot: true },
@@ -179,6 +181,8 @@ export const defaultBreakpoints: Breakpoint[] = [
   { name: 'The Canals', type: 'zone', trigger: { type: 'zone', zoneName: 'The Canals', act: 10 }, isEnabled: false, captureSnapshot: false },
   // Final boss - end of campaign, final snapshot
   { name: 'The Feeding Trough', type: 'boss', trigger: { type: 'zone', zoneName: 'The Feeding Trough', act: 10 }, isEnabled: true, captureSnapshot: true },
+  // Kitava kill - resistance penalty message marks the actual kill and end of campaign
+  { name: 'Kitava (Act 10)', type: 'boss', trigger: { type: 'kitava', penalty: 60, act: 10 }, isEnabled: true, captureSnapshot: true },
 
   // ===== LEVEL MILESTONES =====
   { name: 'Level 10', type: 'level', trigger: { type: 'level', level: 10 }, isEnabled: false, captureSnapshot: false },
@@ -256,6 +260,7 @@ export const speedrunEnabledBreakpoints = [
   'The Slave Pens',
   'Overseer Tower',
   'The Cathedral Rooftop',
+  'Kitava (Act 5)',
   // Act 6
   'Twilight Strand (A6)',
   'Lioneyes Watch (A6)',
@@ -276,6 +281,7 @@ export const speedrunEnabledBreakpoints = [
   'The Cathedral Rooftop (A10)',
   'Oriath Docks',
   'The Feeding Trough',
+  'Kitava (Act 10)',
 ] as const;
 
 // Act 1 speedrun order (Tidal Island after Mud Flats and Submerged Passage)

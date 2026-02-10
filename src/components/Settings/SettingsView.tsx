@@ -3,6 +3,7 @@ import { invoke } from '@tauri-apps/api/core';
 import { open } from '@tauri-apps/plugin-dialog';
 import { useSettingsStore } from '../../stores/settingsStore';
 import { useUpdateChecker } from '../../hooks/useUpdateChecker';
+import { BreakpointWizard, RouteCustomizations } from './BreakpointWizard';
 
 const BREAKPOINTS_STORAGE_KEY = 'poe-watcher-breakpoints';
 
@@ -126,7 +127,6 @@ export function SettingsView() {
           return true;
         });
         localStorage.setItem(BREAKPOINTS_STORAGE_KEY, JSON.stringify(deduplicated));
-        console.log('Saved breakpoints to localStorage:', deduplicated.length);
       } catch (e) {
         console.error('Failed to save breakpoints to localStorage:', e);
       }
@@ -139,7 +139,6 @@ export function SettingsView() {
           // Ignore if not running
         }
         await invoke('start_log_watcher', { logPath: poeLogPath });
-        console.log('Log watcher restarted for:', poeLogPath);
       }
 
       setSaveStatus('saved');
@@ -208,22 +207,24 @@ export function SettingsView() {
               </p>
             </div>
 
-            {/* Test character name */}
-            <div>
-              <label className="block text-sm text-[--color-text-muted] mb-2">
-                Test Character Name
-              </label>
-              <input
-                type="text"
-                value={testCharacterName}
-                onChange={(e) => setTestCharacterName(e.target.value)}
-                placeholder="beerdz_layoutguy"
-                className="w-full p-3 bg-[--color-surface-elevated] border border-[--color-border] rounded-lg text-[--color-text] placeholder-[--color-text-muted]"
-              />
-              <p className="text-xs text-[--color-text-muted] mt-2">
-                Fallback character name for snapshots when not detected from game events.
-              </p>
-            </div>
+            {/* Test character name - dev only */}
+            {import.meta.env.DEV && (
+              <div>
+                <label className="block text-sm text-[--color-text-muted] mb-2">
+                  Test Character Name
+                </label>
+                <input
+                  type="text"
+                  value={testCharacterName}
+                  onChange={(e) => setTestCharacterName(e.target.value)}
+                  placeholder="beerdz_layoutguy"
+                  className="w-full p-3 bg-[--color-surface-elevated] border border-[--color-border] rounded-lg text-[--color-text] placeholder-[--color-text-muted]"
+                />
+                <p className="text-xs text-[--color-text-muted] mt-2">
+                  Fallback character name for snapshots when not detected from game events.
+                </p>
+              </div>
+            )}
           </div>
         </section>
 
@@ -371,212 +372,253 @@ export function SettingsView() {
           </div>
         </section>
 
-        {/* Breakpoints */}
+        {/* Breakpoints — Wizard */}
         <section className="mb-8">
           <h2 className="text-lg font-semibold text-[--color-text] mb-4">Breakpoints</h2>
-          <div className="bg-[--color-surface] rounded-lg overflow-hidden">
-            {/* Filter and bulk actions */}
-            <div className="p-4 border-b border-[--color-border] space-y-3">
-              <p className="text-sm text-[--color-text-muted]">
-                Toggle which breakpoints trigger automatic splits. Breakpoints are matched sequentially - only the next expected split will trigger.
+          <p className="text-sm text-[--color-text-muted] mb-4">
+            Configure which zone transitions trigger automatic splits. Use the wizard to generate a breakpoint set based on your run type and routing preferences.
+          </p>
+          <BreakpointWizard />
+        </section>
+
+        {/* Route Customizations */}
+        <section className="mb-8">
+          <details className="group">
+            <summary className="cursor-pointer text-lg font-semibold text-[--color-text] mb-4 select-none flex items-center gap-2 hover:text-[--color-poe-gold] transition-colors">
+              <svg
+                className="w-4 h-4 text-[--color-text-muted] transition-transform group-open:rotate-90"
+                fill="none" stroke="currentColor" viewBox="0 0 24 24"
+              >
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+              </svg>
+              Route Customizations
+              <span className="text-xs font-normal text-[--color-text-muted]">(Optional)</span>
+            </summary>
+            <div className="bg-[--color-surface] rounded-lg p-4">
+              <p className="text-sm text-[--color-text-muted] mb-4">
+                Adjust zone ordering to match your preferred routing. Changes apply immediately to the wizard breakpoints.
               </p>
+              <RouteCustomizations />
+            </div>
+          </details>
+        </section>
 
-              {/* Preset row */}
-              <div className="flex flex-wrap items-center gap-2">
-                <span className="text-sm text-[--color-text-muted]">Presets:</span>
-                <button
-                  onClick={applySpeedrunPreset}
-                  className="px-4 py-2 text-sm bg-[--color-poe-gold] text-[--color-poe-darker] rounded-md border border-[--color-poe-gold-light] shadow-sm hover:bg-[--color-poe-gold-light] hover:shadow-md active:scale-95 active:shadow-none transition-all font-semibold"
-                >
-                  Speedrun (Default)
-                </button>
-                <button
-                  onClick={applyMinimalPreset}
-                  className="px-4 py-2 text-sm bg-[--color-surface] text-[--color-text] rounded-md border-2 border-[--color-poe-gold]/40 shadow-sm hover:border-[--color-poe-gold]/70 hover:shadow-md active:scale-95 active:shadow-none transition-all font-medium"
-                >
-                  Minimal
-                </button>
-                <button
-                  onClick={applyTownsOnlyPreset}
-                  className="px-4 py-2 text-sm bg-[--color-surface] text-[--color-text] rounded-md border-2 border-[--color-poe-gold]/40 shadow-sm hover:border-[--color-poe-gold]/70 hover:shadow-md active:scale-95 active:shadow-none transition-all font-medium"
-                >
-                  Towns Only
-                </button>
-                <button
-                  onClick={resetBreakpoints}
-                  className="px-4 py-2 text-sm bg-[--color-surface] text-[--color-text] rounded-md border-2 border-[--color-poe-gold]/40 shadow-sm hover:border-[--color-poe-gold]/70 hover:shadow-md active:scale-95 active:shadow-none transition-all font-medium"
-                >
-                  Reset
-                </button>
-              </div>
+        {/* Advanced: Manual Overrides */}
+        <section className="mb-8">
+          <details className="group">
+            <summary className="cursor-pointer text-lg font-semibold text-[--color-text] mb-4 select-none flex items-center gap-2 hover:text-[--color-poe-gold] transition-colors">
+              <svg
+                className="w-4 h-4 text-[--color-text-muted] transition-transform group-open:rotate-90"
+                fill="none" stroke="currentColor" viewBox="0 0 24 24"
+              >
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+              </svg>
+              Advanced: Manual Overrides
+            </summary>
+            <div className="bg-[--color-surface] rounded-lg overflow-hidden">
+              {/* Filter and bulk actions */}
+              <div className="p-4 border-b border-[--color-border] space-y-3">
+                <p className="text-sm text-[--color-text-muted]">
+                  Fine-tune individual breakpoints. Changes here override the wizard output.
+                </p>
 
-              {/* Filter row */}
-              <div className="flex flex-wrap items-center gap-2">
-                <span className="text-sm text-[--color-text-muted]">Filter:</span>
-                <button
-                  onClick={() => setActFilter('all')}
-                  className={`px-3 py-1.5 text-sm rounded-md border-2 transition-all active:scale-95 font-medium ${
-                    actFilter === 'all'
-                      ? 'bg-[--color-poe-gold] text-[--color-poe-darker] border-[--color-poe-gold-light] shadow-sm'
-                      : 'bg-[--color-surface] text-[--color-text] border-[--color-poe-gold]/30 hover:border-[--color-poe-gold]/60'
-                  }`}
-                >
-                  All
-                </button>
-                {acts.map((act) => (
+                {/* Preset row */}
+                <div className="flex flex-wrap items-center gap-2">
+                  <span className="text-sm text-[--color-text-muted]">Presets:</span>
                   <button
-                    key={act}
-                    onClick={() => setActFilter(act)}
+                    onClick={applySpeedrunPreset}
+                    className="px-4 py-2 text-sm bg-[--color-poe-gold] text-[--color-poe-darker] rounded-md border border-[--color-poe-gold-light] shadow-sm hover:bg-[--color-poe-gold-light] hover:shadow-md active:scale-95 active:shadow-none transition-all font-semibold"
+                  >
+                    Speedrun (Default)
+                  </button>
+                  <button
+                    onClick={applyMinimalPreset}
+                    className="px-4 py-2 text-sm bg-[--color-surface] text-[--color-text] rounded-md border-2 border-[--color-poe-gold]/40 shadow-sm hover:border-[--color-poe-gold]/70 hover:shadow-md active:scale-95 active:shadow-none transition-all font-medium"
+                  >
+                    Minimal
+                  </button>
+                  <button
+                    onClick={applyTownsOnlyPreset}
+                    className="px-4 py-2 text-sm bg-[--color-surface] text-[--color-text] rounded-md border-2 border-[--color-poe-gold]/40 shadow-sm hover:border-[--color-poe-gold]/70 hover:shadow-md active:scale-95 active:shadow-none transition-all font-medium"
+                  >
+                    Towns Only
+                  </button>
+                  <button
+                    onClick={resetBreakpoints}
+                    className="px-4 py-2 text-sm bg-[--color-surface] text-[--color-text] rounded-md border-2 border-[--color-poe-gold]/40 shadow-sm hover:border-[--color-poe-gold]/70 hover:shadow-md active:scale-95 active:shadow-none transition-all font-medium"
+                  >
+                    Reset
+                  </button>
+                </div>
+
+                {/* Filter row */}
+                <div className="flex flex-wrap items-center gap-2">
+                  <span className="text-sm text-[--color-text-muted]">Filter:</span>
+                  <button
+                    onClick={() => setActFilter('all')}
                     className={`px-3 py-1.5 text-sm rounded-md border-2 transition-all active:scale-95 font-medium ${
-                      actFilter === act
+                      actFilter === 'all'
                         ? 'bg-[--color-poe-gold] text-[--color-poe-darker] border-[--color-poe-gold-light] shadow-sm'
                         : 'bg-[--color-surface] text-[--color-text] border-[--color-poe-gold]/30 hover:border-[--color-poe-gold]/60'
                     }`}
                   >
-                    Act {act}
+                    All
                   </button>
-                ))}
-                <button
-                  onClick={() => setActFilter('level')}
-                  className={`px-3 py-1.5 text-sm rounded-md border-2 transition-all active:scale-95 font-medium ${
-                    actFilter === 'level'
-                      ? 'bg-[--color-poe-gold] text-[--color-poe-darker] border-[--color-poe-gold-light] shadow-sm'
-                      : 'bg-[--color-surface] text-[--color-text] border-[--color-poe-gold]/30 hover:border-[--color-poe-gold]/60'
-                  }`}
-                >
-                  Levels
-                </button>
-              </div>
-
-              {/* Bulk action row */}
-              <div className="flex flex-wrap items-center gap-2">
-                <span className="text-sm text-[--color-text-muted]">Quick:</span>
-                <button
-                  onClick={() => setAllBreakpoints(true)}
-                  className="px-3 py-1.5 text-sm bg-[--color-timer-ahead] text-white rounded-md border border-green-400 shadow-sm hover:brightness-110 hover:shadow-md active:scale-95 active:shadow-none transition-all font-medium"
-                >
-                  Enable All
-                </button>
-                <button
-                  onClick={() => setAllBreakpoints(false)}
-                  className="px-3 py-1.5 text-sm bg-[--color-timer-behind] text-white rounded-md border border-red-400 shadow-sm hover:brightness-110 hover:shadow-md active:scale-95 active:shadow-none transition-all font-medium"
-                >
-                  Disable All
-                </button>
-                {actFilter !== 'all' && actFilter !== 'level' && (
-                  <>
-                    <span className="text-[--color-text-muted]">|</span>
+                  {acts.map((act) => (
                     <button
-                      onClick={() => setActBreakpoints(actFilter, true)}
-                      className="px-3 py-1.5 text-sm bg-[--color-surface] text-[--color-text] rounded-md border-2 border-[--color-poe-gold]/40 shadow-sm hover:border-[--color-poe-gold]/70 hover:shadow-md active:scale-95 active:shadow-none transition-all font-medium"
+                      key={act}
+                      onClick={() => setActFilter(act)}
+                      className={`px-3 py-1.5 text-sm rounded-md border-2 transition-all active:scale-95 font-medium ${
+                        actFilter === act
+                          ? 'bg-[--color-poe-gold] text-[--color-poe-darker] border-[--color-poe-gold-light] shadow-sm'
+                          : 'bg-[--color-surface] text-[--color-text] border-[--color-poe-gold]/30 hover:border-[--color-poe-gold]/60'
+                      }`}
                     >
-                      Enable Act {actFilter}
+                      Act {act}
                     </button>
-                    <button
-                      onClick={() => setActBreakpoints(actFilter, false)}
-                      className="px-3 py-1.5 text-sm bg-[--color-surface] text-[--color-text] rounded-md border-2 border-[--color-poe-gold]/40 shadow-sm hover:border-[--color-poe-gold]/70 hover:shadow-md active:scale-95 active:shadow-none transition-all font-medium"
-                    >
-                      Disable Act {actFilter}
-                    </button>
-                  </>
-                )}
-              </div>
-            </div>
-
-            {/* Breakpoint list */}
-            <div className="max-h-96 overflow-auto">
-              {filteredBreakpoints.length === 0 ? (
-                <div className="p-4 text-center text-[--color-text-muted]">
-                  No breakpoints match the current filter.
-                </div>
-              ) : (
-                filteredBreakpoints.map((bp, index) => (
-                  <div
-                    key={`${index}-${bp.name}`}
-                    className="flex items-center justify-between p-3 border-b border-[--color-border] last:border-0 hover:bg-[--color-surface-elevated]/50"
+                  ))}
+                  <button
+                    onClick={() => setActFilter('level')}
+                    className={`px-3 py-1.5 text-sm rounded-md border-2 transition-all active:scale-95 font-medium ${
+                      actFilter === 'level'
+                        ? 'bg-[--color-poe-gold] text-[--color-poe-darker] border-[--color-poe-gold-light] shadow-sm'
+                        : 'bg-[--color-surface] text-[--color-text] border-[--color-poe-gold]/30 hover:border-[--color-poe-gold]/60'
+                    }`}
                   >
-                    <div className="flex items-center gap-3 flex-1 min-w-0">
-                      <span className="text-sm flex-shrink-0">{getTypeIcon(bp.type)}</span>
-                      <span className={`truncate ${bp.isEnabled ? 'text-[--color-text]' : 'text-[--color-text-muted]'}`}>{bp.name}</span>
-                      <span className="text-xs text-[--color-text-muted] bg-[--color-surface-elevated] px-2 py-0.5 rounded flex-shrink-0">
-                        {bp.type}
-                      </span>
-                      {bp.trigger.act && (
-                        <span className="text-xs text-[--color-text-muted] flex-shrink-0">
-                          A{bp.trigger.act}
+                    Levels
+                  </button>
+                </div>
+
+                {/* Bulk action row */}
+                <div className="flex flex-wrap items-center gap-2">
+                  <span className="text-sm text-[--color-text-muted]">Quick:</span>
+                  <button
+                    onClick={() => setAllBreakpoints(true)}
+                    className="px-3 py-1.5 text-sm bg-[--color-timer-ahead] text-white rounded-md border border-green-400 shadow-sm hover:brightness-110 hover:shadow-md active:scale-95 active:shadow-none transition-all font-medium"
+                  >
+                    Enable All
+                  </button>
+                  <button
+                    onClick={() => setAllBreakpoints(false)}
+                    className="px-3 py-1.5 text-sm bg-[--color-timer-behind] text-white rounded-md border border-red-400 shadow-sm hover:brightness-110 hover:shadow-md active:scale-95 active:shadow-none transition-all font-medium"
+                  >
+                    Disable All
+                  </button>
+                  {actFilter !== 'all' && actFilter !== 'level' && (
+                    <>
+                      <span className="text-[--color-text-muted]">|</span>
+                      <button
+                        onClick={() => setActBreakpoints(actFilter, true)}
+                        className="px-3 py-1.5 text-sm bg-[--color-surface] text-[--color-text] rounded-md border-2 border-[--color-poe-gold]/40 shadow-sm hover:border-[--color-poe-gold]/70 hover:shadow-md active:scale-95 active:shadow-none transition-all font-medium"
+                      >
+                        Enable Act {actFilter}
+                      </button>
+                      <button
+                        onClick={() => setActBreakpoints(actFilter, false)}
+                        className="px-3 py-1.5 text-sm bg-[--color-surface] text-[--color-text] rounded-md border-2 border-[--color-poe-gold]/40 shadow-sm hover:border-[--color-poe-gold]/70 hover:shadow-md active:scale-95 active:shadow-none transition-all font-medium"
+                      >
+                        Disable Act {actFilter}
+                      </button>
+                    </>
+                  )}
+                </div>
+              </div>
+
+              {/* Breakpoint list */}
+              <div className="max-h-96 overflow-auto">
+                {filteredBreakpoints.length === 0 ? (
+                  <div className="p-4 text-center text-[--color-text-muted]">
+                    No breakpoints match the current filter.
+                  </div>
+                ) : (
+                  filteredBreakpoints.map((bp, index) => (
+                    <div
+                      key={`${index}-${bp.name}`}
+                      className="flex items-center justify-between p-3 border-b border-[--color-border] last:border-0 hover:bg-[--color-surface-elevated]/50"
+                    >
+                      <div className="flex items-center gap-3 flex-1 min-w-0">
+                        <span className="text-sm flex-shrink-0">{getTypeIcon(bp.type)}</span>
+                        <span className={`truncate ${bp.isEnabled ? 'text-[--color-text]' : 'text-[--color-text-muted]'}`}>{bp.name}</span>
+                        <span className="text-xs text-[--color-text-muted] bg-[--color-surface-elevated] px-2 py-0.5 rounded flex-shrink-0">
+                          {bp.type}
                         </span>
-                      )}
-                    </div>
-                    <div className="flex items-center gap-3 flex-shrink-0">
-                      {/* Move buttons */}
-                      <div className="flex gap-1">
+                        {bp.trigger.act && (
+                          <span className="text-xs text-[--color-text-muted] flex-shrink-0">
+                            A{bp.trigger.act}
+                          </span>
+                        )}
+                      </div>
+                      <div className="flex items-center gap-3 flex-shrink-0">
+                        {/* Move buttons */}
+                        <div className="flex gap-1">
+                          <button
+                            onClick={() => moveBreakpoint(bp.name, 'up')}
+                            disabled={index === 0}
+                            className="p-1 text-[--color-text-muted] hover:text-[--color-text] disabled:opacity-30 disabled:cursor-not-allowed active:scale-90 transition-all"
+                            title="Move up"
+                          >
+                            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 15l7-7 7 7" />
+                            </svg>
+                          </button>
+                          <button
+                            onClick={() => moveBreakpoint(bp.name, 'down')}
+                            disabled={index === filteredBreakpoints.length - 1}
+                            className="p-1 text-[--color-text-muted] hover:text-[--color-text] disabled:opacity-30 disabled:cursor-not-allowed active:scale-90 transition-all"
+                            title="Move down"
+                          >
+                            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                            </svg>
+                          </button>
+                        </div>
+                        {/* Snapshot toggle */}
                         <button
-                          onClick={() => moveBreakpoint(bp.name, 'up')}
-                          disabled={index === 0}
-                          className="p-1 text-[--color-text-muted] hover:text-[--color-text] disabled:opacity-30 disabled:cursor-not-allowed active:scale-90 transition-all"
-                          title="Move up"
+                          onClick={() => toggleSnapshotCapture(bp.name)}
+                          disabled={!bp.isEnabled}
+                          className={`p-1.5 rounded transition-all active:scale-90 ${
+                            bp.captureSnapshot && bp.isEnabled
+                              ? 'text-amber-400 bg-amber-400/20 border border-amber-400/50'
+                              : bp.isEnabled
+                              ? 'text-zinc-500 hover:text-zinc-300 border border-transparent hover:border-zinc-600'
+                              : 'text-zinc-600 border border-transparent opacity-30 cursor-not-allowed'
+                          }`}
+                          title={bp.captureSnapshot ? 'Snapshot enabled - click to disable' : 'Click to enable snapshot capture'}
                         >
-                          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 15l7-7 7 7" />
+                          <svg className="w-4 h-4" fill={bp.captureSnapshot && bp.isEnabled ? 'currentColor' : 'none'} stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z" />
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 13a3 3 0 11-6 0 3 3 0 016 0z" />
                           </svg>
                         </button>
+                        {/* Split toggle */}
                         <button
-                          onClick={() => moveBreakpoint(bp.name, 'down')}
-                          disabled={index === filteredBreakpoints.length - 1}
-                          className="p-1 text-[--color-text-muted] hover:text-[--color-text] disabled:opacity-30 disabled:cursor-not-allowed active:scale-90 transition-all"
-                          title="Move down"
+                          onClick={() => toggleBreakpoint(bp.name)}
+                          className={`w-10 h-5 rounded-full transition-all duration-150 active:scale-95 border ${
+                            bp.isEnabled
+                              ? 'bg-green-600 border-green-500'
+                              : 'bg-zinc-700 border-zinc-600'
+                          }`}
+                          title={bp.isEnabled ? 'Split enabled' : 'Enable split'}
                         >
-                          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-                          </svg>
+                          <div
+                            className={`w-4 h-4 rounded-full bg-white shadow transition-transform duration-150 ${
+                              bp.isEnabled ? 'translate-x-5' : 'translate-x-0.5'
+                            }`}
+                          />
                         </button>
                       </div>
-                      {/* Snapshot toggle */}
-                      <button
-                        onClick={() => toggleSnapshotCapture(bp.name)}
-                        disabled={!bp.isEnabled}
-                        className={`p-1.5 rounded transition-all active:scale-90 ${
-                          bp.captureSnapshot && bp.isEnabled
-                            ? 'text-amber-400 bg-amber-400/20 border border-amber-400/50'
-                            : bp.isEnabled
-                            ? 'text-zinc-500 hover:text-zinc-300 border border-transparent hover:border-zinc-600'
-                            : 'text-zinc-600 border border-transparent opacity-30 cursor-not-allowed'
-                        }`}
-                        title={bp.captureSnapshot ? 'Snapshot enabled - click to disable' : 'Click to enable snapshot capture'}
-                      >
-                        <svg className="w-4 h-4" fill={bp.captureSnapshot && bp.isEnabled ? 'currentColor' : 'none'} stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z" />
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 13a3 3 0 11-6 0 3 3 0 016 0z" />
-                        </svg>
-                      </button>
-                      {/* Split toggle */}
-                      <button
-                        onClick={() => toggleBreakpoint(bp.name)}
-                        className={`w-10 h-5 rounded-full transition-all duration-150 active:scale-95 border ${
-                          bp.isEnabled
-                            ? 'bg-green-600 border-green-500'
-                            : 'bg-zinc-700 border-zinc-600'
-                        }`}
-                        title={bp.isEnabled ? 'Split enabled' : 'Enable split'}
-                      >
-                        <div
-                          className={`w-4 h-4 rounded-full bg-white shadow transition-transform duration-150 ${
-                            bp.isEnabled ? 'translate-x-5' : 'translate-x-0.5'
-                          }`}
-                        />
-                      </button>
                     </div>
-                  </div>
-                ))
-              )}
-            </div>
+                  ))
+                )}
+              </div>
 
-            {/* Count info */}
-            <div className="p-3 border-t border-[--color-border] text-xs text-[--color-text-muted]">
-              {filteredBreakpoints.filter((bp) => bp.isEnabled).length} of {filteredBreakpoints.length} enabled
-              {actFilter !== 'all' && ` (filtered from ${breakpoints.length} total)`}
+              {/* Count info */}
+              <div className="p-3 border-t border-[--color-border] text-xs text-[--color-text-muted]">
+                {filteredBreakpoints.filter((bp) => bp.isEnabled).length} of {filteredBreakpoints.length} enabled
+                {actFilter !== 'all' && ` (filtered from ${breakpoints.length} total)`}
+              </div>
             </div>
-          </div>
+          </details>
         </section>
 
         {/* Save button */}

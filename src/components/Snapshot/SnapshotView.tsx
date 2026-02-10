@@ -10,12 +10,6 @@ import { PassiveTree } from './PassiveTree';
 import { exportToPob, shareOnPobbIn, exportAllToPob, shareAllOnPobbIn } from '../../utils/pobExport';
 import type { Run, Split, Snapshot } from '../../types';
 
-interface SimulateResponse {
-  run_id: number;
-  split_id: number;
-  snapshot_id: number;
-}
-
 type TabType = 'equipment' | 'passives';
 
 export function SnapshotView() {
@@ -76,9 +70,6 @@ export function SnapshotView() {
 
   const selectedSnapshot = snapshots.find((s) => s.id === selectedSnapshotId);
 
-  const [simStatus, setSimStatus] = useState<'idle' | 'loading' | 'success' | 'error'>('idle');
-  const [simError, setSimError] = useState<string | null>(null);
-
   const handleDeleteRun = useCallback(async (runId: number) => {
     try {
       await invoke('delete_run', { runId });
@@ -113,42 +104,6 @@ export function SnapshotView() {
     }
   }, [runs, currentRun]);
 
-  const handleSimulate = useCallback(async () => {
-    const charName = prompt('Enter character name to simulate:', 'beerdz_');
-    if (!charName) return;
-
-    const acctName = accountName || prompt('Enter account name:', '');
-    if (!acctName) return;
-
-    setSimStatus('loading');
-    setSimError(null);
-
-    try {
-      const result = await invoke<SimulateResponse>('simulate_snapshot', {
-        request: {
-          account_name: acctName,
-          character_name: charName,
-        },
-      });
-      console.log('[Simulate] Created:', result);
-      setSimStatus('success');
-
-      // Reload runs to show the new test run
-      const updatedRuns = await invoke<Run[]>('get_runs');
-      useRunStore.getState().setRuns(updatedRuns);
-
-      // Select the new run
-      setSelectedRunId(result.run_id);
-
-      setTimeout(() => setSimStatus('idle'), 2000);
-    } catch (error) {
-      console.error('[Simulate] Failed:', error);
-      setSimError(String(error));
-      setSimStatus('error');
-      setTimeout(() => setSimStatus('idle'), 5000);
-    }
-  }, [accountName]);
-
   return (
     <div className="h-full flex flex-col p-6">
       <div className="mb-6 flex items-start justify-between">
@@ -158,21 +113,7 @@ export function SnapshotView() {
             Browse character snapshots from your runs
           </p>
         </div>
-        <button
-          onClick={handleSimulate}
-          disabled={simStatus === 'loading'}
-          className="px-3 py-1.5 text-sm bg-[--color-surface-elevated] text-[--color-text-muted] rounded hover:bg-[--color-border] transition-colors disabled:opacity-50"
-          title="Create a test snapshot from an existing POE character"
-        >
-          {simStatus === 'loading' ? 'Loading...' : simStatus === 'success' ? 'Created!' : '🧪 Simulate'}
-        </button>
       </div>
-      {simError && (
-        <div className="mb-4 p-3 bg-red-900/30 border border-red-500/50 rounded text-red-300 text-sm">
-          {simError}
-        </div>
-      )}
-
       <div className="flex-1 flex gap-6 min-h-0">
         {/* Run list */}
         <div className="w-80 bg-[--color-surface] rounded-lg overflow-hidden flex flex-col flex-shrink-0">

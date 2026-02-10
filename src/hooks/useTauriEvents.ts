@@ -14,6 +14,7 @@ interface LogEventPayload {
   character_name?: string;
   character_class?: string;
   level?: number;
+  penalty?: number;
 }
 
 interface SettingsPayload {
@@ -41,22 +42,37 @@ export function useTauriEvents() {
   const { loadSettings } = useSettingsStore();
   const { addPendingCapture, addFailedCapture, addSnapshot } = useSnapshotStore();
 
+  // Check if the next uncompleted breakpoint is a kitava trigger and toggle fast polling
+  const updatePollingSpeed = useCallback((completedSplitNames: Set<string>) => {
+    const { breakpoints } = useSettingsStore.getState();
+
+    // Find the next enabled, uncompleted breakpoint
+    for (const bp of breakpoints) {
+      if (!bp.isEnabled) continue;
+      if (completedSplitNames.has(bp.name)) continue;
+
+      // This is the next uncompleted breakpoint
+      const needsFast = bp.trigger.type === 'kitava';
+      invoke('set_log_poll_fast', { enabled: needsFast }).catch(() => {});
+      if (import.meta.env.DEV && needsFast) {
+        console.log('[useTauriEvents] Fast polling enabled - waiting for Kitava split:', bp.name);
+      }
+      return;
+    }
+  }, []);
+
   // Handle triggering a split when a breakpoint matches
   const triggerSplit = useCallback(async (breakpointName: string, breakpointType: string) => {
     const { timer, currentRun } = useRunStore.getState();
     const { accountName } = useSettingsStore.getState();
-    console.log('[useTauriEvents] triggerSplit called:', breakpointName, 'timer.isRunning:', timer.isRunning, 'currentRun:', !!currentRun);
-
     // Only trigger splits if timer is running
     if (!timer.isRunning) {
-      console.log('[useTauriEvents] Split skipped - timer not running');
       return;
     }
 
     // Check if this split was already recorded
     const alreadyRecorded = timer.splits.some(s => s.name === breakpointName);
     if (alreadyRecorded) {
-      console.log('[useTauriEvents] Split skipped - already recorded:', breakpointName);
       return;
     }
 
@@ -89,9 +105,9 @@ export function useTauriEvents() {
     const townTimeMs = timer.townTimeMs;
     const hideoutTimeMs = timer.hideoutTimeMs;
 
-    console.log('[useTauriEvents] Triggering split:', breakpointName, 'at', splitTimeMs, 'ms',
-      'captureSnapshot:', shouldCaptureSnapshot, 'account:', accountName, 'character:', characterName,
-      'townTime:', townTimeMs, 'hideoutTime:', hideoutTimeMs);
+    if (import.meta.env.DEV) {
+      console.log('[useTauriEvents] Triggering split:', breakpointName, 'at', splitTimeMs, 'ms');
+    }
 
     // Add split to local state
     addSplit({
@@ -103,6 +119,11 @@ export function useTauriEvents() {
       townTimeMs,
       hideoutTimeMs,
     });
+
+    // Check if next breakpoint needs fast polling
+    const completedSplitNames = new Set(timer.splits.map(s => s.name));
+    completedSplitNames.add(breakpointName);
+    updatePollingSpeed(completedSplitNames);
 
     // Send to backend with snapshot capture request
     if (currentRun?.id) {
@@ -127,15 +148,36 @@ export function useTauriEvents() {
       } catch (error) {
         console.error('[useTauriEvents] Failed to add split to backend:', error);
       }
+
+      // Auto-end the run if this was the last enabled breakpoint
+      const hasRemaining = breakpoints.some(bp =>
+        bp.isEnabled && !completedSplitNames.has(bp.name)
+      );
+      if (!hasRemaining) {
+        // Disable fast polling
+        invoke('set_log_poll_fast', { enabled: false }).catch(() => {});
+
+        // Complete run in database with the accurate split time
+        try {
+          await invoke('complete_run', {
+            runId: currentRun.id,
+            totalTimeMs: splitTimeMs,
+          });
+        } catch (error) {
+          console.error('[useTauriEvents] Failed to auto-complete run:', error);
+        }
+
+        // Update local state: sync elapsed time then end the run
+        useRunStore.getState().updateElapsed(splitTimeMs);
+        useRunStore.getState().endRun();
+      }
     }
-  }, [addSplit]);
+  }, [addSplit, updatePollingSpeed]);
 
   // Check if a zone matches the NEXT expected breakpoint (sequential matching)
   const checkZoneBreakpoint = useCallback((zoneName: string) => {
     const { breakpoints } = useSettingsStore.getState();
     const { timer } = useRunStore.getState();
-    console.log('[useTauriEvents] Checking zone breakpoint for:', zoneName);
-
     // Get list of already completed split names
     const completedSplits = new Set(timer.splits.map(s => s.name));
 
@@ -147,17 +189,14 @@ export function useTauriEvents() {
 
       // This is the next expected breakpoint - check if it matches
       if (bp.trigger.zoneName?.toLowerCase() === zoneName.toLowerCase()) {
-        console.log('[useTauriEvents] Breakpoint matched (next in sequence):', bp.name);
         triggerSplit(bp.name, bp.type);
         return;
       } else {
         // The next expected breakpoint doesn't match this zone, so don't trigger anything
         // This prevents skipping ahead (e.g., triggering Act 6 when still in Act 1)
-        console.log('[useTauriEvents] Zone does not match next expected breakpoint:', bp.name, '(expected zone:', bp.trigger.zoneName, ')');
         return;
       }
     }
-    console.log('[useTauriEvents] No more breakpoints to match');
   }, [triggerSplit]);
 
   // Check if a level matches any enabled breakpoint
@@ -175,21 +214,37 @@ export function useTauriEvents() {
     }
   }, [triggerSplit]);
 
+  // Check if a Kitava affliction matches the next expected kitava breakpoint (sequential matching)
+  const checkKitavaBreakpoint = useCallback((penalty: number) => {
+    const { breakpoints } = useSettingsStore.getState();
+    const { timer } = useRunStore.getState();
+    const completedSplits = new Set(timer.splits.map(s => s.name));
+
+    for (const bp of breakpoints) {
+      if (!bp.isEnabled) continue;
+      if (bp.trigger.type !== 'kitava') continue;
+      if (completedSplits.has(bp.name)) continue;
+
+      if (bp.trigger.penalty === penalty) {
+        triggerSplit(bp.name, bp.type);
+        return;
+      } else {
+        return;
+      }
+    }
+  }, [triggerSplit]);
+
   // Handle log events
   const handleLogEvent = useCallback((payload: LogEventPayload) => {
     const { event_type } = payload;
-    console.log('[useTauriEvents] Received event:', event_type, payload);
 
     switch (event_type) {
       case 'zone_enter':
         if (payload.zone_name) {
-          console.log('[useTauriEvents] Zone entered:', payload.zone_name);
-
           // Track zone for town/hideout time calculation
           const { enterZone } = useRunStore.getState();
           const isTown = isTownZone(payload.zone_name);
           const isHideout = isHideoutZone(payload.zone_name);
-          console.log('[useTauriEvents] Zone is town:', isTown, 'hideout:', isHideout);
           enterZone(payload.zone_name, isTown, isHideout);
 
           checkZoneBreakpoint(payload.zone_name);
@@ -198,8 +253,6 @@ export function useTauriEvents() {
 
       case 'level_up':
         if (payload.level) {
-          console.log('[useTauriEvents] Level up:', payload.character_name, 'to level', payload.level);
-
           // Auto-detect character name from level-up event
           if (payload.character_name) {
             const { currentRun } = useRunStore.getState();
@@ -210,7 +263,6 @@ export function useTauriEvents() {
             if (currentRun && shouldUpdate) {
               const newCharName = payload.character_name;
               const newClass = payload.character_class || currentRun.class;
-              console.log('[useTauriEvents] Auto-detected character name:', newCharName, '(was:', currentChar, ')');
 
               // Update local state
               useRunStore.setState({
@@ -239,26 +291,27 @@ export function useTauriEvents() {
         }
         break;
 
+      case 'kitava_affliction':
+        if (payload.penalty) {
+          checkKitavaBreakpoint(payload.penalty);
+        }
+        break;
+
       case 'death':
-        console.log('[useTauriEvents] Death:', payload.character_name);
         // Could track deaths in run stats
         break;
 
       case 'login':
-        console.log('[useTauriEvents] Login detected');
         break;
 
       default:
-        console.log('[useTauriEvents] Unknown event:', event_type, payload);
+        break;
     }
-  }, [checkZoneBreakpoint, checkLevelBreakpoint]);
+  }, [checkZoneBreakpoint, checkLevelBreakpoint, checkKitavaBreakpoint]);
 
   useEffect(() => {
-    console.log('[useTauriEvents] Setting up event listeners...');
-
     // Listen for log events from the Rust backend
     const unlistenLogEvent = listen<LogEventPayload>('log-event', (event) => {
-      console.log('[useTauriEvents] RAW EVENT RECEIVED:', event);
       handleLogEvent(event.payload);
     });
 
@@ -274,12 +327,10 @@ export function useTauriEvents() {
 
     // Listen for snapshot events
     const unlistenSnapshotCapturing = listen<SnapshotCapturingPayload>('snapshot-capturing', (event) => {
-      console.log('[useTauriEvents] Snapshot capturing:', event.payload);
       addPendingCapture(event.payload.split_id);
     });
 
     const unlistenSnapshotComplete = listen<SnapshotCompletePayload>('snapshot-complete', async (event) => {
-      console.log('[useTauriEvents] Snapshot complete:', event.payload);
       // Fetch the full snapshot data
       try {
         const snapshot = await invoke<Snapshot | null>('get_snapshot', {

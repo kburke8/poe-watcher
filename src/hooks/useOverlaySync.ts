@@ -1,10 +1,11 @@
-import { useEffect, useRef } from 'react';
-import { emit } from '@tauri-apps/api/event';
+import { useEffect, useRef, useCallback } from 'react';
+import { invoke } from '@tauri-apps/api/core';
 import { useRunStore } from '../stores/runStore';
 import { useSettingsStore } from '../stores/settingsStore';
 import type { TimerState, Breakpoint } from '../types';
 
 interface OverlayState {
+  startTime: number | null;
   elapsedMs: number;
   isRunning: boolean;
   currentZone: string | null;
@@ -17,52 +18,81 @@ interface OverlayState {
   opacity: number;
 }
 
+function buildOverlayState(
+  timer: TimerState,
+  breakpoints: Breakpoint[],
+  overlayOpacity: number,
+): OverlayState {
+  const lastTimerSplit = timer.splits[timer.splits.length - 1] || null;
+  const enabledBreakpoints = breakpoints.filter((bp: Breakpoint) => bp.isEnabled);
+  const hitCount = timer.currentSplit;
+  const upcomingBreakpoints = enabledBreakpoints
+    .slice(hitCount)
+    .map((bp: Breakpoint) => bp.name);
+
+  return {
+    startTime: timer.startTime,
+    elapsedMs: timer.isRunning && timer.startTime
+      ? Date.now() - timer.startTime
+      : timer.elapsedMs,
+    isRunning: timer.isRunning,
+    currentZone: timer.currentZone,
+    lastSplit: lastTimerSplit
+      ? {
+          name: lastTimerSplit.name,
+          deltaMs: lastTimerSplit.deltaMs,
+          isBestSegment: lastTimerSplit.isBestSegment,
+        }
+      : null,
+    upcomingBreakpoints,
+    opacity: overlayOpacity,
+  };
+}
+
+function sendToOverlay(state: OverlayState) {
+  invoke('sync_overlay_state', { state }).catch(() => {
+    // Silently ignore - overlay might not be open
+  });
+}
+
 export function useOverlaySync() {
   const timer = useRunStore((state: { timer: TimerState }) => state.timer);
   const breakpoints = useSettingsStore((state: { breakpoints: Breakpoint[] }) => state.breakpoints);
   const overlayOpacity = useSettingsStore((state: { overlayOpacity: number }) => state.overlayOpacity);
-  const overlayEnabled = useSettingsStore((state: { overlayEnabled: boolean }) => state.overlayEnabled);
 
-  // Track previous state to avoid unnecessary updates
-  const prevStateRef = useRef<string>('');
+  // Track previous non-time state to detect meaningful changes
+  const prevNonTimeRef = useRef<string>('');
 
+  // Build and send current state
+  const syncNow = useCallback(() => {
+    const state = buildOverlayState(timer, breakpoints, overlayOpacity);
+    sendToOverlay(state);
+  }, [timer, breakpoints, overlayOpacity]);
+
+  // Emit immediately on meaningful state changes (zone, splits, start/stop, etc.)
   useEffect(() => {
-    // Only sync if overlay is enabled (or always sync to allow hotkey toggling)
-    // We sync regardless of overlayEnabled since the overlay can be toggled via hotkey
-
-    // Get the last split from timer
-    const lastTimerSplit = timer.splits[timer.splits.length - 1] || null;
-
-    // Get upcoming breakpoints (enabled ones that haven't been hit yet)
-    const enabledBreakpoints = breakpoints.filter((bp: Breakpoint) => bp.isEnabled);
-    const hitCount = timer.currentSplit;
-    const upcomingBreakpoints = enabledBreakpoints
-      .slice(hitCount)
-      .map((bp: Breakpoint) => bp.name);
-
-    const state: OverlayState = {
-      elapsedMs: timer.elapsedMs,
+    const nonTimeKey = JSON.stringify({
+      startTime: timer.startTime,
       isRunning: timer.isRunning,
       currentZone: timer.currentZone,
-      lastSplit: lastTimerSplit
-        ? {
-            name: lastTimerSplit.name,
-            deltaMs: lastTimerSplit.deltaMs,
-            isBestSegment: lastTimerSplit.isBestSegment,
-          }
-        : null,
-      upcomingBreakpoints,
+      currentSplit: timer.currentSplit,
+      splitCount: timer.splits.length,
+      lastSplitName: timer.splits[timer.splits.length - 1]?.name,
       opacity: overlayOpacity,
-    };
+    });
 
-    // Only emit if state has changed
-    const stateStr = JSON.stringify(state);
-    if (stateStr !== prevStateRef.current) {
-      prevStateRef.current = stateStr;
-      emit('overlay-state-update', state).catch((error) => {
-        // Silently ignore errors (overlay might not be open)
-        console.debug('[OverlaySync] Failed to emit state:', error);
-      });
+    if (nonTimeKey !== prevNonTimeRef.current) {
+      prevNonTimeRef.current = nonTimeKey;
+      syncNow();
     }
-  }, [timer, breakpoints, overlayOpacity, overlayEnabled]);
+  }, [timer, overlayOpacity, syncNow]);
+
+  // Periodic heartbeat so overlay stays in sync even if it opens late
+  useEffect(() => {
+    const interval = setInterval(() => {
+      syncNow();
+    }, 2000);
+
+    return () => clearInterval(interval);
+  }, [syncNow]);
 }

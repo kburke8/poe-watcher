@@ -191,7 +191,7 @@ function generatePobXml(data: BuildData): string {
     const itemText = formatItemForPob(item);
 
     // Log first item to debug format
-    if (index === 0) {
+    if (import.meta.env.DEV && index === 0) {
       console.log('[PoB Export] Sample item text:\n' + itemText);
       console.log('[PoB Export] Item properties:', item.properties);
     }
@@ -216,7 +216,6 @@ function generatePobXml(data: BuildData): string {
       slotName = `Flask ${flaskSlot}`;
     }
 
-    console.log(`[PoB Export] Item ${itemId}: ${item.typeLine} in slot ${item.inventoryId} (x=${item.x}) -> ${slotName || 'unmapped'}`);
     if (slotName) {
       slotItemMap[slotName] = itemId;
     }
@@ -225,20 +224,15 @@ function generatePobXml(data: BuildData): string {
   // Generate ItemSet with all possible slots (required for pobb.in)
   const allSlots = generateItemSetSlots(slotItemMap);
 
-  console.log(`[PoB Export] Generated ${itemsXml.length} items, ${Object.keys(slotItemMap).length} mapped slots`);
-
   // Generate skills from socketed gems
   const skillsXml = generateSkillsXml(equippedItems);
 
   // Generate tree - use comma-separated node IDs
   const treeNodes = passives.hashes.join(',');
-  console.log(`[PoB Export] Passive tree: ${passives.hashes.length} nodes, first 5: ${passives.hashes.slice(0, 5).join(', ')}`);
 
   // Derive class from ascendancy if class is unknown
   const { class: className, ascendancy: ascendClassName } = deriveClassAndAscendancy(character.class, character.ascendancy);
   const classId = getClassId(className);
-  const ascendId = getAscendancyId(ascendClassName);
-  console.log(`[PoB Export] Class mapping: "${character.class}" -> className="${className}" (classId=${classId}), ascendancy="${ascendClassName}" (ascendClassId=${ascendId})`);
 
   // Build the XML - this format matches what PoB/pobb.in expects
   // Note: PoB Community Fork expects specific XML structure with ItemSet
@@ -469,8 +463,6 @@ function generateSkillsXml(items: PoeItem[]): string {
         const gemName = gem.typeLine || 'Unknown Gem';
         const { skillId, gemId } = getGemIds(gemName);
 
-        console.log(`[PoB Export] Gem: "${gemName}" level ${level} quality ${quality} skillId=${skillId}`);
-
         // Full gem format for pobb.in compatibility
         return `\t\t\t\t<Gem qualityId="Default" enabled="true" skillId="${skillId}" quality="${quality}" gemId="${gemId}" nameSpec="${escapeXml(gemName)}" level="${level}" enableGlobal1="true"/>`;
       });
@@ -606,7 +598,6 @@ function getAscendancyId(ascendancy: string | undefined): number {
   };
 
   const id = ascendancyIds[ascendancy];
-  console.log(`[PoB Export] Ascendancy lookup: "${ascendancy}" -> ${id}`);
   return id ?? 0;
 }
 
@@ -634,7 +625,6 @@ function deriveClassAndAscendancy(rawClass: string | undefined, ascendancy: stri
 
   // Case 1: rawClass is a base class name
   if (rawClass && rawClass !== 'Unknown' && classMap[rawClass]) {
-    console.log(`[PoB Export] Case 1: rawClass "${rawClass}" is a base class`);
     return {
       class: classMap[rawClass],
       ascendancy: ascendancy || 'None'
@@ -643,7 +633,6 @@ function deriveClassAndAscendancy(rawClass: string | undefined, ascendancy: stri
 
   // Case 2: rawClass is actually an ascendancy name (from POE log)
   if (rawClass && ascendancyToClass[rawClass]) {
-    console.log(`[PoB Export] Case 2: rawClass "${rawClass}" is an ascendancy -> class "${ascendancyToClass[rawClass]}"`);
     return {
       class: ascendancyToClass[rawClass],
       ascendancy: rawClass  // Use rawClass as the ascendancy
@@ -652,7 +641,6 @@ function deriveClassAndAscendancy(rawClass: string | undefined, ascendancy: stri
 
   // Case 3: Have ascendancy param, derive class from it
   if (ascendancy && ascendancyToClass[ascendancy]) {
-    console.log(`[PoB Export] Case 3: Derived class from ascendancy param "${ascendancy}" -> "${ascendancyToClass[ascendancy]}"`);
     return {
       class: ascendancyToClass[ascendancy],
       ascendancy: ascendancy
@@ -660,7 +648,6 @@ function deriveClassAndAscendancy(rawClass: string | undefined, ascendancy: stri
   }
 
   // Default
-  console.log(`[PoB Export] Default: Could not derive class from rawClass="${rawClass}" or ascendancy="${ascendancy}"`);
   return { class: 'Scion', ascendancy: 'None' };
 }
 
@@ -669,8 +656,6 @@ function deriveClassAndAscendancy(rawClass: string | undefined, ascendancy: stri
  */
 export function encodePobCode(data: BuildData): string {
   const xml = generatePobXml(data);
-  console.log('[PoB Export] Full XML:\n', xml);
-  console.log('[PoB Export] XML length:', xml.length);
 
   // Compress with zlib (deflate)
   const compressed = pako.deflate(new TextEncoder().encode(xml), { level: 9 });
@@ -687,19 +672,8 @@ export function createBuildData(snapshot: Snapshot, run: Run): BuildData {
   let items: PoeItem[] = [];
   let passives = { hashes: [] as number[], hashesEx: [] as number[] };
 
-  console.log('[PoB Export] Run data (full):', JSON.stringify(run, null, 2));
-  console.log('[PoB Export] Run ascendancy value:', run.ascendancy, 'type:', typeof run.ascendancy);
-
   try {
     items = JSON.parse(snapshot.itemsJson || '[]');
-    console.log('[PoB Export] Parsed items:', items.length);
-    // Log all inventory IDs and x positions to see what slots are present
-    const itemSlots = items.map((i: PoeItem) => ({ inv: i.inventoryId, x: i.x, name: i.typeLine }));
-    console.log('[PoB Export] Item slots found:', itemSlots);
-    // Log first item to verify structure
-    if (items[0]) {
-      console.log('[PoB Export] Sample item:', JSON.stringify(items[0], null, 2).substring(0, 500));
-    }
   } catch (e) {
     console.error('[PoB Export] Failed to parse items JSON:', e);
   }
@@ -710,7 +684,6 @@ export function createBuildData(snapshot: Snapshot, run: Run): BuildData {
       hashes: passiveData.hashes || [],
       hashesEx: passiveData.hashes_ex || passiveData.hashesEx || [],
     };
-    console.log('[PoB Export] Parsed passives:', passives.hashes.length, 'nodes');
   } catch (e) {
     console.error('[PoB Export] Failed to parse passives JSON:', e);
   }
@@ -725,8 +698,6 @@ export function createBuildData(snapshot: Snapshot, run: Run): BuildData {
     },
   };
 
-  console.log('[PoB Export] Build data character:', buildData.character);
-
   return buildData;
 }
 
@@ -736,7 +707,6 @@ export function createBuildData(snapshot: Snapshot, run: Run): BuildData {
 export async function exportToPob(snapshot: Snapshot, run: Run): Promise<void> {
   const buildData = createBuildData(snapshot, run);
   const code = encodePobCode(buildData);
-  console.log('[PoB Export] Code length:', code.length);
   await navigator.clipboard.writeText(code);
 }
 
@@ -967,12 +937,6 @@ function generateSkillsXmlContent(items: PoeItem[]): string {
  * Create multi-snapshot build data
  */
 export function createMultiBuildData(snapshots: Snapshot[], run: Run, splits?: Split[]): MultiBuildData {
-  console.log('[PoB Multi-Export] Run data:', {
-    class: run.class,
-    ascendancy: run.ascendancy,
-    characterName: run.characterName,
-  });
-
   // Build a map of splitId -> breakpointName for quick lookup
   const splitMap = new Map<number, string>();
   if (splits) {
@@ -981,7 +945,7 @@ export function createMultiBuildData(snapshots: Snapshot[], run: Run, splits?: S
     }
   }
 
-  const snapshotData = snapshots.map((snapshot, idx) => {
+  const snapshotData = snapshots.map((snapshot) => {
     let items: PoeItem[] = [];
     let passives = { hashes: [] as number[], hashesEx: [] as number[] };
 
@@ -997,7 +961,6 @@ export function createMultiBuildData(snapshots: Snapshot[], run: Run, splits?: S
         hashes: passiveData.hashes || [],
         hashesEx: passiveData.hashes_ex || passiveData.hashesEx || [],
       };
-      console.log(`[PoB Multi-Export] Snapshot ${idx + 1} passives: ${passives.hashes.length} nodes`);
     } catch (e) {
       console.error('[PoB Multi-Export] Failed to parse passives:', e);
     }
@@ -1014,7 +977,6 @@ export function createMultiBuildData(snapshots: Snapshot[], run: Run, splits?: S
   });
 
   const ascendancy = run.ascendancy || undefined;
-  console.log('[PoB Multi-Export] Using ascendancy:', ascendancy, 'class:', run.class);
 
   return {
     snapshots: snapshotData,
@@ -1042,7 +1004,6 @@ function formatTimeForLabel(ms: number): string {
  */
 export function encodeMultiPobCode(data: MultiBuildData): string {
   const xml = generateMultiSnapshotPobXml(data);
-  console.log('[PoB Multi-Export] Full XML length:', xml.length);
   const compressed = pako.deflate(new TextEncoder().encode(xml), { level: 9 });
   const base64 = btoa(String.fromCharCode(...compressed));
   return base64.replace(/\+/g, '-').replace(/\//g, '_');
@@ -1096,21 +1057,18 @@ async function fetchCharacterInfoIfNeeded(run: Run, accountName?: string): Promi
 
   if (account && character) {
     try {
-      console.log('[PoB Export] Fetching character list for:', account);
       const response = await invoke<{ characters: PoeCharacterResponse[] }>('fetch_characters', { accountName: account });
       const charInfo = response.characters.find(c => c.name === character);
 
       if (charInfo) {
-        console.log('[PoB Export] Found character info:', charInfo);
         const ascendancyName = getAscendancyNameFromId(charInfo.class, charInfo.ascendancyClass);
-        console.log('[PoB Export] Derived ascendancy:', ascendancyName, 'from class:', charInfo.class, 'ascendancyClass:', charInfo.ascendancyClass);
         return {
           class: charInfo.class || run.class,
           ascendancy: ascendancyName || run.ascendancy || undefined,
         };
       }
     } catch (e) {
-      console.warn('[PoB Export] Failed to fetch character info:', e);
+      // Character info fetch failed - continue with existing data
     }
   }
 
@@ -1127,7 +1085,6 @@ export async function exportAllToPob(snapshots: Snapshot[], run: Run, splits?: S
 
   const buildData = createMultiBuildData(snapshots, enrichedRun, splits);
   const code = encodeMultiPobCode(buildData);
-  console.log('[PoB Multi-Export] Code length:', code.length);
   await navigator.clipboard.writeText(code);
 }
 

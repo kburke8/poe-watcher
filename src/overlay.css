@@ -29,12 +29,14 @@ html, body {
   padding: 0;
   overflow: hidden;
   user-select: none;
+  color: #e5e5e5;
 }
 
 #overlay-root {
   width: 100%;
   height: 100%;
   background-color: #0c0c0e;
+  color: #e5e5e5;
 }
 
 /* Timer display */
@@ -44,7 +46,15 @@ html, body {
   letter-spacing: 0.05em;
 }
 
-/* Drag handle cursor */
+/* Drag handle — uses -webkit-app-region for reliable dragging on Windows */
 .drag-handle {
   cursor: move;
+  -webkit-app-region: drag;
+}
+
+/* Prevent buttons and interactive elements from triggering drag */
+.drag-handle button,
+.drag-handle a,
+.drag-handle input {
+  -webkit-app-region: no-drag;
 }

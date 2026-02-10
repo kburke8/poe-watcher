@@ -34,7 +34,6 @@ export function TimerControls() {
             enabledBreakpoints: JSON.stringify(enabledBreakpoints),
           },
         });
-        console.log('[TimerControls] Run created in database with ID:', dbRunId, 'preset:', presetName);
         setRunId(dbRunId);
       } catch (error) {
         console.error('[TimerControls] Failed to create run in database:', error);
@@ -53,16 +52,61 @@ export function TimerControls() {
   const handleEnd = async () => {
     const state = useRunStore.getState();
     const run = state.currentRun;
-    const totalTimeMs = state.timer.elapsedMs;
+    const { timer: t } = state;
 
-    // Complete the run in the database if it has a valid ID
+    // Skip if run was already auto-completed (e.g. last split triggered auto-end)
+    if (run?.isCompleted) {
+      resetRun();
+      return;
+    }
+
+    // Calculate actual elapsed time (works whether running or paused)
+    const totalTimeMs = t.isRunning && t.startTime
+      ? Date.now() - t.startTime
+      : t.elapsedMs;
+
+    // Capture an end-of-run snapshot named after the current zone
     if (run?.id) {
+      const { accountName: acct, testCharacterName: testChar } = useSettingsStore.getState();
+      const detectedChar = run.characterName || run.character;
+      const charName = (detectedChar && detectedChar !== 'Unknown') ? detectedChar : testChar;
+      const hasValidCapture = acct && charName && charName !== 'Unknown';
+
+      if (hasValidCapture) {
+        const splitName = t.currentZone || 'End Run';
+        const segmentTimeMs = t.splits.length > 0
+          ? totalTimeMs - t.splits[t.splits.length - 1].splitTimeMs
+          : totalTimeMs;
+
+        try {
+          await invoke('add_split', {
+            request: {
+              split: {
+                runId: run.id,
+                breakpointType: 'custom',
+                breakpointName: splitName,
+                splitTimeMs: totalTimeMs,
+                deltaMs: null,
+                segmentTimeMs,
+                townTimeMs: t.townTimeMs,
+                hideoutTimeMs: t.hideoutTimeMs,
+              },
+              capture_snapshot: true,
+              account_name: acct,
+              character_name: charName,
+            },
+          });
+        } catch (error) {
+          console.error('[TimerControls] Failed to capture end-run snapshot:', error);
+        }
+      }
+
+      // Complete the run in the database
       try {
-        const isPb = await invoke<boolean>('complete_run', {
+        await invoke<boolean>('complete_run', {
           runId: run.id,
           totalTimeMs,
         });
-        console.log('[TimerControls] Run completed in database, isPB:', isPb);
       } catch (error) {
         console.error('[TimerControls] Failed to complete run in database:', error);
       }
@@ -77,6 +121,49 @@ export function TimerControls() {
       await invoke('manual_split');
     } catch (error) {
       console.error('Failed to trigger manual split:', error);
+    }
+  };
+
+  const handleManualSnapshot = async () => {
+    const state = useRunStore.getState();
+    const run = state.currentRun;
+    const { timer: t } = state;
+    if (!run?.id) return;
+
+    const { accountName: acct, testCharacterName: testChar } = useSettingsStore.getState();
+    const detectedChar = run.characterName || run.character;
+    const charName = (detectedChar && detectedChar !== 'Unknown') ? detectedChar : testChar;
+    if (!acct || !charName || charName === 'Unknown') return;
+
+    const elapsedMs = t.isRunning && t.startTime
+      ? Date.now() - t.startTime
+      : t.elapsedMs;
+
+    const splitName = t.currentZone || 'Manual Snapshot';
+    const segmentTimeMs = t.splits.length > 0
+      ? elapsedMs - t.splits[t.splits.length - 1].splitTimeMs
+      : elapsedMs;
+
+    try {
+      await invoke('add_split', {
+        request: {
+          split: {
+            runId: run.id,
+            breakpointType: 'custom',
+            breakpointName: splitName,
+            splitTimeMs: elapsedMs,
+            deltaMs: null,
+            segmentTimeMs,
+            townTimeMs: t.townTimeMs,
+            hideoutTimeMs: t.hideoutTimeMs,
+          },
+          capture_snapshot: true,
+          account_name: acct,
+          character_name: charName,
+        },
+      });
+    } catch (error) {
+      console.error('[TimerControls] Failed to capture manual snapshot:', error);
     }
   };
 
@@ -115,6 +202,20 @@ export function TimerControls() {
       >
         Split
       </button>
+
+      {currentRun && (
+        <button
+          onClick={handleManualSnapshot}
+          disabled={!accountName}
+          className="py-3 px-6 bg-[--color-surface] text-[--color-text] font-semibold rounded-lg
+                     border-2 border-purple-500/40 shadow-md
+                     hover:border-purple-500/70 hover:shadow-lg active:scale-95 active:shadow-sm transition-all duration-100
+                     disabled:opacity-50 disabled:cursor-not-allowed disabled:active:scale-100 disabled:shadow-none disabled:border-[--color-border]"
+          title="Ctrl+Alt+Space"
+        >
+          Snapshot
+        </button>
+      )}
 
       {currentRun && (
         <button

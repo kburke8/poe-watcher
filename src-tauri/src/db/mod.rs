@@ -71,7 +71,6 @@ fn run_migrations(conn: &Connection) -> Result<()> {
         if !applied.contains(&name.to_string()) {
             conn.execute_batch(sql)?;
             conn.execute("INSERT INTO migrations (name) VALUES (?1)", [name])?;
-            println!("Applied migration: {}", name);
         }
     }
 

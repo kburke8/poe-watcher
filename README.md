@@ -41,7 +41,7 @@ A local desktop application for tracking Path of Exile speedruns. Monitor your g
 
 ### From Release (Recommended)
 
-1. Download the latest `.msi` or `-setup.exe` installer from [Releases](https://github.com/yourusername/poe-watcher/releases)
+1. Download the latest `.msi` or `-setup.exe` installer from [Releases](https://github.com/kburke8/poe-watcher/releases)
 2. Run the installer
 
 #### Windows SmartScreen Warning

@@ -1,4 +1,7 @@
+import { useEffect, useRef, useState } from 'react';
+
 interface OverlayTimerProps {
+  startTime: number | null;
   elapsedMs: number;
   isRunning: boolean;
 }
@@ -15,18 +18,40 @@ function formatTime(ms: number): string {
   return `${minutes}:${seconds.toString().padStart(2, '0')}`;
 }
 
-export function OverlayTimer({ elapsedMs, isRunning }: OverlayTimerProps) {
+export function OverlayTimer({ startTime, elapsedMs, isRunning }: OverlayTimerProps) {
+  const [displayMs, setDisplayMs] = useState(elapsedMs);
+  const animationRef = useRef<number | null>(null);
+
+  // Run our own animation loop to compute elapsed time locally
+  useEffect(() => {
+    if (isRunning && startTime) {
+      const updateTimer = () => {
+        setDisplayMs(Date.now() - startTime);
+        animationRef.current = requestAnimationFrame(updateTimer);
+      };
+      animationRef.current = requestAnimationFrame(updateTimer);
+    } else {
+      // When not running, use the last known elapsedMs from the main window
+      setDisplayMs(elapsedMs);
+    }
+
+    return () => {
+      if (animationRef.current) {
+        cancelAnimationFrame(animationRef.current);
+      }
+    };
+  }, [isRunning, startTime, elapsedMs]);
+
   return (
     <div className="text-center">
       <div
-        className={`timer-display text-3xl font-bold ${
-          isRunning ? 'text-[--color-text]' : 'text-[--color-text-muted]'
-        }`}
+        className="timer-display text-3xl font-bold"
+        style={{ color: isRunning ? '#ffffff' : '#9ca3af' }}
       >
-        {formatTime(elapsedMs)}
+        {formatTime(displayMs)}
       </div>
       {!isRunning && elapsedMs === 0 && (
-        <div className="text-xs text-[--color-text-muted] mt-1">
+        <div className="text-xs mt-1" style={{ color: '#6b7280' }}>
           Ctrl+Space to start
         </div>
       )}
