@@ -333,7 +333,7 @@ export function PassiveTree({
 
         const loadPromises: Promise<HTMLImageElement>[] = [];
         for (const type of spriteTypes) {
-          const spriteData = treeData.sprites[type as keyof typeof treeData.sprites];
+          const spriteData = treeData!.sprites[type as keyof TreeData['sprites']];
           if (spriteData && typeof spriteData === 'object') {
             const sheet = (spriteData as Record<string, SpriteSheet>)[zoomLevel];
             if (sheet?.filename) {
@@ -457,14 +457,6 @@ export function PassiveTree({
     const isMasteryAllocated = (node: TreeNode): boolean => {
       if (!node.isMastery) return false;
       return String(node.skill) in masterySelections;
-    };
-
-    // Helper to get the selected mastery effect
-    const getSelectedMasteryEffect = (node: TreeNode): MasteryEffect | null => {
-      if (!node.isMastery || !node.masteryEffects) return null;
-      const selectedEffectId = masterySelections[String(node.skill)];
-      if (selectedEffectId === undefined) return null;
-      return node.masteryEffects.find(e => e.effect === selectedEffectId) || null;
     };
 
     // Draw connections first (below nodes)
