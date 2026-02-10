@@ -37,7 +37,7 @@
   },
   "plugins": {
     "updater": {
-      "pubkey": "dW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHB1YmxpYyBrZXk6IEE2NDlCMzU2QUE1Q0FFODgKUldTSXJseXFWck5KcG80Y1MwTElJaEZlY2pIampLL3hRYjNSTFFuL0hjZ1lTcENxZy94OS9mdk8K",
+      "pubkey": "dW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHB1YmxpYyBrZXk6IDk2RjUxQkYyOUVCOTlERjcKUldUM25ibWU4aHYxbG9CVzE0NysyK04wYXhTWWZZK2tOWTc4OVJ4SC9xWFV1Sm9GbVN6ZlBwamEK",
       "endpoints": [
         "https://github.com/kburke8/poe-watcher/releases/latest/download/latest.json"
       ],
