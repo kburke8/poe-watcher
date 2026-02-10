@@ -135,8 +135,6 @@ Commands are defined in `commands.rs` and invoked from React:
 - `set_overlay_position` / `get_overlay_position` - Position persistence
 - `sync_overlay_state` - Relay timer/split state to overlay via Rust events
 
-Note: `simulate_snapshot` exists in `commands.rs` but is NOT registered in the invoke handler. It was used for testing and is not available at runtime.
-
 ### Events
 
 The Rust backend emits events to the frontend:
@@ -218,7 +216,7 @@ Key insight: POE logs capture **ascendancy names** (e.g., "Pathfinder") in level
 
 ## Testing
 
-Currently manual testing only. The `simulate_snapshot` command exists in `commands.rs` for development but is not registered in the production invoke handler.
+Currently manual testing only. No automated test suite yet.
 
 ## Common Issues
 

@@ -108,7 +108,7 @@ src-tauri/src/          # Rust backend
 - Rust: Unit tests for log parsing patterns
 - Frontend: Manual testing for now (Playwright later)
 - API: Mock responses for rate limit testing
-- `simulate_snapshot` command exists in `commands.rs` for dev testing but is not registered in the production invoke handler
+- No automated test suite yet
 
 ## Build & Run
 

@@ -169,7 +169,7 @@ export function parsePassives(passiveTreeJson: string): {
     return {
       hashes: data.hashes || [],
       hashesEx: data.hashes_ex || data.hashesEx || [],
-      // Handle both snake_case (from simulate) and camelCase (from capture)
+      // Handle both snake_case and camelCase field names from API
       masteryEffects: data.mastery_effects || data.masteryEffects || {},
     };
   } catch {
