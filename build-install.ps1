@@ -66,7 +66,7 @@ if (-not $SkipBump) {
 $keyPath = "$env:USERPROFILE\.tauri\poe-watcher.key"
 if (Test-Path $keyPath) {
     $env:TAURI_SIGNING_PRIVATE_KEY = Get-Content $keyPath -Raw
-    $env:TAURI_SIGNING_PRIVATE_KEY_PASSWORD = ""
+    $env:TAURI_SIGNING_PRIVATE_KEY_PASSWORD = "poe-watcher-sign"
     Write-Host "Signing key loaded from $keyPath" -ForegroundColor Green
 } else {
     Write-Host "No signing key at $keyPath - updater artifacts will not be signed" -ForegroundColor Yellow
