@@ -40,7 +40,7 @@ interface SettingsState extends Settings {
   getEnabledBreakpointNames: () => string[];
 }
 
-export const useSettingsStore = create<SettingsState>((set) => ({
+export const useSettingsStore = create<SettingsState>((set, get) => ({
   // Default settings
   poeLogPath: '',
   accountName: '',
@@ -136,7 +136,7 @@ export const useSettingsStore = create<SettingsState>((set) => ({
 
   // Detect current preset based on enabled breakpoints
   getCurrentPresetName: () => {
-    const state = useSettingsStore.getState();
+    const state = get();
     const enabledNames = state.breakpoints
       .filter((bp) => bp.isEnabled)
       .map((bp) => bp.name);
@@ -173,7 +173,7 @@ export const useSettingsStore = create<SettingsState>((set) => ({
 
   // Get list of enabled breakpoint names
   getEnabledBreakpointNames: () => {
-    const state = useSettingsStore.getState();
+    const state = get();
     return state.breakpoints
       .filter((bp) => bp.isEnabled)
       .map((bp) => bp.name);

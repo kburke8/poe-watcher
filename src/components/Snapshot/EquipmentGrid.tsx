@@ -166,7 +166,7 @@ export function EquipmentGrid({ items }: EquipmentGridProps) {
         {flasks.map((flask, i) => (
           <FlaskSlot
             key={`flask-${i}`}
-            item={flask}
+            item={flask ?? undefined}
             label={`${i + 1}`}
             cellSize={cellSize}
           />

@@ -171,8 +171,8 @@ export function AnalyticsTab() {
                     formatTimeFromMinutes(value),
                     name === 'average' ? 'Average' : 'Best',
                   ]}
-                  labelFormatter={(label, payload) => {
-                    if (payload && payload[0]) {
+                  labelFormatter={(label: string, payload: Array<{ payload?: { fullName?: string } }>) => {
+                    if (payload && payload[0]?.payload?.fullName) {
                       return payload[0].payload.fullName;
                     }
                     return label;

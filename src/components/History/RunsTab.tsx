@@ -54,7 +54,7 @@ export function RunsTab() {
     }
   };
 
-  const handleViewSnapshots = (run: Run) => {
+  const handleViewSnapshots = (_run: Run) => {
     // TODO: Navigate to snapshots view with run selected
     setCurrentView('snapshots');
   };
