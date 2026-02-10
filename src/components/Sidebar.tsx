@@ -1,4 +1,7 @@
+import { useState, useEffect } from 'react';
+import { getVersion } from '@tauri-apps/api/app';
 import { useSettingsStore } from '../stores/settingsStore';
+import { useUpdateChecker } from '../hooks/useUpdateChecker';
 import type { ViewMode } from '../types';
 
 interface NavItem {
@@ -16,7 +19,14 @@ const navItems: NavItem[] = [
 ];
 
 export function Sidebar() {
-  const { currentView, setCurrentView } = useSettingsStore();
+  const { currentView, setCurrentView, checkUpdates } = useSettingsStore();
+  const [appVersion, setAppVersion] = useState('');
+  const { available, version, downloading, progress, downloadAndInstall } = useUpdateChecker(checkUpdates);
+  const [showPopup, setShowPopup] = useState(false);
+
+  useEffect(() => {
+    getVersion().then(setAppVersion).catch(() => setAppVersion('0.0.0'));
+  }, []);
 
   return (
     <aside className="w-16 bg-[--color-surface] border-r border-[--color-border] flex flex-col items-center py-4">
@@ -44,8 +54,41 @@ export function Sidebar() {
         ))}
       </nav>
 
-      <div className="mt-auto">
-        <span className="text-xs text-[--color-text-muted]">v0.1</span>
+      <div className="mt-auto relative">
+        {available ? (
+          <button
+            onClick={() => setShowPopup(!showPopup)}
+            className="text-xs text-[--color-poe-gold] font-semibold animate-pulse"
+            title={`Update ${version} available`}
+          >
+            v{appVersion}
+          </button>
+        ) : (
+          <span className="text-xs text-[--color-text-muted]">v{appVersion}</span>
+        )}
+
+        {showPopup && available && (
+          <div className="absolute bottom-8 left-0 w-48 bg-[--color-surface-elevated] border border-[--color-border] rounded-lg p-3 shadow-lg z-50">
+            <p className="text-sm text-[--color-text] mb-2">
+              v{version} available
+            </p>
+            {downloading ? (
+              <div className="w-full bg-[--color-surface] rounded-full h-2">
+                <div
+                  className="bg-[--color-poe-gold] h-2 rounded-full transition-all"
+                  style={{ width: `${progress}%` }}
+                />
+              </div>
+            ) : (
+              <button
+                onClick={downloadAndInstall}
+                className="w-full px-3 py-1.5 text-sm bg-[--color-poe-gold] text-[--color-poe-darker] rounded-md font-semibold hover:bg-[--color-poe-gold-light] active:scale-95 transition-all"
+              >
+                Update & Restart
+              </button>
+            )}
+          </div>
+        )}
       </div>
     </aside>
   );

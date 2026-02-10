@@ -18,6 +18,8 @@ pub fn run() {
     tauri::Builder::default()
         .plugin(tauri_plugin_opener::init())
         .plugin(tauri_plugin_dialog::init())
+        .plugin(tauri_plugin_updater::Builder::new().build())
+        .plugin(tauri_plugin_process::init())
         .plugin(
             tauri_plugin_global_shortcut::Builder::new()
                 .with_handler(move |_app, shortcut_ref, event| {
@@ -73,20 +75,24 @@ pub fn run() {
                 }
             }
 
-            // Register global hotkey: Ctrl+Space to toggle timer
+            // Register global hotkeys (ignore errors if already registered from previous instance)
             let shortcut: Shortcut = "Ctrl+Space".parse().expect("Invalid shortcut");
-            app.global_shortcut().register(shortcut)?;
-            println!("[GlobalShortcut] Registered Ctrl+Space");
+            match app.global_shortcut().register(shortcut) {
+                Ok(_) => println!("[GlobalShortcut] Registered Ctrl+Space"),
+                Err(e) => eprintln!("[GlobalShortcut] Failed to register Ctrl+Space (may already be registered): {}", e),
+            }
 
-            // Register global hotkey: Ctrl+O to toggle overlay
             let overlay_shortcut: Shortcut = "Ctrl+O".parse().expect("Invalid shortcut");
-            app.global_shortcut().register(overlay_shortcut)?;
-            println!("[GlobalShortcut] Registered Ctrl+O for overlay");
+            match app.global_shortcut().register(overlay_shortcut) {
+                Ok(_) => println!("[GlobalShortcut] Registered Ctrl+O for overlay"),
+                Err(e) => eprintln!("[GlobalShortcut] Failed to register Ctrl+O (may already be registered): {}", e),
+            }
 
-            // Register global hotkey: Ctrl+Shift+O to toggle overlay lock
             let lock_shortcut: Shortcut = "Ctrl+Shift+O".parse().expect("Invalid shortcut");
-            app.global_shortcut().register(lock_shortcut)?;
-            println!("[GlobalShortcut] Registered Ctrl+Shift+O for overlay lock");
+            match app.global_shortcut().register(lock_shortcut) {
+                Ok(_) => println!("[GlobalShortcut] Registered Ctrl+Shift+O for overlay lock"),
+                Err(e) => eprintln!("[GlobalShortcut] Failed to register Ctrl+Shift+O (may already be registered): {}", e),
+            }
 
             Ok(())
         })
