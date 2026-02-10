@@ -2,6 +2,7 @@ import { useState, useMemo, useCallback } from 'react';
 import { invoke } from '@tauri-apps/api/core';
 import { open } from '@tauri-apps/plugin-dialog';
 import { useSettingsStore } from '../../stores/settingsStore';
+import { useUpdateChecker } from '../../hooks/useUpdateChecker';
 
 const BREAKPOINTS_STORAGE_KEY = 'poe-watcher-breakpoints';
 
@@ -10,6 +11,7 @@ export function SettingsView() {
     poeLogPath,
     accountName,
     testCharacterName,
+    checkUpdates,
     overlayEnabled,
     overlayOpacity,
     soundEnabled,
@@ -17,6 +19,7 @@ export function SettingsView() {
     setLogPath,
     setAccountName,
     setTestCharacterName,
+    setCheckUpdates,
     setOverlayEnabled,
     setOverlayOpacity,
     setSoundEnabled,
@@ -30,6 +33,8 @@ export function SettingsView() {
     applyTownsOnlyPreset,
     resetBreakpoints,
   } = useSettingsStore();
+
+  const { checking, available, version, error: updateError, checkForUpdate, downloadAndInstall, downloading, progress } = useUpdateChecker(false);
 
   // Filter state for breakpoints
   const [actFilter, setActFilter] = useState<number | 'all' | 'level'>('all');
@@ -300,6 +305,68 @@ export function SettingsView() {
                   }`}
                 />
               </button>
+            </div>
+          </div>
+        </section>
+
+        {/* Updates */}
+        <section className="mb-8">
+          <h2 className="text-lg font-semibold text-[--color-text] mb-4">Updates</h2>
+          <div className="bg-[--color-surface] rounded-lg p-4 space-y-4">
+            <div className="flex items-center justify-between">
+              <div>
+                <div className="text-[--color-text]">Check for Updates Automatically</div>
+                <div className="text-xs text-[--color-text-muted]">Check for new versions on startup</div>
+              </div>
+              <button
+                onClick={() => setCheckUpdates(!checkUpdates)}
+                className={`w-12 h-6 rounded-full transition-all duration-150 active:scale-95 ${
+                  checkUpdates ? 'bg-[--color-poe-gold]' : 'bg-[--color-surface-elevated]'
+                }`}
+              >
+                <div
+                  className={`w-5 h-5 rounded-full bg-white shadow transition-transform duration-150 ${
+                    checkUpdates ? 'translate-x-6' : 'translate-x-0.5'
+                  }`}
+                />
+              </button>
+            </div>
+
+            <div className="flex items-center justify-between pt-2 border-t border-[--color-border]">
+              <div>
+                <div className="text-[--color-text]">Check Now</div>
+                <div className="text-xs text-[--color-text-muted]">
+                  {checking ? 'Checking...' :
+                   available ? `v${version} available` :
+                   updateError ? 'Check failed' :
+                   'Check for updates manually'}
+                </div>
+              </div>
+              <div className="flex items-center gap-2">
+                {available && !downloading && (
+                  <button
+                    onClick={downloadAndInstall}
+                    className="px-3 py-1.5 text-sm bg-[--color-poe-gold] text-[--color-poe-darker] rounded-md font-semibold hover:bg-[--color-poe-gold-light] active:scale-95 transition-all"
+                  >
+                    Update & Restart
+                  </button>
+                )}
+                {downloading && (
+                  <div className="w-24 bg-[--color-surface] rounded-full h-2">
+                    <div
+                      className="bg-[--color-poe-gold] h-2 rounded-full transition-all"
+                      style={{ width: `${progress}%` }}
+                    />
+                  </div>
+                )}
+                <button
+                  onClick={checkForUpdate}
+                  disabled={checking || downloading}
+                  className="px-4 py-2 text-sm bg-[--color-surface] text-[--color-text] rounded-md border-2 border-[--color-poe-gold]/40 shadow-sm hover:border-[--color-poe-gold]/70 hover:shadow-md active:scale-95 active:shadow-none transition-all font-medium disabled:opacity-50 disabled:cursor-wait"
+                >
+                  {checking ? 'Checking...' : 'Check Now'}
+                </button>
+              </div>
             </div>
           </div>
         </section>

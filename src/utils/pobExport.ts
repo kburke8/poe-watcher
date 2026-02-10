@@ -1,6 +1,144 @@
 import pako from 'pako';
 import { invoke } from '@tauri-apps/api/core';
 import type { PoeItem, Snapshot, Run, Split } from '../types';
+import { defaultBreakpoints } from '../config/breakpoints';
+
+// ============================================================================
+// PoB Config Auto-Population Helpers
+// ============================================================================
+
+/**
+ * Get the act number from a zone name by looking up defaultBreakpoints
+ */
+function getActFromZone(zoneName: string): number | null {
+  const bp = defaultBreakpoints.find(b => b.trigger.zoneName === zoneName);
+  return bp?.trigger.act ?? null;
+}
+
+/**
+ * Get resistance penalty value for PoB based on act progression
+ * - Act 1-5: No penalty (0)
+ * - Act 6-10: -30% penalty (1) - after first Kitava fight
+ * - Post-Act 10: -60% penalty (2) - after second Kitava fight
+ */
+function getResistancePenalty(act: number | null): number {
+  if (!act || act <= 5) return 0;  // No penalty
+  if (act <= 10) return 1;          // -30% (Act 5 Kitava penalty)
+  return 2;                          // -60% (Act 10 Kitava penalty)
+}
+
+/**
+ * Determine bandit selection based on zone progression
+ * Default to "Alira" for any snapshot past Act 2 bandit quest area
+ * Alira gives: +5 mana regen, +20% crit multi, +15% all res
+ */
+function getBanditForZone(zoneName: string, act: number | null): string {
+  // Bandit quest completes in Act 2 after killing all 3 or helping one
+  // "The Vaal Ruins" and beyond are after the bandit quest area
+  const postBanditZones = ['The Vaal Ruins', 'The Wetlands', 'The Western Forest', 'The Northern Forest', 'The Caverns', 'The Ancient Pyramid'];
+
+  if (act && act >= 3) return 'Alira';
+  if (postBanditZones.includes(zoneName)) return 'Alira';
+
+  return 'None';
+}
+
+/**
+ * Gem name patterns that imply certain config flags should be enabled
+ */
+const gemConfigMap: Record<string, { name: string; type: 'boolean' | 'number' | 'string'; value: string }> = {
+  // Frenzy charge generators
+  'Blood Rage': { name: 'useFrenzyCharges', type: 'boolean', value: 'true' },
+  'Frenzy': { name: 'useFrenzyCharges', type: 'boolean', value: 'true' },
+  // Power charge generators
+  'Power Charge On Critical': { name: 'usePowerCharges', type: 'boolean', value: 'true' },
+  'Power Charge on Critical Support': { name: 'usePowerCharges', type: 'boolean', value: 'true' },
+  'Assassin\'s Mark': { name: 'usePowerCharges', type: 'boolean', value: 'true' },
+  // Endurance charge generators
+  'Enduring Cry': { name: 'useEnduranceCharges', type: 'boolean', value: 'true' },
+  'Endurance Charge on Melee Stun Support': { name: 'useEnduranceCharges', type: 'boolean', value: 'true' },
+  // Onslaught
+  'Onslaught Support': { name: 'conditionOnslaught', type: 'boolean', value: 'true' },
+  // Culling Strike
+  'Culling Strike Support': { name: 'conditionCullingStrike', type: 'boolean', value: 'true' },
+  // Fortify
+  'Fortify Support': { name: 'conditionFortify', type: 'boolean', value: 'true' },
+  // Arcane Surge
+  'Arcane Surge Support': { name: 'conditionArcaneSurge', type: 'boolean', value: 'true' },
+  // Infusion
+  'Infused Channelling Support': { name: 'conditionInfusion', type: 'boolean', value: 'true' },
+  // Rage
+  'Berserk': { name: 'conditionHaveRage', type: 'boolean', value: 'true' },
+  'Rage Support': { name: 'conditionHaveRage', type: 'boolean', value: 'true' },
+};
+
+/**
+ * Infer configuration flags from equipped gems
+ */
+function inferConfigFromGems(items: PoeItem[]): Record<string, { type: 'boolean' | 'number' | 'string'; value: string }> {
+  const config: Record<string, { type: 'boolean' | 'number' | 'string'; value: string }> = {};
+
+  // Collect all gem names from socketed items
+  const allGems = items.flatMap(item =>
+    item.socketedItems?.map(g => g.typeLine) ?? []
+  );
+
+  // Check each gem against our config map
+  for (const gemName of allGems) {
+    if (!gemName) continue;
+
+    // Direct match
+    if (gemConfigMap[gemName]) {
+      const { name, type, value } = gemConfigMap[gemName];
+      config[name] = { type, value };
+      continue;
+    }
+
+    // Partial match for gem variations (e.g., transfigured gems)
+    for (const [pattern, configEntry] of Object.entries(gemConfigMap)) {
+      if (gemName.includes(pattern) || pattern.includes(gemName.replace(/ Support$/, ''))) {
+        config[configEntry.name] = { type: configEntry.type, value: configEntry.value };
+      }
+    }
+  }
+
+  return config;
+}
+
+/**
+ * Generate Config Input XML elements for a snapshot
+ */
+function generateConfigInputs(
+  items: PoeItem[],
+  zoneName: string | undefined,
+  act: number | null
+): string {
+  const inputs: string[] = [];
+
+  // Resistance penalty based on act
+  const penalty = getResistancePenalty(act);
+  inputs.push(`\t\t\t<Input name="resistancePenalty" number="${penalty}"/>`);
+
+  // Bandit selection
+  const bandit = getBanditForZone(zoneName || '', act);
+  if (bandit !== 'None') {
+    inputs.push(`\t\t\t<Input name="bandit" string="${bandit}"/>`);
+  }
+
+  // Infer config from equipped gems
+  const gemConfig = inferConfigFromGems(items);
+  for (const [name, { type, value }] of Object.entries(gemConfig)) {
+    if (type === 'boolean') {
+      inputs.push(`\t\t\t<Input name="${name}" boolean="${value}"/>`);
+    } else if (type === 'number') {
+      inputs.push(`\t\t\t<Input name="${name}" number="${value}"/>`);
+    } else {
+      inputs.push(`\t\t\t<Input name="${name}" string="${value}"/>`);
+    }
+  }
+
+  return inputs.join('\n');
+}
 
 interface BuildData {
   items: PoeItem[];
@@ -625,6 +763,7 @@ interface MultiBuildData {
     items: PoeItem[];
     passives: { hashes: number[]; hashesEx: number[] };
     label: string; // e.g., "Act 5 - Level 42"
+    zoneName?: string; // Zone name for config inference
   }>;
   character: {
     level: number;
@@ -735,12 +874,26 @@ function generateMultiSnapshotPobXml(data: MultiBuildData): string {
   }
 
   // Generate ConfigSets (one per snapshot) with matching titles for Loadouts
+  // Each ConfigSet is populated with resistance penalty, bandit, and gem-inferred settings
   const configSetsXml: string[] = [];
   for (let setIdx = 0; setIdx < snapshots.length; setIdx++) {
-    const { label } = snapshots[setIdx];
+    const { items, label, zoneName } = snapshots[setIdx];
     const setId = setIdx + 1;
-    configSetsXml.push(`\t\t<ConfigSet id="${setId}" title="${escapeXml(label)}"/>`);
+    const equippedItems = items.filter(item => item.inventoryId && !item.inventoryId.startsWith('Stash'));
+
+    // Look up act from zone name for config inference
+    const act = zoneName ? getActFromZone(zoneName) : null;
+    const configInputs = generateConfigInputs(equippedItems, zoneName, act);
+
+    if (configInputs) {
+      configSetsXml.push(`\t\t<ConfigSet id="${setId}" title="${escapeXml(label)}">\n${configInputs}\n\t\t</ConfigSet>`);
+    } else {
+      configSetsXml.push(`\t\t<ConfigSet id="${setId}" title="${escapeXml(label)}"/>`);
+    }
   }
+
+  // Default to the last snapshot (most recent/end of run state)
+  const defaultSet = snapshots.length;
 
   return `<?xml version="1.0" encoding="UTF-8"?>
 <PathOfBuilding>
@@ -751,18 +904,18 @@ function generateMultiSnapshotPobXml(data: MultiBuildData): string {
 	</Import>
 	<Calcs>
 	</Calcs>
-	<Items showStatDifferences="true" activeItemSet="1" useSecondWeaponSet="false">
+	<Items showStatDifferences="true" activeItemSet="${defaultSet}" useSecondWeaponSet="false">
 ${itemsXml.join('\n')}
 ${itemSetsXml.join('\n')}
 		<TradeSearchWeights/>
 	</Items>
-	<Skills defaultGemLevel="normalMaximum" defaultGemQuality="0" sortGemsByDPS="true" activeSkillSet="1">
+	<Skills defaultGemLevel="normalMaximum" defaultGemQuality="0" sortGemsByDPS="true" activeSkillSet="${defaultSet}">
 ${skillSetsXml.join('\n')}
 	</Skills>
-	<Tree activeSpec="1">
+	<Tree activeSpec="${defaultSet}">
 ${specsXml.join('\n')}
 	</Tree>
-	<Config activeConfigSet="1">
+	<Config activeConfigSet="${defaultSet}">
 ${configSetsXml.join('\n')}
 	</Config>
 	<Notes>Exported from POE Watcher speedrun tracker - ${snapshots.length} snapshots</Notes>
@@ -856,7 +1009,8 @@ export function createMultiBuildData(snapshots: Snapshot[], run: Run, splits?: S
       ? `${zoneName} - Level ${snapshot.characterLevel} [${timeStr}]`
       : `${timeStr} - Level ${snapshot.characterLevel}`;
 
-    return { snapshot, items, passives, label };
+    // Include zoneName separately for config inference
+    return { snapshot, items, passives, label, zoneName };
   });
 
   const ascendancy = run.ascendancy || undefined;
