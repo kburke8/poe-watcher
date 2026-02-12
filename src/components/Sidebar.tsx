@@ -89,6 +89,9 @@ export function Sidebar() {
             )}
           </div>
         )}
+        <span className="text-[9px] text-[--color-text-muted] opacity-50 mt-1 text-center leading-tight" title="Not affiliated with or endorsed by Grinding Gear Games">
+          Not affiliated with GGG
+        </span>
       </div>
     </aside>
   );

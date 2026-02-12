@@ -189,6 +189,10 @@ Contributions welcome! See [CONTRIBUTING.md](CONTRIBUTING.md) for:
 - Code style guidelines
 - Adding new features
 
+## Disclaimer
+
+POE Watcher is not affiliated with or endorsed by Grinding Gear Games in any way.
+
 ## License
 
 MIT License

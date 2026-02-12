@@ -8,6 +8,7 @@ import { SkillsDisplay } from './SkillsDisplay';
 import { PassivesSummary } from './PassivesSummary';
 import { PassiveTree } from './PassiveTree';
 import { exportToPob, shareOnPobbIn, exportAllToPob, shareAllOnPobbIn } from '../../utils/pobExport';
+import { exportRunToJson } from '../../utils/jsonExport';
 import type { Run, Split, Snapshot } from '../../types';
 
 type TabType = 'equipment' | 'passives';
@@ -576,6 +577,18 @@ function SnapshotDetail({
                 )}
               </div>
             )}
+
+            {/* Full run JSON export */}
+            <div className="flex gap-3 items-center">
+              <span className="text-sm text-[--color-text-muted] w-24">Full run:</span>
+              <button
+                className="px-4 py-2 bg-[--color-surface-elevated] text-[--color-text] rounded-lg font-medium hover:bg-[--color-border] transition-colors"
+                onClick={() => exportRunToJson(run.id, run)}
+                title="Export full run data as JSON (splits, snapshots, items)"
+              >
+                Export JSON
+              </button>
+            </div>
           </div>
         </>
       ) : (

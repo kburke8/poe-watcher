@@ -516,7 +516,7 @@ pub async fn upload_to_pobbin(pob_code: String) -> Result<PobbInResponse, String
     let response = client
         .post("https://pobb.in/pob")
         .header("Content-Type", "text/plain")
-        .header("User-Agent", "POE-Watcher/0.1.0 (speedrun tracker)")
+        .header("User-Agent", "POE-Watcher/0.2.0 (https://github.com/kburke8/poe-watcher; Discord: beerdz)")
         .body(pob_code)
         .send()
         .await
@@ -587,7 +587,7 @@ pub async fn proxy_image(url: String) -> Result<String, String> {
     let client = reqwest::Client::new();
     let response = client
         .get(&url)
-        .header("User-Agent", "POE-Watcher/0.1.0 (speedrun tracker)")
+        .header("User-Agent", "POE-Watcher/0.2.0 (https://github.com/kburke8/poe-watcher; Discord: beerdz)")
         .send()
         .await
         .map_err(|e| format!("Failed to fetch image: {}", e))?;
@@ -614,6 +614,91 @@ pub async fn proxy_image(url: String) -> Result<String, String> {
 
     // Return as data URL
     Ok(format!("data:{};base64,{}", content_type, base64_data))
+}
+
+// ============================================================================
+// JSON Export Commands
+// ============================================================================
+
+#[tauri::command]
+pub async fn export_run_json(run_id: i64, file_path: String) -> Result<(), String> {
+    let run = Run::get_by_id(run_id)
+        .map_err(|e| e.to_string())?
+        .ok_or_else(|| format!("Run {} not found", run_id))?;
+
+    let splits = Split::get_by_run(run_id).map_err(|e| e.to_string())?;
+    let snapshots = Snapshot::get_by_run(run_id).map_err(|e| e.to_string())?;
+
+    // Build splits array
+    let splits_json: Vec<serde_json::Value> = splits
+        .iter()
+        .map(|s| {
+            serde_json::json!({
+                "breakpointName": s.breakpoint_name,
+                "breakpointType": s.breakpoint_type,
+                "splitTimeMs": s.split_time_ms,
+                "segmentTimeMs": s.segment_time_ms,
+                "deltaMs": s.delta_ms,
+                "townTimeMs": s.town_time_ms,
+                "hideoutTimeMs": s.hideout_time_ms,
+            })
+        })
+        .collect();
+
+    // Build snapshots array - parse JSON string fields into proper values
+    let snapshots_json: Vec<serde_json::Value> = snapshots
+        .iter()
+        .map(|snap| {
+            // Find the split name for this snapshot
+            let split_name = splits
+                .iter()
+                .find(|s| s.id == snap.split_id)
+                .map(|s| s.breakpoint_name.as_str())
+                .unwrap_or("Unknown");
+
+            let items: serde_json::Value = serde_json::from_str(&snap.items_json)
+                .unwrap_or(serde_json::Value::Array(vec![]));
+            let passive_tree: serde_json::Value = serde_json::from_str(&snap.passive_tree_json)
+                .unwrap_or(serde_json::json!({}));
+
+            serde_json::json!({
+                "splitName": split_name,
+                "elapsedTimeMs": snap.elapsed_time_ms,
+                "characterLevel": snap.character_level,
+                "items": items,
+                "passiveTree": passive_tree,
+                "pobCode": snap.pob_code,
+            })
+        })
+        .collect();
+
+    let export = serde_json::json!({
+        "version": "0.2.0",
+        "exportedAt": chrono::Utc::now().to_rfc3339(),
+        "run": {
+            "character": run.character_name,
+            "class": run.class,
+            "ascendancy": run.ascendancy,
+            "league": run.league,
+            "category": run.category,
+            "startedAt": run.started_at,
+            "endedAt": run.ended_at,
+            "totalTimeMs": run.total_time_ms,
+            "isCompleted": run.is_completed,
+            "isPersonalBest": run.is_personal_best,
+            "breakpointPreset": run.breakpoint_preset,
+        },
+        "splits": splits_json,
+        "snapshots": snapshots_json,
+    });
+
+    let json_str = serde_json::to_string_pretty(&export)
+        .map_err(|e| format!("Failed to serialize JSON: {}", e))?;
+
+    std::fs::write(&file_path, json_str)
+        .map_err(|e| format!("Failed to write file: {}", e))?;
+
+    Ok(())
 }
 
 // ============================================================================

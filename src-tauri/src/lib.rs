@@ -134,6 +134,8 @@ pub fn run() {
             fetch_passive_tree,
             // PoB Export
             upload_to_pobbin,
+            // JSON Export
+            export_run_json,
             // Image Proxy (CORS bypass)
             proxy_image,
             // Overlay

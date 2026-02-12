@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { invoke } from '@tauri-apps/api/core';
 import { useRunStore } from '../../stores/runStore';
 import { useSettingsStore } from '../../stores/settingsStore';
+import { exportRunToJson } from '../../utils/jsonExport';
 import { format } from 'date-fns';
 import type { Run } from '../../types';
 
@@ -177,6 +178,13 @@ export function RunsTab() {
                         title="View snapshots"
                       >
                         View
+                      </button>
+                      <button
+                        onClick={() => exportRunToJson(run.id, run)}
+                        className="px-2 py-1 text-xs text-[--color-text-muted] hover:text-[--color-text] hover:bg-[--color-surface-elevated] rounded"
+                        title="Export run as JSON"
+                      >
+                        Export
                       </button>
                       <button
                         onClick={() => handleDelete(run)}

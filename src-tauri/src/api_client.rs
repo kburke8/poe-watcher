@@ -7,7 +7,7 @@ use std::time::{Duration, Instant};
 use tokio::sync::Mutex;
 
 const POE_API_BASE: &str = "https://www.pathofexile.com";
-const USER_AGENT: &str = "POE-Watcher/0.1.0 (contact: kburke.dev@gmail.com)";
+const USER_AGENT: &str = "POE-Watcher/0.2.0 (https://github.com/kburke8/poe-watcher; Discord: beerdz)";
 
 /// Rate limiter using token bucket algorithm
 struct RateLimiter {
