@@ -701,6 +701,18 @@ pub struct Settings {
     pub sound_enabled: bool,
     pub overlay_x: Option<i32>,
     pub overlay_y: Option<i32>,
+    // Overlay display config
+    pub overlay_scale: String,
+    pub overlay_font_size: String,
+    pub overlay_show_timer: bool,
+    pub overlay_show_zone: bool,
+    pub overlay_show_last_split: bool,
+    pub overlay_show_breakpoints: bool,
+    pub overlay_breakpoint_count: i32,
+    pub overlay_bg_opacity: f64,
+    pub overlay_accent_color: String,
+    pub overlay_always_on_top: bool,
+    pub overlay_locked: bool,
 }
 
 impl Default for Settings {
@@ -708,11 +720,22 @@ impl Default for Settings {
         Settings {
             poe_log_path: String::new(),
             account_name: String::new(),
-            overlay_enabled: false,
+            overlay_enabled: true,
             overlay_opacity: 0.8,
             sound_enabled: true,
             overlay_x: None,
             overlay_y: None,
+            overlay_scale: "medium".to_string(),
+            overlay_font_size: "medium".to_string(),
+            overlay_show_timer: true,
+            overlay_show_zone: true,
+            overlay_show_last_split: true,
+            overlay_show_breakpoints: true,
+            overlay_breakpoint_count: 3,
+            overlay_bg_opacity: 0.9,
+            overlay_accent_color: "transparent".to_string(),
+            overlay_always_on_top: true,
+            overlay_locked: false,
         }
     }
 }
@@ -721,7 +744,11 @@ impl Settings {
     pub fn load() -> Result<Settings> {
         let conn = get_db()?;
         let result = conn.query_row(
-            "SELECT poe_log_path, account_name, overlay_enabled, overlay_opacity, sound_enabled, overlay_x, overlay_y FROM settings WHERE id = 1",
+            "SELECT poe_log_path, account_name, overlay_enabled, overlay_opacity, sound_enabled, overlay_x, overlay_y,
+                    overlay_scale, overlay_font_size, overlay_show_timer, overlay_show_zone, overlay_show_last_split,
+                    overlay_show_breakpoints, overlay_breakpoint_count, overlay_bg_opacity, overlay_accent_color,
+                    overlay_always_on_top, overlay_locked
+             FROM settings WHERE id = 1",
             [],
             |row| {
                 Ok(Settings {
@@ -732,6 +759,17 @@ impl Settings {
                     sound_enabled: row.get(4)?,
                     overlay_x: row.get(5)?,
                     overlay_y: row.get(6)?,
+                    overlay_scale: row.get(7)?,
+                    overlay_font_size: row.get(8)?,
+                    overlay_show_timer: row.get(9)?,
+                    overlay_show_zone: row.get(10)?,
+                    overlay_show_last_split: row.get(11)?,
+                    overlay_show_breakpoints: row.get(12)?,
+                    overlay_breakpoint_count: row.get(13)?,
+                    overlay_bg_opacity: row.get(14)?,
+                    overlay_accent_color: row.get(15)?,
+                    overlay_always_on_top: row.get(16)?,
+                    overlay_locked: row.get(17)?,
                 })
             },
         );
@@ -745,8 +783,11 @@ impl Settings {
     pub fn save(settings: &Settings) -> Result<()> {
         let conn = get_db()?;
         conn.execute(
-            "INSERT INTO settings (id, poe_log_path, account_name, overlay_enabled, overlay_opacity, sound_enabled, overlay_x, overlay_y)
-             VALUES (1, ?1, ?2, ?3, ?4, ?5, ?6, ?7)
+            "INSERT INTO settings (id, poe_log_path, account_name, overlay_enabled, overlay_opacity, sound_enabled, overlay_x, overlay_y,
+                                   overlay_scale, overlay_font_size, overlay_show_timer, overlay_show_zone, overlay_show_last_split,
+                                   overlay_show_breakpoints, overlay_breakpoint_count, overlay_bg_opacity, overlay_accent_color,
+                                   overlay_always_on_top, overlay_locked)
+             VALUES (1, ?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14, ?15, ?16, ?17, ?18)
              ON CONFLICT(id) DO UPDATE SET
                 poe_log_path = excluded.poe_log_path,
                 account_name = excluded.account_name,
@@ -754,7 +795,18 @@ impl Settings {
                 overlay_opacity = excluded.overlay_opacity,
                 sound_enabled = excluded.sound_enabled,
                 overlay_x = excluded.overlay_x,
-                overlay_y = excluded.overlay_y",
+                overlay_y = excluded.overlay_y,
+                overlay_scale = excluded.overlay_scale,
+                overlay_font_size = excluded.overlay_font_size,
+                overlay_show_timer = excluded.overlay_show_timer,
+                overlay_show_zone = excluded.overlay_show_zone,
+                overlay_show_last_split = excluded.overlay_show_last_split,
+                overlay_show_breakpoints = excluded.overlay_show_breakpoints,
+                overlay_breakpoint_count = excluded.overlay_breakpoint_count,
+                overlay_bg_opacity = excluded.overlay_bg_opacity,
+                overlay_accent_color = excluded.overlay_accent_color,
+                overlay_always_on_top = excluded.overlay_always_on_top,
+                overlay_locked = excluded.overlay_locked",
             params![
                 settings.poe_log_path,
                 settings.account_name,
@@ -763,6 +815,17 @@ impl Settings {
                 settings.sound_enabled,
                 settings.overlay_x,
                 settings.overlay_y,
+                settings.overlay_scale,
+                settings.overlay_font_size,
+                settings.overlay_show_timer,
+                settings.overlay_show_zone,
+                settings.overlay_show_last_split,
+                settings.overlay_show_breakpoints,
+                settings.overlay_breakpoint_count,
+                settings.overlay_bg_opacity,
+                settings.overlay_accent_color,
+                settings.overlay_always_on_top,
+                settings.overlay_locked,
             ],
         )?;
         Ok(())

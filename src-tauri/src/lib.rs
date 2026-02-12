@@ -145,6 +145,10 @@ pub fn run() {
             set_overlay_position,
             get_overlay_position,
             sync_overlay_state,
+            overlay_ready,
+            resize_overlay,
+            set_overlay_always_on_top,
+            reset_overlay_position,
         ])
         .on_window_event(|window, event| {
             // When the main window is closed, close the overlay and exit

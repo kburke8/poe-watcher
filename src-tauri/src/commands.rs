@@ -9,7 +9,7 @@ use once_cell::sync::OnceCell;
 use serde::{Deserialize, Serialize};
 use std::path::PathBuf;
 use std::sync::Mutex;
-use tauri::{AppHandle, Emitter, Manager, WebviewUrl, WebviewWindowBuilder};
+use tauri::{AppHandle, Emitter, Manager, WebviewUrl, WebviewWindowBuilder, LogicalSize};
 
 // Global state
 static LOG_WATCHER: OnceCell<Mutex<Option<LogWatcher>>> = OnceCell::new();
@@ -715,8 +715,16 @@ pub async fn open_overlay(app_handle: AppHandle) -> Result<(), String> {
         return Ok(());
     }
 
-    // Load saved position
+    // Load saved position and settings
     let (saved_x, saved_y) = Settings::get_overlay_position().unwrap_or((None, None));
+    let settings = Settings::load().unwrap_or_default();
+
+    // Determine size from scale setting
+    let (width, height) = match settings.overlay_scale.as_str() {
+        "small" => (260.0, 150.0),
+        "large" => (400.0, 220.0),
+        _ => (320.0, 180.0), // medium (default)
+    };
 
     // Build the overlay window
     let mut builder = WebviewWindowBuilder::new(
@@ -725,10 +733,10 @@ pub async fn open_overlay(app_handle: AppHandle) -> Result<(), String> {
         WebviewUrl::App("overlay.html".into()),
     )
     .title("POE Watcher Overlay")
-    .inner_size(320.0, 180.0)
+    .inner_size(width, height)
     .decorations(false)
     .transparent(true)
-    .always_on_top(true)
+    .always_on_top(settings.overlay_always_on_top)
     .skip_taskbar(true)
     .resizable(false);
 
@@ -776,8 +784,39 @@ pub async fn get_overlay_position() -> Result<(Option<i32>, Option<i32>), String
 
 #[tauri::command]
 pub async fn sync_overlay_state(app_handle: AppHandle, state: serde_json::Value) -> Result<(), String> {
-    if let Some(overlay) = app_handle.get_webview_window("overlay") {
-        overlay.emit("overlay-state-update", state).map_err(|e| e.to_string())?;
+    if app_handle.get_webview_window("overlay").is_some() {
+        app_handle.emit_to("overlay", "overlay-state-update", state).map_err(|e| e.to_string())?;
     }
+    Ok(())
+}
+
+#[tauri::command]
+pub async fn overlay_ready(app_handle: AppHandle) -> Result<(), String> {
+    app_handle.emit_to("main", "overlay-ready", ()).map_err(|e| e.to_string())?;
+    Ok(())
+}
+
+#[tauri::command]
+pub async fn resize_overlay(app_handle: AppHandle, width: f64, height: f64) -> Result<(), String> {
+    if let Some(overlay) = app_handle.get_webview_window("overlay") {
+        overlay.set_size(LogicalSize::new(width, height)).map_err(|e| e.to_string())?;
+    }
+    Ok(())
+}
+
+#[tauri::command]
+pub async fn set_overlay_always_on_top(app_handle: AppHandle, enabled: bool) -> Result<(), String> {
+    if let Some(overlay) = app_handle.get_webview_window("overlay") {
+        overlay.set_always_on_top(enabled).map_err(|e| e.to_string())?;
+    }
+    Ok(())
+}
+
+#[tauri::command]
+pub async fn reset_overlay_position(app_handle: AppHandle) -> Result<(), String> {
+    if let Some(overlay) = app_handle.get_webview_window("overlay") {
+        overlay.set_position(tauri::LogicalPosition::new(100.0, 100.0)).map_err(|e| e.to_string())?;
+    }
+    Settings::save_overlay_position(100, 100).map_err(|e| e.to_string())?;
     Ok(())
 }

@@ -1,5 +1,6 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { getVersion } from '@tauri-apps/api/app';
+import { invoke } from '@tauri-apps/api/core';
 import { useSettingsStore } from '../stores/settingsStore';
 import { useUpdateChecker } from '../hooks/useUpdateChecker';
 import type { ViewMode } from '../types';
@@ -19,10 +20,19 @@ const navItems: NavItem[] = [
 ];
 
 export function Sidebar() {
-  const { currentView, setCurrentView, checkUpdates } = useSettingsStore();
+  const { currentView, setCurrentView, checkUpdates, overlayEnabled, overlayOpen, setOverlayOpen } = useSettingsStore();
   const [appVersion, setAppVersion] = useState('');
   const { available, version, downloading, progress, downloadAndInstall } = useUpdateChecker(checkUpdates);
   const [showPopup, setShowPopup] = useState(false);
+
+  const handleToggleOverlay = useCallback(async () => {
+    try {
+      const isOpen = await invoke<boolean>('toggle_overlay');
+      setOverlayOpen(isOpen);
+    } catch (error) {
+      console.error('Failed to toggle overlay:', error);
+    }
+  }, [setOverlayOpen]);
 
   useEffect(() => {
     getVersion().then(setAppVersion).catch(() => setAppVersion('0.0.0'));
@@ -53,6 +63,26 @@ export function Sidebar() {
           </button>
         ))}
       </nav>
+
+      {/* Overlay toggle button */}
+      {overlayEnabled && (
+        <button
+          onClick={handleToggleOverlay}
+          className={`
+            w-12 h-12 flex items-center justify-center rounded-lg mt-4
+            transition-all duration-100 active:scale-90 border
+            ${overlayOpen
+              ? 'text-[--color-poe-gold] border-[--color-poe-gold]/60 bg-[--color-poe-gold]/10'
+              : 'text-[--color-text-muted] border-transparent hover:bg-[--color-surface-elevated] hover:text-[--color-text] hover:border-[--color-border] hover:shadow-sm'
+            }
+          `}
+          title={overlayOpen ? 'Close Overlay (Ctrl+O)' : 'Open Overlay (Ctrl+O)'}
+        >
+          <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9.75 17L9 20l-1 1h8l-1-1-.75-3M3 13h18M5 17h14a2 2 0 002-2V5a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
+          </svg>
+        </button>
+      )}
 
       <div className="mt-auto relative">
         {available ? (

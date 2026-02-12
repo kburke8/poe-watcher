@@ -109,6 +109,17 @@ function App() {
           overlay_enabled: boolean;
           overlay_opacity: number;
           sound_enabled: boolean;
+          overlay_scale: string;
+          overlay_font_size: string;
+          overlay_show_timer: boolean;
+          overlay_show_zone: boolean;
+          overlay_show_last_split: boolean;
+          overlay_show_breakpoints: boolean;
+          overlay_breakpoint_count: number;
+          overlay_bg_opacity: number;
+          overlay_accent_color: string;
+          overlay_always_on_top: boolean;
+          overlay_locked: boolean;
         } | null>('get_settings');
 
         if (settings) {
@@ -118,6 +129,17 @@ function App() {
             overlayEnabled: settings.overlay_enabled,
             overlayOpacity: settings.overlay_opacity,
             soundEnabled: settings.sound_enabled,
+            overlayScale: (settings.overlay_scale || 'medium') as 'small' | 'medium' | 'large',
+            overlayFontSize: (settings.overlay_font_size || 'medium') as 'small' | 'medium' | 'large',
+            overlayShowTimer: settings.overlay_show_timer ?? true,
+            overlayShowZone: settings.overlay_show_zone ?? true,
+            overlayShowLastSplit: settings.overlay_show_last_split ?? true,
+            overlayShowBreakpoints: settings.overlay_show_breakpoints ?? true,
+            overlayBreakpointCount: settings.overlay_breakpoint_count ?? 3,
+            overlayBgOpacity: settings.overlay_bg_opacity ?? 0.9,
+            overlayAccentColor: settings.overlay_accent_color || 'transparent',
+            overlayAlwaysOnTop: settings.overlay_always_on_top ?? true,
+            overlayLocked: settings.overlay_locked ?? false,
           });
 
           // Start log watcher if we have a path

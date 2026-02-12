@@ -1,0 +1,11 @@
+ALTER TABLE settings ADD COLUMN overlay_scale TEXT NOT NULL DEFAULT 'medium';
+ALTER TABLE settings ADD COLUMN overlay_font_size TEXT NOT NULL DEFAULT 'medium';
+ALTER TABLE settings ADD COLUMN overlay_show_timer INTEGER NOT NULL DEFAULT 1;
+ALTER TABLE settings ADD COLUMN overlay_show_zone INTEGER NOT NULL DEFAULT 1;
+ALTER TABLE settings ADD COLUMN overlay_show_last_split INTEGER NOT NULL DEFAULT 1;
+ALTER TABLE settings ADD COLUMN overlay_show_breakpoints INTEGER NOT NULL DEFAULT 1;
+ALTER TABLE settings ADD COLUMN overlay_breakpoint_count INTEGER NOT NULL DEFAULT 3;
+ALTER TABLE settings ADD COLUMN overlay_bg_opacity REAL NOT NULL DEFAULT 0.9;
+ALTER TABLE settings ADD COLUMN overlay_accent_color TEXT NOT NULL DEFAULT 'transparent';
+ALTER TABLE settings ADD COLUMN overlay_always_on_top INTEGER NOT NULL DEFAULT 1;
+ALTER TABLE settings ADD COLUMN overlay_locked INTEGER NOT NULL DEFAULT 0;

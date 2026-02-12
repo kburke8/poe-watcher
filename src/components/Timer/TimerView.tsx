@@ -1,5 +1,7 @@
-import { useEffect, useRef } from 'react';
+import { useEffect, useRef, useCallback } from 'react';
+import { invoke } from '@tauri-apps/api/core';
 import { useRunStore } from '../../stores/runStore';
+import { useSettingsStore } from '../../stores/settingsStore';
 import { TimerDisplay } from './TimerDisplay';
 import { TimerControls } from './TimerControls';
 import { SplitList } from '../Splits/SplitList';
@@ -7,7 +9,17 @@ import type { TimerState } from '../../types';
 
 export function TimerView() {
   const { timer, updateElapsed, currentRun } = useRunStore();
+  const { overlayOpen, overlayEnabled, setOverlayOpen } = useSettingsStore();
   const animationRef = useRef<number | null>(null);
+
+  const handleToggleOverlay = useCallback(async () => {
+    try {
+      const isOpen = await invoke<boolean>('toggle_overlay');
+      setOverlayOpen(isOpen);
+    } catch (error) {
+      console.error('Failed to toggle overlay:', error);
+    }
+  }, [setOverlayOpen]);
 
   // Update timer every frame when running
   useEffect(() => {
@@ -41,6 +53,21 @@ export function TimerView() {
             </p>
           )}
         </div>
+        {overlayEnabled && (
+          <button
+            onClick={handleToggleOverlay}
+            className={`p-2 rounded-lg border-2 transition-all active:scale-95 ${
+              overlayOpen
+                ? 'text-[--color-poe-gold] border-[--color-poe-gold]/60 bg-[--color-poe-gold]/10'
+                : 'text-[--color-text-muted] border-[--color-border] hover:text-[--color-text] hover:border-[--color-poe-gold]/40'
+            }`}
+            title={overlayOpen ? 'Close Overlay (Ctrl+O)' : 'Open Overlay (Ctrl+O)'}
+          >
+            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9.75 17L9 20l-1 1h8l-1-1-.75-3M3 13h18M5 17h14a2 2 0 002-2V5a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
+            </svg>
+          </button>
+        )}
       </div>
 
       {/* Main timer area */}
