@@ -193,6 +193,12 @@ Contributions welcome! See [CONTRIBUTING.md](CONTRIBUTING.md) for:
 
 POE Watcher is not affiliated with or endorsed by Grinding Gear Games in any way.
 
+## Support
+
+If you find this useful, consider supporting development:
+
+[![Ko-fi](https://img.shields.io/badge/Ko--fi-Support-ff5e5b?logo=ko-fi)](https://ko-fi.com/kburke8)
+
 ## License
 
 MIT License
