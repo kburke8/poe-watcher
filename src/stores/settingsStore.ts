@@ -13,6 +13,9 @@ import { generateBreakpoints } from '../config/wizardRoutes';
 interface SettingsState extends Settings {
   // UI state
   currentView: ViewMode;
+  // Runtime-only state (not persisted)
+  overlayOpen: boolean;
+  overlayPreviewActive: boolean;
 
   // Actions
   setLogPath: (path: string) => void;
@@ -42,6 +45,20 @@ interface SettingsState extends Settings {
   // Preset detection helpers
   getCurrentPresetName: () => string;
   getEnabledBreakpointNames: () => string[];
+  // Overlay config
+  setOverlayScale: (scale: 'small' | 'medium' | 'large') => void;
+  setOverlayFontSize: (size: 'small' | 'medium' | 'large') => void;
+  setOverlayShowTimer: (show: boolean) => void;
+  setOverlayShowZone: (show: boolean) => void;
+  setOverlayShowLastSplit: (show: boolean) => void;
+  setOverlayShowBreakpoints: (show: boolean) => void;
+  setOverlayBreakpointCount: (count: number) => void;
+  setOverlayBgOpacity: (opacity: number) => void;
+  setOverlayAccentColor: (color: string) => void;
+  setOverlayAlwaysOnTop: (enabled: boolean) => void;
+  setOverlayLocked: (locked: boolean) => void;
+  setOverlayOpen: (open: boolean) => void;
+  setOverlayPreviewActive: (active: boolean) => void;
 }
 
 export const useSettingsStore = create<SettingsState>((set, get) => ({
@@ -50,12 +67,27 @@ export const useSettingsStore = create<SettingsState>((set, get) => ({
   accountName: '',
   testCharacterName: import.meta.env.DEV ? 'beerdz_layoutguy' : '',
   checkUpdates: true,
-  overlayEnabled: false,
+  overlayEnabled: true,
   overlayOpacity: 0.8,
   soundEnabled: true,
   breakpoints: defaultBreakpoints,
   wizardConfig: undefined,
   currentView: 'timer',
+  // Overlay config defaults
+  overlayScale: 'medium',
+  overlayFontSize: 'medium',
+  overlayShowTimer: true,
+  overlayShowZone: true,
+  overlayShowLastSplit: true,
+  overlayShowBreakpoints: true,
+  overlayBreakpointCount: 3,
+  overlayBgOpacity: 0.9,
+  overlayAccentColor: 'transparent',
+  overlayAlwaysOnTop: true,
+  overlayLocked: false,
+  // Runtime-only
+  overlayOpen: false,
+  overlayPreviewActive: false,
 
   // Actions
   setLogPath: (path) => set({ poeLogPath: path }),
@@ -142,6 +174,21 @@ export const useSettingsStore = create<SettingsState>((set, get) => ({
   },
 
   clearWizardConfig: () => set({ wizardConfig: undefined }),
+
+  // Overlay config setters
+  setOverlayScale: (scale) => set({ overlayScale: scale }),
+  setOverlayFontSize: (size) => set({ overlayFontSize: size }),
+  setOverlayShowTimer: (show) => set({ overlayShowTimer: show }),
+  setOverlayShowZone: (show) => set({ overlayShowZone: show }),
+  setOverlayShowLastSplit: (show) => set({ overlayShowLastSplit: show }),
+  setOverlayShowBreakpoints: (show) => set({ overlayShowBreakpoints: show }),
+  setOverlayBreakpointCount: (count) => set({ overlayBreakpointCount: count }),
+  setOverlayBgOpacity: (opacity) => set({ overlayBgOpacity: opacity }),
+  setOverlayAccentColor: (color) => set({ overlayAccentColor: color }),
+  setOverlayAlwaysOnTop: (enabled) => set({ overlayAlwaysOnTop: enabled }),
+  setOverlayLocked: (locked) => set({ overlayLocked: locked }),
+  setOverlayOpen: (open) => set({ overlayOpen: open }),
+  setOverlayPreviewActive: (active) => set({ overlayPreviewActive: active }),
 
   // Detect current preset based on enabled breakpoints
   getCurrentPresetName: () => {

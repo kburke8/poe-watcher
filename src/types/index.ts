@@ -143,6 +143,18 @@ export interface Settings {
   soundEnabled: boolean;
   breakpoints: Breakpoint[];
   wizardConfig?: WizardConfig;
+  // Overlay display config
+  overlayScale: 'small' | 'medium' | 'large';
+  overlayFontSize: 'small' | 'medium' | 'large';
+  overlayShowTimer: boolean;
+  overlayShowZone: boolean;
+  overlayShowLastSplit: boolean;
+  overlayShowBreakpoints: boolean;
+  overlayBreakpointCount: number;
+  overlayBgOpacity: number;
+  overlayAccentColor: string;
+  overlayAlwaysOnTop: boolean;
+  overlayLocked: boolean;
 }
 
 // POE API types

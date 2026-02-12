@@ -1,4 +1,4 @@
-import { useState, useMemo, useCallback } from 'react';
+import { useState, useEffect, useMemo, useCallback } from 'react';
 import { invoke } from '@tauri-apps/api/core';
 import { open } from '@tauri-apps/plugin-dialog';
 import { useSettingsStore } from '../../stores/settingsStore';
@@ -33,6 +33,29 @@ export function SettingsView() {
     applyMinimalPreset,
     applyTownsOnlyPreset,
     resetBreakpoints,
+    // Overlay config
+    overlayScale,
+    overlayFontSize,
+    overlayShowTimer,
+    overlayShowZone,
+    overlayShowLastSplit,
+    overlayShowBreakpoints,
+    overlayBreakpointCount,
+    overlayBgOpacity,
+    overlayAccentColor,
+    overlayAlwaysOnTop,
+    overlayLocked,
+    overlayOpen,
+    setOverlayScale,
+    setOverlayShowTimer,
+    setOverlayShowZone,
+    setOverlayShowLastSplit,
+    setOverlayShowBreakpoints,
+    setOverlayBgOpacity,
+    setOverlayAccentColor,
+    setOverlayAlwaysOnTop,
+    setOverlayLocked,
+    setOverlayOpen,
   } = useSettingsStore();
 
   const { checking, available, version, error: updateError, checkForUpdate, downloadAndInstall, downloading, progress } = useUpdateChecker(false);
@@ -40,7 +63,6 @@ export function SettingsView() {
   // Filter state for breakpoints
   const [actFilter, setActFilter] = useState<number | 'all' | 'level'>('all');
   const [saveStatus, setSaveStatus] = useState<'idle' | 'saving' | 'saved' | 'error'>('idle');
-  const [overlayOpen, setOverlayOpen] = useState(false);
 
   // Toggle overlay window
   const handleToggleOverlay = useCallback(async () => {
@@ -50,7 +72,85 @@ export function SettingsView() {
     } catch (error) {
       console.error('Failed to toggle overlay:', error);
     }
+  }, [setOverlayOpen]);
+
+  // Reset overlay position
+  const handleResetPosition = useCallback(async () => {
+    try {
+      await invoke('reset_overlay_position');
+    } catch (error) {
+      console.error('Failed to reset overlay position:', error);
+    }
   }, []);
+
+  const overlayPreviewActive = useSettingsStore((s) => s.overlayPreviewActive);
+  const setOverlayPreviewActive = useSettingsStore((s) => s.setOverlayPreviewActive);
+
+  // Send fake split data to preview the overlay
+  const sendPreviewData = useCallback(async () => {
+    const now = Date.now();
+    await invoke('sync_overlay_state', {
+      state: {
+        startTime: now - 82000, // ~1:22 in
+        elapsedMs: 82000,
+        isRunning: true,
+        currentZone: 'The Mud Flats',
+        lastSplit: {
+          name: 'The Coast',
+          deltaMs: -2100,
+          isBestSegment: false,
+          splitTimeMs: 78000,
+          segmentTimeMs: 52000,
+          pbSegmentTimeMs: 54100,
+          goldSegmentTimeMs: 48000,
+        },
+        upcomingBreakpoints: [
+          { name: 'The Mud Flats', pbTimeMs: 125000, pbSegmentTimeMs: 45000 },
+          { name: 'The Submerged Passage', pbTimeMs: 195000, pbSegmentTimeMs: 70000 },
+          { name: 'The Ledge', pbTimeMs: 260000, pbSegmentTimeMs: 65000 },
+        ],
+        opacity: overlayOpacity,
+        scale: overlayScale,
+        fontSize: overlayFontSize,
+        showTimer: overlayShowTimer,
+        showZone: overlayShowZone,
+        showLastSplit: overlayShowLastSplit,
+        showBreakpoints: overlayShowBreakpoints,
+        breakpointCount: overlayBreakpointCount,
+        bgOpacity: overlayBgOpacity,
+        accentColor: overlayAccentColor,
+        alwaysOnTop: overlayAlwaysOnTop,
+        isLocked: overlayLocked,
+      },
+    });
+  }, [overlayOpacity, overlayScale, overlayFontSize, overlayShowTimer, overlayShowZone, overlayShowLastSplit, overlayShowBreakpoints, overlayBreakpointCount, overlayBgOpacity, overlayAccentColor, overlayAlwaysOnTop, overlayLocked]);
+
+  const handlePreviewOverlay = useCallback(async () => {
+    try {
+      // Open overlay if not already open
+      if (!overlayOpen) {
+        const isOpen = await invoke<boolean>('toggle_overlay');
+        setOverlayOpen(isOpen);
+        // Wait for overlay to mount
+        await new Promise((r) => setTimeout(r, 500));
+      }
+      setOverlayPreviewActive(true);
+      await sendPreviewData();
+    } catch (error) {
+      console.error('Failed to preview overlay:', error);
+    }
+  }, [overlayOpen, setOverlayOpen, setOverlayPreviewActive, sendPreviewData]);
+
+  const handleStopPreview = useCallback(() => {
+    setOverlayPreviewActive(false);
+  }, [setOverlayPreviewActive]);
+
+  // Re-send preview data when settings change during preview mode
+  useEffect(() => {
+    if (overlayPreviewActive) {
+      sendPreviewData().catch(() => {});
+    }
+  }, [overlayPreviewActive, sendPreviewData]);
 
   // Breakpoints are loaded and auto-saved in App.tsx
 
@@ -114,6 +214,17 @@ export function SettingsView() {
           overlay_enabled: overlayEnabled,
           overlay_opacity: overlayOpacity,
           sound_enabled: soundEnabled,
+          overlay_scale: overlayScale,
+          overlay_font_size: overlayFontSize,
+          overlay_show_timer: overlayShowTimer,
+          overlay_show_zone: overlayShowZone,
+          overlay_show_last_split: overlayShowLastSplit,
+          overlay_show_breakpoints: overlayShowBreakpoints,
+          overlay_breakpoint_count: overlayBreakpointCount,
+          overlay_bg_opacity: overlayBgOpacity,
+          overlay_accent_color: overlayAccentColor,
+          overlay_always_on_top: overlayAlwaysOnTop,
+          overlay_locked: overlayLocked,
         },
       });
 
@@ -232,6 +343,7 @@ export function SettingsView() {
         <section className="mb-8">
           <h2 className="text-lg font-semibold text-[--color-text] mb-4">Overlay</h2>
           <div className="bg-[--color-surface] rounded-lg p-4 space-y-4">
+            {/* Enable toggle */}
             <div className="flex items-center justify-between">
               <div>
                 <div className="text-[--color-text]">Enable Overlay</div>
@@ -251,36 +363,222 @@ export function SettingsView() {
               </button>
             </div>
 
-            <div>
-              <label className="block text-sm text-[--color-text-muted] mb-2">
-                Overlay Opacity: {Math.round(overlayOpacity * 100)}%
-              </label>
-              <input
-                type="range"
-                min="0.2"
-                max="1"
-                step="0.05"
-                value={overlayOpacity}
-                onChange={(e) => setOverlayOpacity(parseFloat(e.target.value))}
-                className="w-full"
-              />
+            {/* Appearance */}
+            <div className="pt-3 border-t border-[--color-border]">
+              <h3 className="text-sm font-semibold text-[--color-text-muted] mb-3 uppercase tracking-wide">Appearance</h3>
+
+              {/* Size */}
+              <div className="mb-3">
+                <label className="block text-sm text-[--color-text-muted] mb-2">Size</label>
+                <div className="flex gap-2">
+                  {(['small', 'medium', 'large'] as const).map((size) => {
+                    const isSelected = overlayScale === size;
+                    return (
+                      <button
+                        key={size}
+                        onClick={() => setOverlayScale(size)}
+                        className={`px-4 py-1.5 text-sm rounded-md border-2 transition-all active:scale-95 font-medium capitalize ${
+                          isSelected
+                            ? 'bg-[--color-poe-gold] text-[--color-poe-darker] border-[--color-poe-gold-light] shadow-sm'
+                            : 'bg-[--color-surface] text-[--color-text] border-[--color-poe-gold]/30 hover:border-[--color-poe-gold]/60'
+                        }`}
+                      >
+                        {isSelected && '✓ '}{size}
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+
+              {/* Window Opacity */}
+              <div className="mb-3">
+                <label className="block text-sm text-[--color-text-muted] mb-2">
+                  Window Opacity: {Math.round(overlayOpacity * 100)}%
+                </label>
+                <input
+                  type="range"
+                  min="0.2"
+                  max="1"
+                  step="0.05"
+                  value={overlayOpacity}
+                  onChange={(e) => setOverlayOpacity(parseFloat(e.target.value))}
+                  className="w-full"
+                />
+              </div>
+
+              {/* Background Opacity */}
+              <div className="mb-3">
+                <label className="block text-sm text-[--color-text-muted] mb-2">
+                  Background Opacity: {Math.round(overlayBgOpacity * 100)}%
+                </label>
+                <input
+                  type="range"
+                  min="0.1"
+                  max="1"
+                  step="0.05"
+                  value={overlayBgOpacity}
+                  onChange={(e) => setOverlayBgOpacity(parseFloat(e.target.value))}
+                  className="w-full"
+                />
+              </div>
+
+              {/* Accent Color */}
+              <div className="mb-3">
+                <label className="block text-sm text-[--color-text-muted] mb-2">Accent Color</label>
+                <div className="flex items-center gap-2 flex-wrap">
+                  {[
+                    { label: 'None', color: 'transparent' },
+                    { label: 'POE Gold', color: '#af6025' },
+                    { label: 'Green', color: '#22c55e' },
+                    { label: 'Blue', color: '#3b82f6' },
+                    { label: 'White', color: '#d1d5db' },
+                  ].map(({ label, color }) => {
+                    const isSelected = overlayAccentColor === color;
+                    return (
+                      <button
+                        key={color}
+                        onClick={() => setOverlayAccentColor(color)}
+                        className={`flex items-center gap-1.5 px-3 py-1.5 text-sm rounded-md border-2 transition-all active:scale-95 font-medium ${
+                          isSelected
+                            ? 'bg-white/10 border-white/60 shadow-sm ring-1 ring-white/20'
+                            : 'border-[--color-border] hover:border-white/30'
+                        }`}
+                        title={label}
+                      >
+                        {color === 'transparent' ? (
+                          <span className="w-3 h-3 rounded-full border border-[--color-text-muted] relative overflow-hidden">
+                            <span className="absolute inset-0 flex items-center justify-center text-[8px] text-[--color-text-muted]">-</span>
+                          </span>
+                        ) : (
+                          <span className="w-3 h-3 rounded-full" style={{ backgroundColor: color }} />
+                        )}
+                        <span className={isSelected ? 'text-white' : 'text-[--color-text]'}>{label}</span>
+                        {isSelected && <span className="text-[10px] text-white/60">✓</span>}
+                      </button>
+                    );
+                  })}
+                  <input
+                    type="text"
+                    value={overlayAccentColor}
+                    onChange={(e) => setOverlayAccentColor(e.target.value)}
+                    placeholder="#af6025"
+                    className="w-24 px-2 py-1.5 text-sm bg-[--color-surface-elevated] border border-[--color-border] rounded-md text-[--color-text] font-mono"
+                  />
+                </div>
+              </div>
             </div>
 
-            <div className="flex items-center justify-between pt-2 border-t border-[--color-border]">
-              <div>
-                <div className="text-[--color-text]">Test Overlay</div>
-                <div className="text-xs text-[--color-text-muted]">Open overlay to test position (Ctrl+O)</div>
+            {/* Visible Sections */}
+            <div className="pt-3 border-t border-[--color-border]">
+              <h3 className="text-sm font-semibold text-[--color-text-muted] mb-3 uppercase tracking-wide">Visible Sections</h3>
+
+              {[
+                { label: 'Show Timer', value: overlayShowTimer, setter: setOverlayShowTimer },
+                { label: 'Show Current Zone', value: overlayShowZone, setter: setOverlayShowZone },
+                { label: 'Show Last Split', value: overlayShowLastSplit, setter: setOverlayShowLastSplit },
+                { label: 'Show Upcoming Breakpoints', value: overlayShowBreakpoints, setter: setOverlayShowBreakpoints },
+              ].map(({ label, value, setter }) => (
+                <div key={label} className="flex items-center justify-between mb-2">
+                  <span className="text-sm text-[--color-text]">{label}</span>
+                  <button
+                    onClick={() => setter(!value)}
+                    className={`w-10 h-5 rounded-full transition-all duration-150 active:scale-95 border ${
+                      value
+                        ? 'bg-green-600 border-green-500'
+                        : 'bg-zinc-700 border-zinc-600'
+                    }`}
+                  >
+                    <div
+                      className={`w-4 h-4 rounded-full bg-white shadow transition-transform duration-150 ${
+                        value ? 'translate-x-5' : 'translate-x-0.5'
+                      }`}
+                    />
+                  </button>
+                </div>
+              ))}
+
+            </div>
+
+            {/* Behavior */}
+            <div className="pt-3 border-t border-[--color-border]">
+              <h3 className="text-sm font-semibold text-[--color-text-muted] mb-3 uppercase tracking-wide">Behavior</h3>
+
+              <div className="flex items-center justify-between mb-2">
+                <div>
+                  <div className="text-sm text-[--color-text]">Always on Top</div>
+                  <div className="text-xs text-[--color-text-muted]">Keep overlay above other windows</div>
+                </div>
+                <button
+                  onClick={() => setOverlayAlwaysOnTop(!overlayAlwaysOnTop)}
+                  className={`w-12 h-6 rounded-full transition-all duration-150 active:scale-95 ${
+                    overlayAlwaysOnTop ? 'bg-[--color-poe-gold]' : 'bg-[--color-surface-elevated]'
+                  }`}
+                >
+                  <div
+                    className={`w-5 h-5 rounded-full bg-white shadow transition-transform duration-150 ${
+                      overlayAlwaysOnTop ? 'translate-x-6' : 'translate-x-0.5'
+                    }`}
+                  />
+                </button>
               </div>
-              <button
-                onClick={handleToggleOverlay}
-                className={`px-4 py-2 text-sm rounded-md border-2 transition-all active:scale-95 font-medium ${
-                  overlayOpen
-                    ? 'bg-[--color-timer-behind] text-white border-red-400'
-                    : 'bg-[--color-surface] text-[--color-text] border-[--color-poe-gold]/40 hover:border-[--color-poe-gold]/70'
-                }`}
-              >
-                {overlayOpen ? 'Close Overlay' : 'Open Overlay'}
-              </button>
+
+              <div className="flex items-center justify-between mb-2">
+                <div>
+                  <div className="text-sm text-[--color-text]">Lock Overlay</div>
+                  <div className="text-xs text-[--color-text-muted]">Make click-through (Ctrl+Shift+O)</div>
+                </div>
+                <button
+                  onClick={() => setOverlayLocked(!overlayLocked)}
+                  className={`w-12 h-6 rounded-full transition-all duration-150 active:scale-95 ${
+                    overlayLocked ? 'bg-[--color-poe-gold]' : 'bg-[--color-surface-elevated]'
+                  }`}
+                >
+                  <div
+                    className={`w-5 h-5 rounded-full bg-white shadow transition-transform duration-150 ${
+                      overlayLocked ? 'translate-x-6' : 'translate-x-0.5'
+                    }`}
+                  />
+                </button>
+              </div>
+            </div>
+
+            {/* Actions */}
+            <div className="pt-3 border-t border-[--color-border]">
+              <h3 className="text-sm font-semibold text-[--color-text-muted] mb-3 uppercase tracking-wide">Actions</h3>
+              <div className="flex gap-2 flex-wrap">
+                <button
+                  onClick={handleToggleOverlay}
+                  className={`px-4 py-2 text-sm rounded-md border-2 transition-all active:scale-95 font-medium ${
+                    overlayOpen
+                      ? 'bg-[--color-timer-behind] text-white border-red-400'
+                      : 'bg-[--color-surface] text-[--color-text] border-[--color-poe-gold]/40 hover:border-[--color-poe-gold]/70'
+                  }`}
+                >
+                  {overlayOpen ? 'Close Overlay' : 'Open Overlay'}
+                  <span className="ml-2 text-xs opacity-60">Ctrl+O</span>
+                </button>
+                <button
+                  onClick={handleResetPosition}
+                  className="px-4 py-2 text-sm bg-[--color-surface] text-[--color-text] rounded-md border-2 border-[--color-poe-gold]/40 shadow-sm hover:border-[--color-poe-gold]/70 hover:shadow-md active:scale-95 active:shadow-none transition-all font-medium"
+                >
+                  Reset Position
+                </button>
+                {overlayPreviewActive ? (
+                  <button
+                    onClick={handleStopPreview}
+                    className="px-4 py-2 text-sm bg-amber-600/20 text-amber-400 rounded-md border-2 border-amber-500/50 shadow-sm hover:bg-amber-600/30 active:scale-95 transition-all font-medium"
+                  >
+                    Stop Preview
+                  </button>
+                ) : (
+                  <button
+                    onClick={handlePreviewOverlay}
+                    className="px-4 py-2 text-sm bg-[--color-surface] text-[--color-text] rounded-md border-2 border-[--color-poe-gold]/40 shadow-sm hover:border-[--color-poe-gold]/70 hover:shadow-md active:scale-95 active:shadow-none transition-all font-medium"
+                  >
+                    Preview with Demo Data
+                  </button>
+                )}
+              </div>
             </div>
           </div>
         </section>

@@ -164,7 +164,8 @@ export function useHotkeys() {
   // Toggle overlay
   const toggleOverlay = useCallback(async () => {
     try {
-      await invoke<boolean>('toggle_overlay');
+      const isOpen = await invoke<boolean>('toggle_overlay');
+      useSettingsStore.getState().setOverlayOpen(isOpen);
     } catch (error) {
       console.error('[useHotkeys] Failed to toggle overlay:', error);
     }
