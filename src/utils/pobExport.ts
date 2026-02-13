@@ -72,6 +72,19 @@ const gemConfigMap: Record<string, { name: string; type: 'boolean' | 'number' | 
   'Rage Support': { name: 'conditionHaveRage', type: 'boolean', value: 'true' },
 };
 
+/** Gem names that are auras/reservations — not primary damage skills.
+ *  Used as a tiebreaker when two skill groups have equal support-gem counts. */
+const AURA_GEMS = new Set([
+  'Haste', 'Hatred', 'Wrath', 'Anger', 'Grace', 'Determination',
+  'Clarity', 'Precision', 'Vitality', 'Discipline', 'Malevolence',
+  'Zealotry', 'Pride', 'Petrified Blood', 'Tempest Shield', 'Arctic Armour',
+  'Blood and Sand', 'Flesh and Stone',
+  'Defiance Banner', 'Dread Banner', 'War Banner',
+  'Herald of Ash', 'Herald of Ice', 'Herald of Thunder', 'Herald of Purity',
+  'Herald of Agony',
+  'Purity of Fire', 'Purity of Ice', 'Purity of Lightning', 'Purity of Elements',
+]);
+
 /**
  * Infer configuration flags from equipped gems
  */
@@ -224,8 +237,8 @@ function generatePobXml(data: BuildData): string {
   // Generate ItemSet with all possible slots (required for pobb.in)
   const allSlots = generateItemSetSlots(slotItemMap);
 
-  // Generate skills from socketed gems
-  const skillsXml = generateSkillsXml(equippedItems);
+  // Generate skills from socketed gems (also determines the main socket group)
+  const { xml: skillsXml, mainSocketGroup } = generateSkillsXml(equippedItems);
 
   // Generate tree - use comma-separated node IDs
   const treeNodes = passives.hashes.join(',');
@@ -238,7 +251,7 @@ function generatePobXml(data: BuildData): string {
   // Note: PoB Community Fork expects specific XML structure with ItemSet
   return `<?xml version="1.0" encoding="UTF-8"?>
 <PathOfBuilding>
-	<Build mainSocketGroup="1" className="${className}" ascendClassName="${ascendClassName}" pantheonMajorGod="None" pantheonMinorGod="None" characterLevelAutoMode="false" level="${character.level}" viewMode="ITEMS" targetVersion="3_0" bandit="None">
+	<Build mainSocketGroup="${mainSocketGroup}" className="${className}" ascendClassName="${ascendClassName}" pantheonMajorGod="None" pantheonMinorGod="None" characterLevelAutoMode="false" level="${character.level}" viewMode="ITEMS" targetVersion="3_0" bandit="None">
 		<PlayerStat stat="Life" value="1000"/>
 	</Build>
 	<Import>
@@ -418,11 +431,12 @@ function socketAttrToColor(attr: string): string {
 }
 
 /**
- * Generate skills XML from socketed items
+ * Generate skills XML from socketed items.
+ * Returns the XML string and the 1-indexed mainSocketGroup (the skill group
+ * most likely to be the character's primary damage skill, determined by the
+ * number of support gems and whether the group contains only auras).
  */
-function generateSkillsXml(items: PoeItem[]): string {
-  const skills: string[] = [];
-
+function generateSkillsXml(items: PoeItem[]): { xml: string; mainSocketGroup: number } {
   // Map inventory IDs to PoB skill slot names
   const skillSlotMap: Record<string, string> = {
     Weapon: 'Weapon 1',
@@ -439,8 +453,13 @@ function generateSkillsXml(items: PoeItem[]): string {
     Ring2: 'Ring 2',
   };
 
+  const skillGroups: Array<{ xml: string; supportCount: number; isAuraOnly: boolean }> = [];
+
   items.forEach((item) => {
     if (!item.socketedItems || item.socketedItems.length === 0) return;
+
+    let supportCount = 0;
+    const activeGemNames: string[] = [];
 
     const gems = item.socketedItems
       .map((gem) => {
@@ -461,6 +480,13 @@ function generateSkillsXml(items: PoeItem[]): string {
         }
 
         const gemName = gem.typeLine || 'Unknown Gem';
+        const isSupport = gemName.includes('Support');
+        if (isSupport) {
+          supportCount++;
+        } else {
+          activeGemNames.push(gemName);
+        }
+
         const { skillId, gemId } = getGemIds(gemName);
 
         // Full gem format for pobb.in compatibility
@@ -469,74 +495,140 @@ function generateSkillsXml(items: PoeItem[]): string {
 
     if (gems.length > 0) {
       const slotName = skillSlotMap[item.inventoryId] || item.inventoryId || 'Unknown';
-      skills.push(
-        `\t\t\t<Skill mainActiveSkill="1" enabled="true" slot="${slotName}">\n${gems.join('\n')}\n\t\t\t</Skill>`
-      );
+      const isAuraOnly = activeGemNames.length > 0 && activeGemNames.every(name => AURA_GEMS.has(name));
+      skillGroups.push({
+        xml: `\t\t\t<Skill mainActiveSkill="1" enabled="true" slot="${slotName}">\n${gems.join('\n')}\n\t\t\t</Skill>`,
+        supportCount,
+        isAuraOnly,
+      });
+    }
+  });
+
+  // Determine the main socket group: most support gems wins, non-aura tiebreak
+  let mainSocketGroup = 1;
+  let bestScore = -1;
+  skillGroups.forEach((group, index) => {
+    // Primary criterion: support gem count (×10).  Tiebreak: +1 if NOT aura-only.
+    const score = group.supportCount * 10 + (group.isAuraOnly ? 0 : 1);
+    if (score > bestScore) {
+      bestScore = score;
+      mainSocketGroup = index + 1; // 1-indexed
     }
   });
 
   // Wrap in SkillSet
-  if (skills.length > 0) {
-    return `\t\t<SkillSet id="1">\n${skills.join('\n')}\n\t\t</SkillSet>`;
+  if (skillGroups.length > 0) {
+    return {
+      xml: `\t\t<SkillSet id="1">\n${skillGroups.map(g => g.xml).join('\n')}\n\t\t</SkillSet>`,
+      mainSocketGroup,
+    };
   }
-  return '';
+  return { xml: '', mainSocketGroup: 1 };
 }
 
 /**
- * Get gem IDs from gem name for pobb.in compatibility
+ * Known gem name → PoB ID mappings for gems whose internal IDs
+ * differ from a simple PascalCase derivation of the display name.
+ * Checked FIRST before falling back to auto-generated IDs.
+ */
+const GEM_ID_MAPPINGS: Record<string, { skillId: string; gemId: string }> = {
+  // ── Marks / Curses (internal names differ from display names) ──────────
+  "Assassin's Mark": { skillId: 'AssassinsMark', gemId: 'Metadata/Items/Gems/SkillGemCriticalWeakness' },
+  "Sniper's Mark": { skillId: 'SnipersMarkRegular', gemId: 'Metadata/Items/Gems/SkillGemProjectileWeakness' },
+  "Poacher's Mark": { skillId: 'PoachersMark', gemId: 'Metadata/Items/Gems/SkillGemPoachersMark' },
+  "Warlord's Mark": { skillId: 'WarlordsMark', gemId: 'Metadata/Items/Gems/SkillGemWarlordsMark' },
+
+  // ── Auras / Heralds ───────────────────────────────────────────────────
+  "Herald of Ice": { skillId: 'HeraldOfIce', gemId: 'Metadata/Items/Gems/SkillGemHeraldOfIce' },
+  "Herald of Ash": { skillId: 'HeraldOfAsh', gemId: 'Metadata/Items/Gems/SkillGemHeraldOfAsh' },
+  "Herald of Thunder": { skillId: 'HeraldOfThunder', gemId: 'Metadata/Items/Gems/SkillGemHeraldOfThunder' },
+  "Herald of Purity": { skillId: 'HeraldOfPurity', gemId: 'Metadata/Items/Gems/SkillGemHeraldOfPurity' },
+  "Herald of Agony": { skillId: 'HeraldOfAgony', gemId: 'Metadata/Items/Gems/SkillGemHeraldOfAgony' },
+  "Purity of Fire": { skillId: 'PurityOfFire', gemId: 'Metadata/Items/Gems/SkillGemFireResistAura' },
+  "Purity of Ice": { skillId: 'PurityOfIce', gemId: 'Metadata/Items/Gems/SkillGemColdResistAura' },
+  "Purity of Lightning": { skillId: 'PurityOfLightning', gemId: 'Metadata/Items/Gems/SkillGemLightningResistAura' },
+  "Purity of Elements": { skillId: 'PurityOfElements', gemId: 'Metadata/Items/Gems/SkillGemPurityOfElements' },
+  "Precision": { skillId: 'Precision', gemId: 'Metadata/Items/Gems/SkillGemPrecision' },
+  "Wrath": { skillId: 'Wrath', gemId: 'Metadata/Items/Gems/SkillGemWrath' },
+
+  // ── Buffs / Guard / Utility ───────────────────────────────────────────
+  "Blood Rage": { skillId: 'BloodRage', gemId: 'Metadata/Items/Gems/SkillGemNewBloodRage' },
+  "Blood and Sand": { skillId: 'BloodSandStance', gemId: 'Metadata/Items/Gems/SkillGemBloodSandArmour' },
+  "Flesh and Stone": { skillId: 'FleshAndStone', gemId: 'Metadata/Items/Gems/SkillGemBloodSandArmour2' },
+  "Steelskin": { skillId: 'QuickGuard', gemId: 'Metadata/Items/Gems/SkillGemSteelskin' },
+  "Immortal Call": { skillId: 'ImmortalCall', gemId: 'Metadata/Items/Gems/SkillGemImmortalCall' },
+  "Molten Shell": { skillId: 'MoltenShell', gemId: 'Metadata/Items/Gems/SkillGemMoltenShell' },
+
+  // ── Movement ──────────────────────────────────────────────────────────
+  "Leap Slam": { skillId: 'LeapSlam', gemId: 'Metadata/Items/Gems/SkillGemLeapSlam' },
+  "Frostblink": { skillId: 'Frostblink', gemId: 'Metadata/Items/Gems/SkillGemFrostblink' },
+  "Flame Dash": { skillId: 'FlameDash', gemId: 'Metadata/Items/Gems/SkillGemFlameDash' },
+  "Shield Charge": { skillId: 'ShieldCharge', gemId: 'Metadata/Items/Gems/SkillGemShieldCharge' },
+  "Whirling Blades": { skillId: 'WhirlingBlades', gemId: 'Metadata/Items/Gems/SkillGemWhirlingBlades' },
+
+  // ── Attack skills ─────────────────────────────────────────────────────
+  "Rain of Arrows": { skillId: 'RainOfArrows', gemId: 'Metadata/Items/Gems/SkillGemRainOfArrows' },
+  "Vaal Rain of Arrows": { skillId: 'RainOfArrows', gemId: 'Metadata/Items/Gems/SkillGemVaalRainOfArrows' },
+  "Artillery Ballista": { skillId: 'ArtilleryBallista', gemId: 'Metadata/Items/Gems/SkillGemArtilleryBallista' },
+
+  // ── Support gems (internal names differ from display names) ───────────
+  "Lifetap Support": { skillId: 'SupportLifetap', gemId: 'Metadata/Items/Gems/SupportGemLifetap' },
+  "Mark On Hit Support": { skillId: 'SupportMarkOnHit', gemId: 'Metadata/Items/Gems/SupportGemMarkOnHit' },
+  "Faster Attacks Support": { skillId: 'SupportFasterAttacks', gemId: 'Metadata/Items/Gems/SupportGemFasterAttack' },
+  "Momentum Support": { skillId: 'SupportMomentum', gemId: 'Metadata/Items/Gems/SupportGemOnslaught' },
+  "Automation Support": { skillId: 'Automation', gemId: 'Metadata/Items/Gems/SkillGemAutomation' },
+  "Empower Support": { skillId: 'SupportEmpower', gemId: 'Metadata/Items/Gems/SupportGemAdditionalLevel' },
+  "Enhance Support": { skillId: 'SupportEnhance', gemId: 'Metadata/Items/Gems/SupportGemAdditionalQuality' },
+  "Enlighten Support": { skillId: 'SupportEnlighten', gemId: 'Metadata/Items/Gems/SupportGemReducedManaCost' },
+  "Trinity Support": { skillId: 'SupportTrinity', gemId: 'Metadata/Items/Gems/SupportGemTrinity' },
+  "Added Cold Damage Support": { skillId: 'SupportAddedColdDamage', gemId: 'Metadata/Items/Gems/SupportGemAddedColdDamage' },
+  "Added Fire Damage Support": { skillId: 'SupportAddedFireDamage', gemId: 'Metadata/Items/Gems/SupportGemAddedFireDamage' },
+  "Added Lightning Damage Support": { skillId: 'SupportAddedLightningDamage', gemId: 'Metadata/Items/Gems/SupportGemAddedLightningDamage' },
+  "Elemental Damage with Attacks Support": { skillId: 'SupportWeaponElementalDamage', gemId: 'Metadata/Items/Gems/SupportGemWeaponElementalDamage' },
+  "Multistrike Support": { skillId: 'SupportMultistrike', gemId: 'Metadata/Items/Gems/SupportGemMultistrike' },
+  "Volatility Support": { skillId: 'SupportVolatility', gemId: 'Metadata/Items/Gems/SupportGemVolatility' },
+  "Mirage Archer Support": { skillId: 'SupportMirageArcher', gemId: 'Metadata/Items/Gems/SupportGemMirageArcher' },
+  "Cast when Damage Taken Support": { skillId: 'SupportCastOnDamageTaken', gemId: 'Metadata/Items/Gems/SupportGemCastOnDamageTaken' },
+  "Cast on Critical Strike Support": { skillId: 'SupportCastOnCrit', gemId: 'Metadata/Items/Gems/SupportGemCastOnCrit' },
+  "Increased Critical Damage Support": { skillId: 'SupportIncreasedCriticalDamage', gemId: 'Metadata/Items/Gems/SupportGemIncreasedCriticalDamage' },
+  "Increased Critical Strikes Support": { skillId: 'SupportIncreasedCriticalStrikes', gemId: 'Metadata/Items/Gems/SupportGemIncreasedCriticalStrikes' },
+
+  // ── Transfigured gems ─────────────────────────────────────────────────
+  "Smite of Divine Judgement": { skillId: 'Smite', gemId: 'Metadata/Items/Gems/SkillGemSmite' },
+};
+
+/**
+ * Get gem IDs from gem name for pobb.in compatibility.
+ * Uses a known-mapping table first, then falls back to PascalCase derivation.
  */
 function getGemIds(gemName: string): { skillId: string; gemId: string } {
-  // Convert gem name to skillId format (PascalCase, no spaces)
-  // e.g., "Assassin's Mark" -> "AssassinsMark"
-  // e.g., "Lifetap Support" -> "SupportLifetap"
+  // 1. Check explicit mappings first
+  if (GEM_ID_MAPPINGS[gemName]) {
+    return GEM_ID_MAPPINGS[gemName];
+  }
 
+  // 2. Fall back to PascalCase derivation
   const isSupport = gemName.includes('Support');
+
+  // Convert to PascalCase: capitalize first letter of every word (including "of", "on", etc.)
   const cleanName = gemName
     .replace(/ Support$/, '')
     .replace(/'/g, '')
-    .replace(/\s+/g, '');
-
-  let skillId: string;
-  let gemId: string;
+    .split(/\s+/)
+    .map(word => word.charAt(0).toUpperCase() + word.slice(1))
+    .join('');
 
   if (isSupport) {
-    skillId = `Support${cleanName}`;
-    gemId = `Metadata/Items/Gems/SupportGem${cleanName}`;
-  } else {
-    skillId = cleanName;
-    gemId = `Metadata/Items/Gems/SkillGem${cleanName}`;
+    return {
+      skillId: `Support${cleanName}`,
+      gemId: `Metadata/Items/Gems/SupportGem${cleanName}`,
+    };
   }
 
-  // Handle some common special cases and transfigured gems
-  const specialMappings: Record<string, { skillId: string; gemId: string }> = {
-    // Standard gems
-    "Assassin's Mark": { skillId: 'AssassinsMark', gemId: 'Metadata/Items/Gems/SkillGemCriticalWeakness' },
-    "Herald of Ice": { skillId: 'HeraldOfIce', gemId: 'Metadata/Items/Gems/SkillGemHeraldOfIce' },
-    "Blood Rage": { skillId: 'BloodRage', gemId: 'Metadata/Items/Gems/SkillGemBloodRage' },
-    "Leap Slam": { skillId: 'LeapSlam', gemId: 'Metadata/Items/Gems/SkillGemLeapSlam' },
-    "Steelskin": { skillId: 'QuickGuard', gemId: 'Metadata/Items/Gems/SkillGemSteelskin' },
-    "Precision": { skillId: 'Precision', gemId: 'Metadata/Items/Gems/SkillGemPrecision' },
-    "Wrath": { skillId: 'Wrath', gemId: 'Metadata/Items/Gems/SkillGemWrath' },
-    "Frostblink": { skillId: 'Frostblink', gemId: 'Metadata/Items/Gems/SkillGemFrostblink' },
-    "Lifetap Support": { skillId: 'SupportLifetap', gemId: 'Metadata/Items/Gems/SupportGemLifetap' },
-    "Mark On Hit Support": { skillId: 'SupportMarkOnHit', gemId: 'Metadata/Items/Gems/SupportGemMarkOnHit' },
-    "Faster Attacks Support": { skillId: 'SupportFasterAttacks', gemId: 'Metadata/Items/Gems/SupportGemFasterAttack' },
-    "Momentum Support": { skillId: 'SupportMomentum', gemId: 'Metadata/Items/Gems/SupportGemOnslaught' },
-    "Automation Support": { skillId: 'Automation', gemId: 'Metadata/Items/Gems/SkillGemAutomation' },
-    "Empower Support": { skillId: 'SupportEmpower', gemId: 'Metadata/Items/Gems/SupportGemAdditionalLevel' },
-    "Trinity Support": { skillId: 'SupportTrinity', gemId: 'Metadata/Items/Gems/SupportGemTrinity' },
-    "Added Cold Damage Support": { skillId: 'SupportAddedColdDamage', gemId: 'Metadata/Items/Gems/SupportGemAddedColdDamage' },
-    "Multistrike Support": { skillId: 'SupportMultistrike', gemId: 'Metadata/Items/Gems/SupportGemMultistrike' },
-    "Volatility Support": { skillId: 'SupportVolatility', gemId: 'Metadata/Items/Gems/SupportGemVolatility' },
-    // Transfigured gems - map to base gem with variant
-    "Smite of Divine Judgement": { skillId: 'Smite', gemId: 'Metadata/Items/Gems/SkillGemSmite' },
+  return {
+    skillId: cleanName,
+    gemId: `Metadata/Items/Gems/SkillGem${cleanName}`,
   };
-
-  if (specialMappings[gemName]) {
-    return specialMappings[gemName];
-  }
-
-  return { skillId, gemId };
 }
 
 function escapeXml(str: string): string {
@@ -818,13 +910,21 @@ function generateMultiSnapshotPobXml(data: MultiBuildData): string {
     itemsXml.push(itemXml);
   }
 
+  // Default to the last snapshot (most recent/end of run state)
+  const defaultSet = snapshots.length;
+
   // Generate SkillSets (one per snapshot) with matching titles for Loadouts
   const skillSetsXml: string[] = [];
+  let mainSocketGroup = 1;
   for (let setIdx = 0; setIdx < snapshots.length; setIdx++) {
     const { items, label } = snapshots[setIdx];
     const setId = setIdx + 1;
     const equippedItems = items.filter(item => item.inventoryId && !item.inventoryId.startsWith('Stash'));
-    const skillsContent = generateSkillsXmlContent(equippedItems);
+    const { xml: skillsContent, mainSocketGroup: groupIdx } = generateSkillsXmlContent(equippedItems);
+    // Use the mainSocketGroup from the active (last) snapshot
+    if (setId === defaultSet) {
+      mainSocketGroup = groupIdx;
+    }
     if (skillsContent) {
       skillSetsXml.push(`\t\t<SkillSet id="${setId}" title="${escapeXml(label)}">\n${skillsContent}\n\t\t</SkillSet>`);
     } else {
@@ -862,12 +962,9 @@ function generateMultiSnapshotPobXml(data: MultiBuildData): string {
     }
   }
 
-  // Default to the last snapshot (most recent/end of run state)
-  const defaultSet = snapshots.length;
-
   return `<?xml version="1.0" encoding="UTF-8"?>
 <PathOfBuilding>
-	<Build mainSocketGroup="1" className="${className}" ascendClassName="${ascendClassName}" pantheonMajorGod="None" pantheonMinorGod="None" characterLevelAutoMode="false" level="${latestLevel}" viewMode="ITEMS" targetVersion="3_0" bandit="None">
+	<Build mainSocketGroup="${mainSocketGroup}" className="${className}" ascendClassName="${ascendClassName}" pantheonMajorGod="None" pantheonMinorGod="None" characterLevelAutoMode="false" level="${latestLevel}" viewMode="ITEMS" targetVersion="3_0" bandit="None">
 		<PlayerStat stat="Life" value="1000"/>
 	</Build>
 	<Import>
@@ -893,19 +990,23 @@ ${configSetsXml.join('\n')}
 }
 
 /**
- * Helper to generate skills XML content without wrapper
+ * Helper to generate skills XML content without wrapper.
+ * Also returns the 1-indexed mainSocketGroup for the most likely damage skill.
  */
-function generateSkillsXmlContent(items: PoeItem[]): string {
+function generateSkillsXmlContent(items: PoeItem[]): { xml: string; mainSocketGroup: number } {
   const skillSlotMap: Record<string, string> = {
     Weapon: 'Weapon 1', Weapon2: 'Weapon 1 Swap', Offhand: 'Weapon 2', Offhand2: 'Weapon 2 Swap',
     Helm: 'Helmet', BodyArmour: 'Body Armour', Gloves: 'Gloves', Boots: 'Boots',
     Belt: 'Belt', Amulet: 'Amulet', Ring: 'Ring 1', Ring2: 'Ring 2',
   };
 
-  const skills: string[] = [];
+  const skillGroups: Array<{ xml: string; supportCount: number; isAuraOnly: boolean }> = [];
 
   items.forEach((item) => {
     if (!item.socketedItems || item.socketedItems.length === 0) return;
+
+    let supportCount = 0;
+    const activeGemNames: string[] = [];
 
     const gems = item.socketedItems.map((gem) => {
       let level = 20;
@@ -919,6 +1020,13 @@ function generateSkillsXmlContent(items: PoeItem[]): string {
       }
 
       const gemName = gem.typeLine || 'Unknown Gem';
+      const isSupport = gemName.includes('Support');
+      if (isSupport) {
+        supportCount++;
+      } else {
+        activeGemNames.push(gemName);
+      }
+
       const { skillId, gemId } = getGemIds(gemName);
 
       return `\t\t\t\t<Gem qualityId="Default" enabled="true" skillId="${skillId}" quality="${quality}" gemId="${gemId}" nameSpec="${escapeXml(gemName)}" level="${level}" enableGlobal1="true"/>`;
@@ -926,11 +1034,26 @@ function generateSkillsXmlContent(items: PoeItem[]): string {
 
     if (gems.length > 0) {
       const slotName = skillSlotMap[item.inventoryId] || item.inventoryId || 'Unknown';
-      skills.push(`\t\t\t<Skill mainActiveSkill="1" enabled="true" slot="${slotName}">\n${gems.join('\n')}\n\t\t\t</Skill>`);
+      const isAuraOnly = activeGemNames.length > 0 && activeGemNames.every(name => AURA_GEMS.has(name));
+      skillGroups.push({
+        xml: `\t\t\t<Skill mainActiveSkill="1" enabled="true" slot="${slotName}">\n${gems.join('\n')}\n\t\t\t</Skill>`,
+        supportCount,
+        isAuraOnly,
+      });
     }
   });
 
-  return skills.join('\n');
+  let mainSocketGroup = 1;
+  let bestScore = -1;
+  skillGroups.forEach((group, index) => {
+    const score = group.supportCount * 10 + (group.isAuraOnly ? 0 : 1);
+    if (score > bestScore) {
+      bestScore = score;
+      mainSocketGroup = index + 1;
+    }
+  });
+
+  return { xml: skillGroups.map(g => g.xml).join('\n'), mainSocketGroup };
 }
 
 /**
