@@ -33,6 +33,10 @@ interface OverlayState {
   accentColor: string;
   alwaysOnTop: boolean;
   isLocked: boolean;
+  // Hotkey labels for overlay tooltips
+  hotkeyToggleTimer: string;
+  hotkeyToggleOverlay: string;
+  hotkeyToggleOverlayLock: string;
 }
 
 interface OverlayConfig {
@@ -50,6 +54,12 @@ interface OverlayConfig {
   overlayLocked: boolean;
 }
 
+interface HotkeyLabels {
+  hotkeyToggleTimer: string;
+  hotkeyToggleOverlay: string;
+  hotkeyToggleOverlayLock: string;
+}
+
 function buildOverlayState(
   timer: TimerState,
   breakpoints: Breakpoint[],
@@ -57,6 +67,7 @@ function buildOverlayState(
   personalBests: Map<string, number>,
   goldSplits: Map<string, number>,
   currentRun: { category: string; class: string } | null,
+  hotkeyLabels: HotkeyLabels,
 ): OverlayState {
   const lastTimerSplit = timer.splits[timer.splits.length - 1] || null;
   const enabledBreakpoints = breakpoints.filter((bp: Breakpoint) => bp.isEnabled);
@@ -141,6 +152,9 @@ function buildOverlayState(
     accentColor: config.overlayAccentColor,
     alwaysOnTop: config.overlayAlwaysOnTop,
     isLocked: config.overlayLocked,
+    hotkeyToggleTimer: hotkeyLabels.hotkeyToggleTimer,
+    hotkeyToggleOverlay: hotkeyLabels.hotkeyToggleOverlay,
+    hotkeyToggleOverlayLock: hotkeyLabels.hotkeyToggleOverlayLock,
   };
 }
 
@@ -168,6 +182,7 @@ export function useOverlaySync() {
   const overlayAccentColor = useSettingsStore((state) => state.overlayAccentColor);
   const overlayAlwaysOnTop = useSettingsStore((state) => state.overlayAlwaysOnTop);
   const overlayLocked = useSettingsStore((state) => state.overlayLocked);
+  const hotkeys = useSettingsStore((state) => state.hotkeys);
 
   const config: OverlayConfig = {
     overlayOpacity,
@@ -187,13 +202,19 @@ export function useOverlaySync() {
   // Track previous non-time state to detect meaningful changes
   const prevNonTimeRef = useRef<string>('');
 
+  const hotkeyLabels: HotkeyLabels = {
+    hotkeyToggleTimer: hotkeys.toggleTimer,
+    hotkeyToggleOverlay: hotkeys.toggleOverlay,
+    hotkeyToggleOverlayLock: hotkeys.toggleOverlayLock,
+  };
+
   // Build and send current state
   const syncNow = useCallback(() => {
     const runInfo = currentRun ? { category: currentRun.category, class: currentRun.class } : null;
-    const state = buildOverlayState(timer, breakpoints, config, personalBests, goldSplits, runInfo);
+    const state = buildOverlayState(timer, breakpoints, config, personalBests, goldSplits, runInfo, hotkeyLabels);
     sendToOverlay(state);
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [timer, breakpoints, overlayOpacity, overlayScale, overlayFontSize, overlayShowTimer, overlayShowZone, overlayShowLastSplit, overlayShowBreakpoints, overlayBreakpointCount, overlayBgOpacity, overlayAccentColor, overlayAlwaysOnTop, overlayLocked, personalBests, goldSplits, currentRun]);
+  }, [timer, breakpoints, overlayOpacity, overlayScale, overlayFontSize, overlayShowTimer, overlayShowZone, overlayShowLastSplit, overlayShowBreakpoints, overlayBreakpointCount, overlayBgOpacity, overlayAccentColor, overlayAlwaysOnTop, overlayLocked, personalBests, goldSplits, currentRun, hotkeys]);
 
   // Emit immediately on meaningful state changes (zone, splits, start/stop, config, etc.)
   useEffect(() => {

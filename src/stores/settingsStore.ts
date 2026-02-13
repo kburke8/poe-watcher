@@ -1,5 +1,7 @@
 import { create } from 'zustand';
-import type { Breakpoint, Settings, ViewMode, WizardConfig } from '../types';
+import { invoke } from '@tauri-apps/api/core';
+import type { Breakpoint, Settings, ViewMode, WizardConfig, HotkeySettings } from '../types';
+import { DEFAULT_HOTKEYS } from '../types';
 import {
   defaultBreakpoints,
   applySpeedrunPreset,
@@ -15,6 +17,8 @@ interface SettingsState extends Settings {
   currentView: ViewMode;
   // Runtime-only state (not persisted)
   overlayOpen: boolean;
+  // Hotkey settings
+  hotkeys: HotkeySettings;
   // Actions
   setLogPath: (path: string) => void;
   setAccountName: (name: string) => void;
@@ -56,6 +60,10 @@ interface SettingsState extends Settings {
   setOverlayAlwaysOnTop: (enabled: boolean) => void;
   setOverlayLocked: (locked: boolean) => void;
   setOverlayOpen: (open: boolean) => void;
+  // Hotkey actions
+  loadHotkeys: () => Promise<void>;
+  setHotkeys: (hotkeys: HotkeySettings) => void;
+  resetHotkeys: () => Promise<void>;
 }
 
 export const useSettingsStore = create<SettingsState>((set, get) => ({
@@ -84,6 +92,8 @@ export const useSettingsStore = create<SettingsState>((set, get) => ({
   overlayLocked: false,
   // Runtime-only
   overlayOpen: false,
+  // Hotkey settings
+  hotkeys: { ...DEFAULT_HOTKEYS },
   // Actions
   setLogPath: (path) => set({ poeLogPath: path }),
   setAccountName: (name) => set({ accountName: name }),
@@ -226,5 +236,25 @@ export const useSettingsStore = create<SettingsState>((set, get) => ({
     return state.breakpoints
       .filter((bp) => bp.isEnabled)
       .map((bp) => bp.name);
+  },
+
+  // Hotkey actions
+  loadHotkeys: async () => {
+    try {
+      const hotkeys = await invoke<HotkeySettings>('get_hotkeys');
+      set({ hotkeys });
+    } catch (error) {
+      console.error('[settingsStore] Failed to load hotkeys:', error);
+    }
+  },
+  setHotkeys: (hotkeys) => set({ hotkeys }),
+  resetHotkeys: async () => {
+    try {
+      await invoke('update_hotkeys', { hotkeys: DEFAULT_HOTKEYS });
+      set({ hotkeys: { ...DEFAULT_HOTKEYS } });
+    } catch (error) {
+      console.error('[settingsStore] Failed to reset hotkeys:', error);
+      throw error;
+    }
   },
 }));

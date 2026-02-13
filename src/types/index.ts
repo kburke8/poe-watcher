@@ -200,6 +200,25 @@ export interface PoePassiveSkills {
   jewelData?: Record<string, unknown>;
 }
 
+// Hotkey settings
+export interface HotkeySettings {
+  toggleTimer: string;
+  resetTimer: string;
+  manualSnapshot: string;
+  manualSplit: string;
+  toggleOverlay: string;
+  toggleOverlayLock: string;
+}
+
+export const DEFAULT_HOTKEYS: HotkeySettings = {
+  toggleTimer: 'Ctrl+Space',
+  resetTimer: 'Ctrl+Shift+Space',
+  manualSnapshot: 'Ctrl+Alt+Space',
+  manualSplit: 'Ctrl+Shift+S',
+  toggleOverlay: 'Ctrl+O',
+  toggleOverlayLock: 'Ctrl+Shift+O',
+};
+
 // Timer state
 export interface TimerState {
   isRunning: boolean;

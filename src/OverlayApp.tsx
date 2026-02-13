@@ -35,6 +35,10 @@ interface OverlayState {
   accentColor?: string;
   alwaysOnTop?: boolean;
   isLocked?: boolean;
+  // Hotkey labels
+  hotkeyToggleTimer?: string;
+  hotkeyToggleOverlay?: string;
+  hotkeyToggleOverlayLock?: string;
 }
 
 const initialState: OverlayState = {
@@ -229,7 +233,7 @@ export function OverlayApp() {
             onClick={handleToggleLock}
             className="p-0.5"
             style={{ color: isLocked ? '#fbbf24' : '#9ca3af' }}
-            title={isLocked ? 'Unlock overlay (Ctrl+Shift+O)' : 'Lock overlay (Ctrl+Shift+O)'}
+            title={isLocked ? `Unlock overlay (${state.hotkeyToggleOverlayLock || 'Ctrl+Shift+O'})` : `Lock overlay (${state.hotkeyToggleOverlayLock || 'Ctrl+Shift+O'})`}
           >
             {isLocked ? (
               <svg className={iconSize} fill="currentColor" viewBox="0 0 24 24">
@@ -246,7 +250,7 @@ export function OverlayApp() {
             onClick={handleClose}
             className="p-0.5"
             style={{ color: '#9ca3af' }}
-            title="Close overlay (Ctrl+O)"
+            title={`Close overlay (${state.hotkeyToggleOverlay || 'Ctrl+O'})`}
           >
             <svg className={iconSize} fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
@@ -259,7 +263,7 @@ export function OverlayApp() {
       <div className={contentPadding}>
         {/* Timer */}
         {showTimer && (
-          <OverlayTimer startTime={state.startTime} elapsedMs={state.elapsedMs} isRunning={state.isRunning} fontSize={fontSize} />
+          <OverlayTimer startTime={state.startTime} elapsedMs={state.elapsedMs} isRunning={state.isRunning} fontSize={fontSize} hotkeyToggleTimer={state.hotkeyToggleTimer} />
         )}
 
         {/* Current zone */}

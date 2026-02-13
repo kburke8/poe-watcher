@@ -4,7 +4,7 @@ import { useSettingsStore } from '../../stores/settingsStore';
 
 export function TimerControls() {
   const { timer, currentRun, startTimer, stopTimer, resetRun, endRun, setRunId } = useRunStore();
-  const { accountName, testCharacterName } = useSettingsStore();
+  const { accountName, testCharacterName, hotkeys } = useSettingsStore();
 
   const handleStart = async () => {
     // Start the timer (creates local run state)
@@ -176,7 +176,7 @@ export function TimerControls() {
           className="flex-1 py-3 px-6 bg-[--color-timer-ahead] text-white font-semibold rounded-lg
                      border border-green-400 shadow-md
                      hover:bg-green-600 hover:shadow-lg active:scale-95 active:shadow-sm transition-all duration-100"
-          title="Ctrl+Space"
+          title={hotkeys.toggleTimer}
         >
           {timer.elapsedMs > 0 ? 'Resume' : 'Start'}
         </button>
@@ -186,7 +186,7 @@ export function TimerControls() {
           className="flex-1 py-3 px-6 bg-[--color-poe-gold] text-[--color-poe-darker] font-semibold rounded-lg
                      border border-[--color-poe-gold-light] shadow-md
                      hover:bg-[--color-poe-gold-light] hover:shadow-lg active:scale-95 active:shadow-sm transition-all duration-100"
-          title="Ctrl+Space"
+          title={hotkeys.toggleTimer}
         >
           Pause
         </button>
@@ -199,6 +199,7 @@ export function TimerControls() {
                    border-2 border-[--color-poe-gold]/40 shadow-md
                    hover:border-[--color-poe-gold]/70 hover:shadow-lg active:scale-95 active:shadow-sm transition-all duration-100
                    disabled:opacity-50 disabled:cursor-not-allowed disabled:active:scale-100 disabled:shadow-none disabled:border-[--color-border]"
+        title={hotkeys.manualSplit}
       >
         Split
       </button>
@@ -211,7 +212,7 @@ export function TimerControls() {
                      border-2 border-purple-500/40 shadow-md
                      hover:border-purple-500/70 hover:shadow-lg active:scale-95 active:shadow-sm transition-all duration-100
                      disabled:opacity-50 disabled:cursor-not-allowed disabled:active:scale-100 disabled:shadow-none disabled:border-[--color-border]"
-          title="Ctrl+Alt+Space"
+          title={hotkeys.manualSnapshot}
         >
           Snapshot
         </button>
@@ -240,7 +241,7 @@ export function TimerControls() {
       </button>
       </div>
       <div className="text-center text-xs text-[--color-text-muted]">
-        Hotkey: <kbd className="px-1.5 py-0.5 bg-[--color-surface-elevated] rounded text-[--color-text]">Ctrl</kbd> + <kbd className="px-1.5 py-0.5 bg-[--color-surface-elevated] rounded text-[--color-text]">Space</kbd> to start/pause
+        Hotkey: <kbd className="px-1.5 py-0.5 bg-[--color-surface-elevated] rounded text-[--color-text]">{hotkeys.toggleTimer}</kbd> to start/pause
       </div>
     </div>
   );

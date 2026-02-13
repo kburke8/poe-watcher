@@ -4,12 +4,22 @@ mod db;
 mod log_watcher;
 
 use commands::*;
+use std::collections::HashMap;
 use std::sync::Arc;
 use tauri::{Emitter, Manager};
 use tauri_plugin_global_shortcut::{GlobalShortcutExt, Shortcut, ShortcutState};
 
+/// Shared state mapping shortcut strings to action names.
+/// Accessible from commands via `app.state::<HotkeyMap>()`.
+pub struct HotkeyMap(pub Arc<std::sync::Mutex<HashMap<String, String>>>);
+
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
+    // Shared map: shortcut string -> action name
+    let hotkey_map: Arc<std::sync::Mutex<HashMap<String, String>>> =
+        Arc::new(std::sync::Mutex::new(HashMap::new()));
+    let map_for_handler = hotkey_map.clone();
+
     // Store the app handle for the global shortcut handler
     let app_handle: Arc<std::sync::Mutex<Option<tauri::AppHandle>>> =
         Arc::new(std::sync::Mutex::new(None));
@@ -25,20 +35,12 @@ pub fn run() {
                 .with_handler(move |_app, shortcut_ref, event| {
                     if event.state() == ShortcutState::Pressed {
                         if let Some(handle) = app_handle_for_handler.lock().ok().and_then(|guard| guard.clone()) {
-                            // Determine which shortcut was pressed
                             let shortcut_str = shortcut_ref.to_string();
-                            if shortcut_str.contains("Shift") && shortcut_str.contains("Space") {
-                                let _ = handle.emit("global-shortcut", "reset-timer");
-                            } else if shortcut_str.contains("Alt") && shortcut_str.contains("Space") {
-                                let _ = handle.emit("global-shortcut", "manual-snapshot");
-                            } else if shortcut_str.contains("Space") {
-                                let _ = handle.emit("global-shortcut", "toggle-timer");
-                            } else if shortcut_str.contains("Shift") && shortcut_str.to_lowercase().contains("o") {
-                                // Ctrl+Shift+O - toggle overlay lock
-                                let _ = handle.emit("global-shortcut", "toggle-overlay-lock");
-                            } else if shortcut_str.to_lowercase().contains("o") {
-                                // Ctrl+O - toggle overlay window
-                                let _ = handle.emit("global-shortcut", "toggle-overlay");
+                            // Look up the action for this shortcut in the shared map
+                            if let Ok(map) = map_for_handler.lock() {
+                                if let Some(action) = map.get(&shortcut_str) {
+                                    let _ = handle.emit("global-shortcut", action.as_str());
+                                }
                             }
                         }
                     }
@@ -59,38 +61,43 @@ pub fn run() {
 
             db::init_db(app_data_dir).expect("Failed to initialize database");
 
-            // Load settings and start log watcher if configured
-            // Note: We use the start_log_watcher command instead of creating directly
-            // to ensure the global state is properly managed
-            if let Ok(settings) = db::Settings::load() {
-                if !settings.poe_log_path.is_empty() {
-                    let path = std::path::PathBuf::from(&settings.poe_log_path);
-                    if path.exists() {
-                        let handle = app.handle().clone();
-                        let log_path = settings.poe_log_path.clone();
-                        // Spawn async task to start watcher via command
-                        tauri::async_runtime::spawn(async move {
-                            let _ = commands::start_log_watcher(handle, log_path).await;
-                        });
+            // Load settings (including hotkeys) and register shortcuts
+            let settings = db::Settings::load().unwrap_or_default();
+
+            // Start log watcher if configured
+            if !settings.poe_log_path.is_empty() {
+                let path = std::path::PathBuf::from(&settings.poe_log_path);
+                if path.exists() {
+                    let handle = app.handle().clone();
+                    let log_path = settings.poe_log_path.clone();
+                    tauri::async_runtime::spawn(async move {
+                        let _ = commands::start_log_watcher(handle, log_path).await;
+                    });
+                }
+            }
+
+            // Register hotkeys from settings (or defaults)
+            let hotkeys_to_register = vec![
+                (settings.hotkey_toggle_timer.clone(), "toggle-timer"),
+                (settings.hotkey_reset_timer.clone(), "reset-timer"),
+                (settings.hotkey_manual_snapshot.clone(), "manual-snapshot"),
+                (settings.hotkey_toggle_overlay.clone(), "toggle-overlay"),
+                (settings.hotkey_toggle_overlay_lock.clone(), "toggle-overlay-lock"),
+                (settings.hotkey_manual_split.clone(), "manual-split"),
+            ];
+
+            {
+                let mut map = hotkey_map.lock().expect("Failed to lock hotkey map");
+                for (shortcut_str, action) in &hotkeys_to_register {
+                    if let Ok(shortcut) = shortcut_str.parse::<Shortcut>() {
+                        let _ = app.global_shortcut().register(shortcut);
+                        map.insert(shortcut_str.clone(), action.to_string());
                     }
                 }
             }
 
-            // Register global hotkeys (ignore errors if already registered from previous instance)
-            let shortcut: Shortcut = "Ctrl+Space".parse().expect("Invalid shortcut");
-            let _ = app.global_shortcut().register(shortcut);
-
-            let reset_shortcut: Shortcut = "Ctrl+Shift+Space".parse().expect("Invalid shortcut");
-            let _ = app.global_shortcut().register(reset_shortcut);
-
-            let snapshot_shortcut: Shortcut = "Ctrl+Alt+Space".parse().expect("Invalid shortcut");
-            let _ = app.global_shortcut().register(snapshot_shortcut);
-
-            let overlay_shortcut: Shortcut = "Ctrl+O".parse().expect("Invalid shortcut");
-            let _ = app.global_shortcut().register(overlay_shortcut);
-
-            let lock_shortcut: Shortcut = "Ctrl+Shift+O".parse().expect("Invalid shortcut");
-            let _ = app.global_shortcut().register(lock_shortcut);
+            // Store the hotkey map as managed state so commands can access it
+            app.manage(HotkeyMap(hotkey_map));
 
             Ok(())
         })
@@ -138,6 +145,9 @@ pub fn run() {
             export_run_json,
             // Image Proxy (CORS bypass)
             proxy_image,
+            // Hotkeys
+            get_hotkeys,
+            update_hotkeys,
             // Overlay
             open_overlay,
             close_overlay,

@@ -713,6 +713,13 @@ pub struct Settings {
     pub overlay_accent_color: String,
     pub overlay_always_on_top: bool,
     pub overlay_locked: bool,
+    // Hotkey settings
+    pub hotkey_toggle_timer: String,
+    pub hotkey_reset_timer: String,
+    pub hotkey_manual_snapshot: String,
+    pub hotkey_toggle_overlay: String,
+    pub hotkey_toggle_overlay_lock: String,
+    pub hotkey_manual_split: String,
 }
 
 impl Default for Settings {
@@ -736,6 +743,12 @@ impl Default for Settings {
             overlay_accent_color: "transparent".to_string(),
             overlay_always_on_top: true,
             overlay_locked: false,
+            hotkey_toggle_timer: "Ctrl+Space".to_string(),
+            hotkey_reset_timer: "Ctrl+Shift+Space".to_string(),
+            hotkey_manual_snapshot: "Ctrl+Alt+Space".to_string(),
+            hotkey_toggle_overlay: "Ctrl+O".to_string(),
+            hotkey_toggle_overlay_lock: "Ctrl+Shift+O".to_string(),
+            hotkey_manual_split: "Ctrl+Shift+S".to_string(),
         }
     }
 }
@@ -747,7 +760,9 @@ impl Settings {
             "SELECT poe_log_path, account_name, overlay_enabled, overlay_opacity, sound_enabled, overlay_x, overlay_y,
                     overlay_scale, overlay_font_size, overlay_show_timer, overlay_show_zone, overlay_show_last_split,
                     overlay_show_breakpoints, overlay_breakpoint_count, overlay_bg_opacity, overlay_accent_color,
-                    overlay_always_on_top, overlay_locked
+                    overlay_always_on_top, overlay_locked,
+                    hotkey_toggle_timer, hotkey_reset_timer, hotkey_manual_snapshot, hotkey_toggle_overlay, hotkey_toggle_overlay_lock,
+                    hotkey_manual_split
              FROM settings WHERE id = 1",
             [],
             |row| {
@@ -770,6 +785,12 @@ impl Settings {
                     overlay_accent_color: row.get(15)?,
                     overlay_always_on_top: row.get(16)?,
                     overlay_locked: row.get(17)?,
+                    hotkey_toggle_timer: row.get(18)?,
+                    hotkey_reset_timer: row.get(19)?,
+                    hotkey_manual_snapshot: row.get(20)?,
+                    hotkey_toggle_overlay: row.get(21)?,
+                    hotkey_toggle_overlay_lock: row.get(22)?,
+                    hotkey_manual_split: row.get(23)?,
                 })
             },
         );
@@ -786,8 +807,10 @@ impl Settings {
             "INSERT INTO settings (id, poe_log_path, account_name, overlay_enabled, overlay_opacity, sound_enabled, overlay_x, overlay_y,
                                    overlay_scale, overlay_font_size, overlay_show_timer, overlay_show_zone, overlay_show_last_split,
                                    overlay_show_breakpoints, overlay_breakpoint_count, overlay_bg_opacity, overlay_accent_color,
-                                   overlay_always_on_top, overlay_locked)
-             VALUES (1, ?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14, ?15, ?16, ?17, ?18)
+                                   overlay_always_on_top, overlay_locked,
+                                   hotkey_toggle_timer, hotkey_reset_timer, hotkey_manual_snapshot, hotkey_toggle_overlay, hotkey_toggle_overlay_lock,
+                                   hotkey_manual_split)
+             VALUES (1, ?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14, ?15, ?16, ?17, ?18, ?19, ?20, ?21, ?22, ?23, ?24)
              ON CONFLICT(id) DO UPDATE SET
                 poe_log_path = excluded.poe_log_path,
                 account_name = excluded.account_name,
@@ -806,7 +829,13 @@ impl Settings {
                 overlay_bg_opacity = excluded.overlay_bg_opacity,
                 overlay_accent_color = excluded.overlay_accent_color,
                 overlay_always_on_top = excluded.overlay_always_on_top,
-                overlay_locked = excluded.overlay_locked",
+                overlay_locked = excluded.overlay_locked,
+                hotkey_toggle_timer = excluded.hotkey_toggle_timer,
+                hotkey_reset_timer = excluded.hotkey_reset_timer,
+                hotkey_manual_snapshot = excluded.hotkey_manual_snapshot,
+                hotkey_toggle_overlay = excluded.hotkey_toggle_overlay,
+                hotkey_toggle_overlay_lock = excluded.hotkey_toggle_overlay_lock,
+                hotkey_manual_split = excluded.hotkey_manual_split",
             params![
                 settings.poe_log_path,
                 settings.account_name,
@@ -826,6 +855,12 @@ impl Settings {
                 settings.overlay_accent_color,
                 settings.overlay_always_on_top,
                 settings.overlay_locked,
+                settings.hotkey_toggle_timer,
+                settings.hotkey_reset_timer,
+                settings.hotkey_manual_snapshot,
+                settings.hotkey_toggle_overlay,
+                settings.hotkey_toggle_overlay_lock,
+                settings.hotkey_manual_split,
             ],
         )?;
         Ok(())

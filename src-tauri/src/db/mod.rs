@@ -84,4 +84,6 @@ const MIGRATIONS: &[(&str, &str)] = &[
     ("003_add_overlay_position", include_str!("migrations/003_add_overlay_position.sql")),
     ("004_add_overlay_config", include_str!("migrations/004_add_overlay_config.sql")),
     ("005_update_overlay_defaults", include_str!("migrations/005_update_overlay_defaults.sql")),
+    ("006_add_hotkey_settings", include_str!("migrations/006_add_hotkey_settings.sql")),
+    ("007_add_manual_split_hotkey", include_str!("migrations/007_add_manual_split_hotkey.sql")),
 ];

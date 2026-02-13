@@ -1,4 +1,4 @@
-import { useEffect, useCallback } from 'react';
+import { useEffect, useCallback, useMemo } from 'react';
 import { invoke } from '@tauri-apps/api/core';
 import { listen } from '@tauri-apps/api/event';
 import { useRunStore } from '../stores/runStore';
@@ -12,9 +12,31 @@ interface HotkeyConfig {
   action: () => void;
 }
 
+/** Parses a Tauri shortcut string like "Ctrl+Shift+Space" into HotkeyConfig fields */
+function parseShortcutToHotkeyConfig(shortcut: string): { key: string; ctrl: boolean; shift: boolean; alt: boolean } {
+  const parts = shortcut.split('+');
+  const ctrl = parts.includes('Ctrl');
+  const shift = parts.includes('Shift');
+  const alt = parts.includes('Alt');
+  // The key is the last non-modifier part
+  const keyPart = parts.filter(p => !['Ctrl', 'Shift', 'Alt'].includes(p)).pop() || '';
+
+  // Map Tauri key names back to browser KeyboardEvent.key values
+  const keyMap: Record<string, string> = {
+    'Space': ' ',
+    'Up': 'ArrowUp',
+    'Down': 'ArrowDown',
+    'Left': 'ArrowLeft',
+    'Right': 'ArrowRight',
+  };
+
+  const key = keyMap[keyPart] || (keyPart.length === 1 ? keyPart.toLowerCase() : keyPart);
+  return { key, ctrl, shift, alt };
+}
+
 export function useHotkeys() {
   const { timer, startTimer, stopTimer, resetRun, setRunId } = useRunStore();
-  const { accountName, testCharacterName } = useSettingsStore();
+  const { accountName, testCharacterName, hotkeys: hotkeyConfig } = useSettingsStore();
 
   // Toggle timer (start/pause)
   const toggleTimer = useCallback(async () => {
@@ -66,6 +88,28 @@ export function useHotkeys() {
     invoke('set_log_poll_fast', { enabled: false }).catch(() => {});
   }, [resetRun]);
 
+  // Manual split - triggers the next expected breakpoint
+  const triggerManualSplit = useCallback(() => {
+    const { timer: t } = useRunStore.getState();
+    if (!t.isRunning) return;
+
+    const { breakpoints } = useSettingsStore.getState();
+    const completedSplits = new Set(t.splits.map(s => s.name));
+
+    // Find the next enabled breakpoint that hasn't been completed yet
+    for (const bp of breakpoints) {
+      if (!bp.isEnabled) continue;
+      if (completedSplits.has(bp.name)) continue;
+
+      // Emit a split-trigger event for this breakpoint
+      // The useTauriEvents hook listens for this and handles the actual split logic
+      import('@tauri-apps/api/event').then(({ emit }) => {
+        emit('split-trigger', { name: bp.name, type: bp.type });
+      });
+      return;
+    }
+  }, []);
+
   // Manual snapshot capture - works whether timer is running or paused
   const captureManualSnapshot = useCallback(async () => {
     const { currentRun, timer: t } = useRunStore.getState();
@@ -112,26 +156,20 @@ export function useHotkeys() {
     }
   }, []);
 
-  // Define hotkeys
-  const hotkeys: HotkeyConfig[] = [
-    {
-      key: ' ', // Space
-      ctrl: true,
-      action: toggleTimer,
-    },
-    {
-      key: ' ', // Space
-      ctrl: true,
-      shift: true,
-      action: resetTimer,
-    },
-    {
-      key: ' ', // Space
-      ctrl: true,
-      alt: true,
-      action: captureManualSnapshot,
-    },
-  ];
+  // Build hotkeys dynamically from store config
+  const hotkeys: HotkeyConfig[] = useMemo(() => {
+    const toggleTimerParsed = parseShortcutToHotkeyConfig(hotkeyConfig.toggleTimer);
+    const resetTimerParsed = parseShortcutToHotkeyConfig(hotkeyConfig.resetTimer);
+    const snapshotParsed = parseShortcutToHotkeyConfig(hotkeyConfig.manualSnapshot);
+    const splitParsed = parseShortcutToHotkeyConfig(hotkeyConfig.manualSplit);
+
+    return [
+      { ...toggleTimerParsed, action: toggleTimer },
+      { ...resetTimerParsed, action: resetTimer },
+      { ...snapshotParsed, action: captureManualSnapshot },
+      { ...splitParsed, action: triggerManualSplit },
+    ];
+  }, [hotkeyConfig.toggleTimer, hotkeyConfig.resetTimer, hotkeyConfig.manualSnapshot, hotkeyConfig.manualSplit, toggleTimer, resetTimer, captureManualSnapshot, triggerManualSplit]);
 
   useEffect(() => {
     const handleKeyDown = (event: KeyboardEvent) => {
@@ -180,6 +218,8 @@ export function useHotkeys() {
         resetTimer();
       } else if (event.payload === 'manual-snapshot') {
         captureManualSnapshot();
+      } else if (event.payload === 'manual-split') {
+        triggerManualSplit();
       } else if (event.payload === 'toggle-overlay') {
         toggleOverlay();
       }
@@ -188,5 +228,5 @@ export function useHotkeys() {
     return () => {
       unlistenGlobal.then((fn) => fn());
     };
-  }, [toggleTimer, resetTimer, captureManualSnapshot, toggleOverlay]);
+  }, [toggleTimer, resetTimer, captureManualSnapshot, triggerManualSplit, toggleOverlay]);
 }

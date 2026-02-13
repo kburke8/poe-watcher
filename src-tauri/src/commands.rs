@@ -4,12 +4,14 @@ use crate::db::{
     RunFilters, RunStats, SplitStat, ReferenceRunData,
 };
 use crate::log_watcher::{detect_log_path, LogWatcher};
+use crate::HotkeyMap;
 use anyhow::Result;
 use once_cell::sync::OnceCell;
 use serde::{Deserialize, Serialize};
 use std::path::PathBuf;
 use std::sync::Mutex;
 use tauri::{AppHandle, Emitter, Manager, WebviewUrl, WebviewWindowBuilder, LogicalSize};
+use tauri_plugin_global_shortcut::{GlobalShortcutExt, Shortcut};
 
 // Global state
 static LOG_WATCHER: OnceCell<Mutex<Option<LogWatcher>>> = OnceCell::new();
@@ -697,6 +699,98 @@ pub async fn export_run_json(run_id: i64, file_path: String) -> Result<(), Strin
 
     std::fs::write(&file_path, json_str)
         .map_err(|e| format!("Failed to write file: {}", e))?;
+
+    Ok(())
+}
+
+// ============================================================================
+// Hotkey Commands
+// ============================================================================
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct HotkeySettings {
+    pub toggle_timer: String,
+    pub reset_timer: String,
+    pub manual_snapshot: String,
+    pub toggle_overlay: String,
+    pub toggle_overlay_lock: String,
+    pub manual_split: String,
+}
+
+#[tauri::command]
+pub async fn get_hotkeys() -> Result<HotkeySettings, String> {
+    let settings = Settings::load().map_err(|e| e.to_string())?;
+    Ok(HotkeySettings {
+        toggle_timer: settings.hotkey_toggle_timer,
+        reset_timer: settings.hotkey_reset_timer,
+        manual_snapshot: settings.hotkey_manual_snapshot,
+        toggle_overlay: settings.hotkey_toggle_overlay,
+        toggle_overlay_lock: settings.hotkey_toggle_overlay_lock,
+        manual_split: settings.hotkey_manual_split,
+    })
+}
+
+#[tauri::command]
+pub async fn update_hotkeys(app_handle: AppHandle, hotkeys: HotkeySettings) -> Result<(), String> {
+    // Define the action mappings
+    let new_bindings = vec![
+        (hotkeys.toggle_timer.clone(), "toggle-timer"),
+        (hotkeys.reset_timer.clone(), "reset-timer"),
+        (hotkeys.manual_snapshot.clone(), "manual-snapshot"),
+        (hotkeys.toggle_overlay.clone(), "toggle-overlay"),
+        (hotkeys.toggle_overlay_lock.clone(), "toggle-overlay-lock"),
+        (hotkeys.manual_split.clone(), "manual-split"),
+    ];
+
+    // Validate: parse all new shortcuts first
+    let mut parsed: Vec<(Shortcut, String, &str)> = Vec::new();
+    for (shortcut_str, action) in &new_bindings {
+        let shortcut: Shortcut = shortcut_str.parse()
+            .map_err(|_| format!("Invalid shortcut format: {}", shortcut_str))?;
+        parsed.push((shortcut, shortcut_str.clone(), action));
+    }
+
+    // Validate: check for duplicates
+    let mut seen = std::collections::HashSet::new();
+    for (_, shortcut_str, _) in &parsed {
+        if !seen.insert(shortcut_str.clone()) {
+            return Err(format!("Duplicate shortcut: {}", shortcut_str));
+        }
+    }
+
+    // Get the shared hotkey map
+    let hotkey_map = app_handle.state::<HotkeyMap>();
+
+    // Unregister all old shortcuts, then register new ones
+    {
+        let mut map = hotkey_map.0.lock().map_err(|e| e.to_string())?;
+
+        // Unregister old shortcuts
+        for old_shortcut_str in map.keys() {
+            if let Ok(old_shortcut) = old_shortcut_str.parse::<Shortcut>() {
+                let _ = app_handle.global_shortcut().unregister(old_shortcut);
+            }
+        }
+        map.clear();
+
+        // Register new shortcuts
+        for (shortcut, shortcut_str, action) in &parsed {
+            app_handle.global_shortcut().register(shortcut.clone())
+                .map_err(|e| format!("Failed to register {}: {}", shortcut_str, e))?;
+            map.insert(shortcut_str.clone(), action.to_string());
+        }
+    }
+
+    // Persist to database
+    let mut settings = Settings::load().map_err(|e| e.to_string())?;
+    settings.hotkey_toggle_timer = hotkeys.toggle_timer;
+    settings.hotkey_reset_timer = hotkeys.reset_timer;
+    settings.hotkey_manual_snapshot = hotkeys.manual_snapshot;
+    settings.hotkey_toggle_overlay = hotkeys.toggle_overlay;
+    settings.hotkey_toggle_overlay_lock = hotkeys.toggle_overlay_lock;
+    settings.hotkey_manual_split = hotkeys.manual_split;
+    Settings::save(&settings).map_err(|e| e.to_string())?;
 
     Ok(())
 }

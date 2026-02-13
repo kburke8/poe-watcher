@@ -5,6 +5,7 @@ interface OverlayTimerProps {
   elapsedMs: number;
   isRunning: boolean;
   fontSize?: 'small' | 'medium' | 'large';
+  hotkeyToggleTimer?: string;
 }
 
 function formatTime(ms: number): string {
@@ -20,7 +21,7 @@ function formatTime(ms: number): string {
   return `${minutes}:${seconds.toString().padStart(2, '0')}.${centiseconds.toString().padStart(2, '0')}`;
 }
 
-export function OverlayTimer({ startTime, elapsedMs, isRunning, fontSize = 'medium' }: OverlayTimerProps) {
+export function OverlayTimer({ startTime, elapsedMs, isRunning, fontSize = 'medium', hotkeyToggleTimer }: OverlayTimerProps) {
   const [displayMs, setDisplayMs] = useState(elapsedMs);
   const animationRef = useRef<number | null>(null);
 
@@ -57,7 +58,7 @@ export function OverlayTimer({ startTime, elapsedMs, isRunning, fontSize = 'medi
       </div>
       {!isRunning && elapsedMs === 0 && (
         <div className={`${hintSizeClass} mt-1`} style={{ color: '#6b7280' }}>
-          Ctrl+Space to start
+          {hotkeyToggleTimer || 'Ctrl+Space'} to start
         </div>
       )}
     </div>

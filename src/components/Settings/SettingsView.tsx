@@ -1,11 +1,23 @@
-import { useState, useEffect, useMemo, useCallback } from 'react';
+import { useState, useMemo, useCallback } from 'react';
 import { invoke } from '@tauri-apps/api/core';
 import { open } from '@tauri-apps/plugin-dialog';
 import { useSettingsStore } from '../../stores/settingsStore';
 import { useUpdateChecker } from '../../hooks/useUpdateChecker';
 import { BreakpointWizard, RouteCustomizations } from './BreakpointWizard';
+import { HotkeyInput } from './HotkeyInput';
+import type { HotkeySettings } from '../../types';
+import { DEFAULT_HOTKEYS } from '../../types';
 
 const BREAKPOINTS_STORAGE_KEY = 'poe-watcher-breakpoints';
+
+const HOTKEY_ACTIONS: { key: keyof HotkeySettings; label: string }[] = [
+  { key: 'toggleTimer', label: 'Start / Pause Timer' },
+  { key: 'resetTimer', label: 'Reset Timer' },
+  { key: 'manualSplit', label: 'Manual Split' },
+  { key: 'manualSnapshot', label: 'Manual Snapshot' },
+  { key: 'toggleOverlay', label: 'Toggle Overlay' },
+  { key: 'toggleOverlayLock', label: 'Toggle Overlay Lock' },
+];
 
 export function SettingsView() {
   const {
@@ -15,7 +27,6 @@ export function SettingsView() {
     checkUpdates,
     overlayEnabled,
     overlayOpacity,
-    soundEnabled,
     breakpoints,
     setLogPath,
     setAccountName,
@@ -23,7 +34,6 @@ export function SettingsView() {
     setCheckUpdates,
     setOverlayEnabled,
     setOverlayOpacity,
-    setSoundEnabled,
     toggleBreakpoint,
     toggleSnapshotCapture,
     moveBreakpoint,
@@ -56,6 +66,9 @@ export function SettingsView() {
     setOverlayAlwaysOnTop,
     setOverlayLocked,
     setOverlayOpen,
+    // Hotkeys
+    hotkeys,
+    setHotkeys,
   } = useSettingsStore();
 
   const { checking, available, version, error: updateError, checkForUpdate, downloadAndInstall, downloading, progress } = useUpdateChecker(false);
@@ -63,6 +76,79 @@ export function SettingsView() {
   // Filter state for breakpoints
   const [actFilter, setActFilter] = useState<number | 'all' | 'level'>('all');
   const [saveStatus, setSaveStatus] = useState<'idle' | 'saving' | 'saved' | 'error'>('idle');
+
+  // Local hotkey editing state (changes are applied on "Apply" click)
+  const [editingHotkeys, setEditingHotkeys] = useState<HotkeySettings>({ ...hotkeys });
+  const [hotkeyErrors, setHotkeyErrors] = useState<Partial<Record<keyof HotkeySettings, string>>>({});
+  const [hotkeyApplyStatus, setHotkeyApplyStatus] = useState<'idle' | 'applying' | 'applied' | 'error'>('idle');
+
+  // Sync local editing state when store hotkeys change (e.g., after loadHotkeys)
+  const [lastSyncedHotkeys, setLastSyncedHotkeys] = useState(hotkeys);
+  if (hotkeys !== lastSyncedHotkeys) {
+    setEditingHotkeys({ ...hotkeys });
+    setLastSyncedHotkeys(hotkeys);
+  }
+
+  const handleHotkeyChange = useCallback((key: keyof HotkeySettings, value: string) => {
+    setEditingHotkeys(prev => ({ ...prev, [key]: value }));
+
+    // Check for duplicates
+    setHotkeyErrors(() => {
+      const newErrors: Partial<Record<keyof HotkeySettings, string>> = {};
+      const allKeys = HOTKEY_ACTIONS.map(a => a.key);
+      const values = { ...editingHotkeys, [key]: value } as Record<keyof HotkeySettings, string>;
+
+      for (const k of allKeys) {
+        const v = values[k];
+        const duplicateKey = allKeys.find(other => other !== k && values[other] === v);
+        if (duplicateKey) {
+          const duplicateLabel = HOTKEY_ACTIONS.find(a => a.key === duplicateKey)?.label || duplicateKey;
+          newErrors[k] = `Conflicts with "${duplicateLabel}"`;
+        }
+      }
+      return newErrors;
+    });
+    setHotkeyApplyStatus('idle');
+  }, [editingHotkeys]);
+
+  const hasHotkeyChanges = useMemo(() => {
+    return Object.keys(editingHotkeys).some(
+      k => editingHotkeys[k as keyof HotkeySettings] !== hotkeys[k as keyof HotkeySettings]
+    );
+  }, [editingHotkeys, hotkeys]);
+
+  const hasHotkeyErrors = Object.keys(hotkeyErrors).length > 0;
+
+  const handleApplyHotkeys = useCallback(async () => {
+    if (hasHotkeyErrors) return;
+    setHotkeyApplyStatus('applying');
+    try {
+      await invoke('update_hotkeys', { hotkeys: editingHotkeys });
+      setHotkeys(editingHotkeys);
+      setHotkeyApplyStatus('applied');
+      setTimeout(() => setHotkeyApplyStatus('idle'), 2000);
+    } catch (error) {
+      console.error('Failed to apply hotkeys:', error);
+      setHotkeyApplyStatus('error');
+      setTimeout(() => setHotkeyApplyStatus('idle'), 3000);
+    }
+  }, [editingHotkeys, hasHotkeyErrors, setHotkeys]);
+
+  const handleResetHotkeys = useCallback(async () => {
+    setHotkeyApplyStatus('applying');
+    try {
+      await invoke('update_hotkeys', { hotkeys: DEFAULT_HOTKEYS });
+      setHotkeys({ ...DEFAULT_HOTKEYS });
+      setEditingHotkeys({ ...DEFAULT_HOTKEYS });
+      setHotkeyErrors({});
+      setHotkeyApplyStatus('applied');
+      setTimeout(() => setHotkeyApplyStatus('idle'), 2000);
+    } catch (error) {
+      console.error('Failed to reset hotkeys:', error);
+      setHotkeyApplyStatus('error');
+      setTimeout(() => setHotkeyApplyStatus('idle'), 3000);
+    }
+  }, [setHotkeys]);
 
   // Toggle overlay window
   const handleToggleOverlay = useCallback(async () => {
@@ -144,7 +230,7 @@ export function SettingsView() {
           account_name: accountName,
           overlay_enabled: overlayEnabled,
           overlay_opacity: overlayOpacity,
-          sound_enabled: soundEnabled,
+          sound_enabled: true,
           overlay_scale: overlayScale,
           overlay_font_size: overlayFontSize,
           overlay_show_timer: overlayShowTimer,
@@ -270,329 +356,23 @@ export function SettingsView() {
           </div>
         </section>
 
-        {/* Overlay Settings */}
-        <section className="mb-8">
-          <h2 className="text-lg font-semibold text-[--color-text] mb-4">Overlay</h2>
-          <div className="bg-[--color-surface] rounded-lg p-4 space-y-4">
-            {/* Enable toggle */}
-            <div className="flex items-center justify-between">
-              <div>
-                <div className="text-[--color-text]">Enable Overlay</div>
-                <div className="text-xs text-[--color-text-muted]">Show minimal timer as overlay window</div>
-              </div>
-              <button
-                onClick={() => setOverlayEnabled(!overlayEnabled)}
-                className={`w-12 h-6 rounded-full transition-all duration-150 active:scale-95 ${
-                  overlayEnabled ? 'bg-[--color-poe-gold]' : 'bg-[--color-surface-elevated]'
-                }`}
-              >
-                <div
-                  className={`w-5 h-5 rounded-full bg-white shadow transition-transform duration-150 ${
-                    overlayEnabled ? 'translate-x-6' : 'translate-x-0.5'
-                  }`}
-                />
-              </button>
-            </div>
-
-            {/* Appearance */}
-            <div className="pt-3 border-t border-[--color-border]">
-              <h3 className="text-sm font-semibold text-[--color-text-muted] mb-3 uppercase tracking-wide">Appearance</h3>
-
-              {/* Size */}
-              <div className="mb-3">
-                <label className="block text-sm text-[--color-text-muted] mb-2">Size</label>
-                <div className="flex gap-2">
-                  {(['small', 'medium', 'large'] as const).map((size) => {
-                    const isSelected = overlayScale === size;
-                    return (
-                      <button
-                        key={size}
-                        onClick={() => setOverlayScale(size)}
-                        className={`px-4 py-1.5 text-sm rounded-md border-2 transition-all active:scale-95 font-medium capitalize ${
-                          isSelected
-                            ? 'bg-[--color-poe-gold] text-[--color-poe-darker] border-[--color-poe-gold-light] shadow-sm'
-                            : 'bg-[--color-surface] text-[--color-text] border-[--color-poe-gold]/30 hover:border-[--color-poe-gold]/60'
-                        }`}
-                      >
-                        {isSelected && '✓ '}{size}
-                      </button>
-                    );
-                  })}
-                </div>
-              </div>
-
-              {/* Window Opacity */}
-              <div className="mb-3">
-                <label className="block text-sm text-[--color-text-muted] mb-2">
-                  Window Opacity: {Math.round(overlayOpacity * 100)}%
-                </label>
-                <input
-                  type="range"
-                  min="0.2"
-                  max="1"
-                  step="0.05"
-                  value={overlayOpacity}
-                  onChange={(e) => setOverlayOpacity(parseFloat(e.target.value))}
-                  className="w-full"
-                />
-              </div>
-
-              {/* Background Opacity */}
-              <div className="mb-3">
-                <label className="block text-sm text-[--color-text-muted] mb-2">
-                  Background Opacity: {Math.round(overlayBgOpacity * 100)}%
-                </label>
-                <input
-                  type="range"
-                  min="0.1"
-                  max="1"
-                  step="0.05"
-                  value={overlayBgOpacity}
-                  onChange={(e) => setOverlayBgOpacity(parseFloat(e.target.value))}
-                  className="w-full"
-                />
-              </div>
-
-              {/* Accent Color */}
-              <div className="mb-3">
-                <label className="block text-sm text-[--color-text-muted] mb-2">Accent Color</label>
-                <div className="flex items-center gap-2 flex-wrap">
-                  {[
-                    { label: 'None', color: 'transparent' },
-                    { label: 'POE Gold', color: '#af6025' },
-                    { label: 'Green', color: '#22c55e' },
-                    { label: 'Blue', color: '#3b82f6' },
-                    { label: 'White', color: '#d1d5db' },
-                  ].map(({ label, color }) => {
-                    const isSelected = overlayAccentColor === color;
-                    return (
-                      <button
-                        key={color}
-                        onClick={() => setOverlayAccentColor(color)}
-                        className={`flex items-center gap-1.5 px-3 py-1.5 text-sm rounded-md border-2 transition-all active:scale-95 font-medium ${
-                          isSelected
-                            ? 'bg-white/10 border-white/60 shadow-sm ring-1 ring-white/20'
-                            : 'border-[--color-border] hover:border-white/30'
-                        }`}
-                        title={label}
-                      >
-                        {color === 'transparent' ? (
-                          <span className="w-3 h-3 rounded-full border border-[--color-text-muted] relative overflow-hidden">
-                            <span className="absolute inset-0 flex items-center justify-center text-[8px] text-[--color-text-muted]">-</span>
-                          </span>
-                        ) : (
-                          <span className="w-3 h-3 rounded-full" style={{ backgroundColor: color }} />
-                        )}
-                        <span className={isSelected ? 'text-white' : 'text-[--color-text]'}>{label}</span>
-                        {isSelected && <span className="text-[10px] text-white/60">✓</span>}
-                      </button>
-                    );
-                  })}
-                  <input
-                    type="text"
-                    value={overlayAccentColor}
-                    onChange={(e) => setOverlayAccentColor(e.target.value)}
-                    placeholder="#af6025"
-                    className="w-24 px-2 py-1.5 text-sm bg-[--color-surface-elevated] border border-[--color-border] rounded-md text-[--color-text] font-mono"
-                  />
-                </div>
-              </div>
-            </div>
-
-            {/* Visible Sections */}
-            <div className="pt-3 border-t border-[--color-border]">
-              <h3 className="text-sm font-semibold text-[--color-text-muted] mb-3 uppercase tracking-wide">Visible Sections</h3>
-
-              {[
-                { label: 'Show Timer', value: overlayShowTimer, setter: setOverlayShowTimer },
-                { label: 'Show Current Zone', value: overlayShowZone, setter: setOverlayShowZone },
-                { label: 'Show Last Split', value: overlayShowLastSplit, setter: setOverlayShowLastSplit },
-                { label: 'Show Upcoming Breakpoints', value: overlayShowBreakpoints, setter: setOverlayShowBreakpoints },
-              ].map(({ label, value, setter }) => (
-                <div key={label} className="flex items-center justify-between mb-2">
-                  <span className="text-sm text-[--color-text]">{label}</span>
-                  <button
-                    onClick={() => setter(!value)}
-                    className={`w-10 h-5 rounded-full transition-all duration-150 active:scale-95 border ${
-                      value
-                        ? 'bg-green-600 border-green-500'
-                        : 'bg-zinc-700 border-zinc-600'
-                    }`}
-                  >
-                    <div
-                      className={`w-4 h-4 rounded-full bg-white shadow transition-transform duration-150 ${
-                        value ? 'translate-x-5' : 'translate-x-0.5'
-                      }`}
-                    />
-                  </button>
-                </div>
-              ))}
-
-            </div>
-
-            {/* Behavior */}
-            <div className="pt-3 border-t border-[--color-border]">
-              <h3 className="text-sm font-semibold text-[--color-text-muted] mb-3 uppercase tracking-wide">Behavior</h3>
-
-              <div className="flex items-center justify-between mb-2">
-                <div>
-                  <div className="text-sm text-[--color-text]">Always on Top</div>
-                  <div className="text-xs text-[--color-text-muted]">Keep overlay above other windows</div>
-                </div>
-                <button
-                  onClick={() => setOverlayAlwaysOnTop(!overlayAlwaysOnTop)}
-                  className={`w-12 h-6 rounded-full transition-all duration-150 active:scale-95 ${
-                    overlayAlwaysOnTop ? 'bg-[--color-poe-gold]' : 'bg-[--color-surface-elevated]'
-                  }`}
-                >
-                  <div
-                    className={`w-5 h-5 rounded-full bg-white shadow transition-transform duration-150 ${
-                      overlayAlwaysOnTop ? 'translate-x-6' : 'translate-x-0.5'
-                    }`}
-                  />
-                </button>
-              </div>
-
-              <div className="flex items-center justify-between mb-2">
-                <div>
-                  <div className="text-sm text-[--color-text]">Lock Overlay</div>
-                  <div className="text-xs text-[--color-text-muted]">Make click-through (Ctrl+Shift+O)</div>
-                </div>
-                <button
-                  onClick={() => setOverlayLocked(!overlayLocked)}
-                  className={`w-12 h-6 rounded-full transition-all duration-150 active:scale-95 ${
-                    overlayLocked ? 'bg-[--color-poe-gold]' : 'bg-[--color-surface-elevated]'
-                  }`}
-                >
-                  <div
-                    className={`w-5 h-5 rounded-full bg-white shadow transition-transform duration-150 ${
-                      overlayLocked ? 'translate-x-6' : 'translate-x-0.5'
-                    }`}
-                  />
-                </button>
-              </div>
-            </div>
-
-            {/* Actions */}
-            <div className="pt-3 border-t border-[--color-border]">
-              <h3 className="text-sm font-semibold text-[--color-text-muted] mb-3 uppercase tracking-wide">Actions</h3>
-              <div className="flex gap-2 flex-wrap">
-                <button
-                  onClick={handleToggleOverlay}
-                  className={`px-4 py-2 text-sm rounded-md border-2 transition-all active:scale-95 font-medium ${
-                    overlayOpen
-                      ? 'bg-[--color-timer-behind] text-white border-red-400'
-                      : 'bg-[--color-surface] text-[--color-text] border-[--color-poe-gold]/40 hover:border-[--color-poe-gold]/70'
-                  }`}
-                >
-                  {overlayOpen ? 'Close Overlay' : 'Open Overlay'}
-                  <span className="ml-2 text-xs opacity-60">Ctrl+O</span>
-                </button>
-                <button
-                  onClick={handleResetPosition}
-                  className="px-4 py-2 text-sm bg-[--color-surface] text-[--color-text] rounded-md border-2 border-[--color-poe-gold]/40 shadow-sm hover:border-[--color-poe-gold]/70 hover:shadow-md active:scale-95 active:shadow-none transition-all font-medium"
-                >
-                  Reset Position
-                </button>
-              </div>
-            </div>
-          </div>
-        </section>
-
-        {/* Sound Settings */}
-        <section className="mb-8">
-          <h2 className="text-lg font-semibold text-[--color-text] mb-4">Audio</h2>
-          <div className="bg-[--color-surface] rounded-lg p-4">
-            <div className="flex items-center justify-between">
-              <div>
-                <div className="text-[--color-text]">Enable Sounds</div>
-                <div className="text-xs text-[--color-text-muted]">Play sounds on splits and events</div>
-              </div>
-              <button
-                onClick={() => setSoundEnabled(!soundEnabled)}
-                className={`w-12 h-6 rounded-full transition-all duration-150 active:scale-95 ${
-                  soundEnabled ? 'bg-[--color-poe-gold]' : 'bg-[--color-surface-elevated]'
-                }`}
-              >
-                <div
-                  className={`w-5 h-5 rounded-full bg-white shadow transition-transform duration-150 ${
-                    soundEnabled ? 'translate-x-6' : 'translate-x-0.5'
-                  }`}
-                />
-              </button>
-            </div>
-          </div>
-        </section>
-
-        {/* Updates */}
-        <section className="mb-8">
-          <h2 className="text-lg font-semibold text-[--color-text] mb-4">Updates</h2>
-          <div className="bg-[--color-surface] rounded-lg p-4 space-y-4">
-            <div className="flex items-center justify-between">
-              <div>
-                <div className="text-[--color-text]">Check for Updates Automatically</div>
-                <div className="text-xs text-[--color-text-muted]">Check for new versions on startup</div>
-              </div>
-              <button
-                onClick={() => setCheckUpdates(!checkUpdates)}
-                className={`w-12 h-6 rounded-full transition-all duration-150 active:scale-95 ${
-                  checkUpdates ? 'bg-[--color-poe-gold]' : 'bg-[--color-surface-elevated]'
-                }`}
-              >
-                <div
-                  className={`w-5 h-5 rounded-full bg-white shadow transition-transform duration-150 ${
-                    checkUpdates ? 'translate-x-6' : 'translate-x-0.5'
-                  }`}
-                />
-              </button>
-            </div>
-
-            <div className="flex items-center justify-between pt-2 border-t border-[--color-border]">
-              <div>
-                <div className="text-[--color-text]">Check Now</div>
-                <div className="text-xs text-[--color-text-muted]">
-                  {checking ? 'Checking...' :
-                   available ? `v${version} available` :
-                   updateError ? 'Check failed' :
-                   'Check for updates manually'}
-                </div>
-              </div>
-              <div className="flex items-center gap-2">
-                {available && !downloading && (
-                  <button
-                    onClick={downloadAndInstall}
-                    className="px-3 py-1.5 text-sm bg-[--color-poe-gold] text-[--color-poe-darker] rounded-md font-semibold hover:bg-[--color-poe-gold-light] active:scale-95 transition-all"
-                  >
-                    Update & Restart
-                  </button>
-                )}
-                {downloading && (
-                  <div className="w-24 bg-[--color-surface] rounded-full h-2">
-                    <div
-                      className="bg-[--color-poe-gold] h-2 rounded-full transition-all"
-                      style={{ width: `${progress}%` }}
-                    />
-                  </div>
-                )}
-                <button
-                  onClick={checkForUpdate}
-                  disabled={checking || downloading}
-                  className="px-4 py-2 text-sm bg-[--color-surface] text-[--color-text] rounded-md border-2 border-[--color-poe-gold]/40 shadow-sm hover:border-[--color-poe-gold]/70 hover:shadow-md active:scale-95 active:shadow-none transition-all font-medium disabled:opacity-50 disabled:cursor-wait"
-                >
-                  {checking ? 'Checking...' : 'Check Now'}
-                </button>
-              </div>
-            </div>
-          </div>
-        </section>
-
         {/* Breakpoints — Wizard */}
         <section className="mb-8">
-          <h2 className="text-lg font-semibold text-[--color-text] mb-4">Breakpoints</h2>
+          <details className="group" open>
+            <summary className="cursor-pointer text-lg font-semibold text-[--color-text] mb-4 select-none flex items-center gap-2 hover:text-[--color-poe-gold] transition-colors">
+              <svg
+                className="w-4 h-4 text-[--color-text-muted] transition-transform group-open:rotate-90"
+                fill="none" stroke="currentColor" viewBox="0 0 24 24"
+              >
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+              </svg>
+              Breakpoints
+            </summary>
           <p className="text-sm text-[--color-text-muted] mb-4">
             Configure which zone transitions trigger automatic splits. Use the wizard to generate a breakpoint set based on your run type and routing preferences.
           </p>
           <BreakpointWizard />
+          </details>
         </section>
 
         {/* Route Customizations */}
@@ -832,6 +612,372 @@ export function SettingsView() {
                 {actFilter !== 'all' && ` (filtered from ${breakpoints.length} total)`}
               </div>
             </div>
+          </details>
+        </section>
+
+        {/* Overlay Settings */}
+        <section className="mb-8">
+          <details className="group">
+            <summary className="cursor-pointer text-lg font-semibold text-[--color-text] mb-4 select-none flex items-center gap-2 hover:text-[--color-poe-gold] transition-colors">
+              <svg
+                className="w-4 h-4 text-[--color-text-muted] transition-transform group-open:rotate-90"
+                fill="none" stroke="currentColor" viewBox="0 0 24 24"
+              >
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+              </svg>
+              Overlay
+            </summary>
+          <div className="bg-[--color-surface] rounded-lg p-4 space-y-4">
+            {/* Enable toggle */}
+            <div className="flex items-center justify-between">
+              <div>
+                <div className="text-[--color-text]">Enable Overlay</div>
+                <div className="text-xs text-[--color-text-muted]">Show minimal timer as overlay window</div>
+              </div>
+              <button
+                onClick={() => setOverlayEnabled(!overlayEnabled)}
+                className={`w-12 h-6 rounded-full transition-all duration-150 active:scale-95 ${
+                  overlayEnabled ? 'bg-[--color-poe-gold]' : 'bg-[--color-surface-elevated]'
+                }`}
+              >
+                <div
+                  className={`w-5 h-5 rounded-full bg-white shadow transition-transform duration-150 ${
+                    overlayEnabled ? 'translate-x-6' : 'translate-x-0.5'
+                  }`}
+                />
+              </button>
+            </div>
+
+            {/* Appearance */}
+            <div className="pt-3 border-t border-[--color-border]">
+              <h3 className="text-sm font-semibold text-[--color-text-muted] mb-3 uppercase tracking-wide">Appearance</h3>
+
+              {/* Size */}
+              <div className="mb-3">
+                <label className="block text-sm text-[--color-text-muted] mb-2">Size</label>
+                <div className="flex gap-2">
+                  {(['small', 'medium', 'large'] as const).map((size) => {
+                    const isSelected = overlayScale === size;
+                    return (
+                      <button
+                        key={size}
+                        onClick={() => setOverlayScale(size)}
+                        className={`px-4 py-1.5 text-sm rounded-md border-2 transition-all active:scale-95 font-medium capitalize ${
+                          isSelected
+                            ? 'bg-[--color-poe-gold] text-[--color-poe-darker] border-[--color-poe-gold-light] shadow-sm'
+                            : 'bg-[--color-surface] text-[--color-text] border-[--color-poe-gold]/30 hover:border-[--color-poe-gold]/60'
+                        }`}
+                      >
+                        {isSelected && '✓ '}{size}
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+
+              {/* Window Opacity */}
+              <div className="mb-3">
+                <label className="block text-sm text-[--color-text-muted] mb-2">
+                  Window Opacity: {Math.round(overlayOpacity * 100)}%
+                </label>
+                <input
+                  type="range"
+                  min="0.2"
+                  max="1"
+                  step="0.05"
+                  value={overlayOpacity}
+                  onChange={(e) => setOverlayOpacity(parseFloat(e.target.value))}
+                  className="w-full"
+                />
+              </div>
+
+              {/* Background Opacity */}
+              <div className="mb-3">
+                <label className="block text-sm text-[--color-text-muted] mb-2">
+                  Background Opacity: {Math.round(overlayBgOpacity * 100)}%
+                </label>
+                <input
+                  type="range"
+                  min="0.1"
+                  max="1"
+                  step="0.05"
+                  value={overlayBgOpacity}
+                  onChange={(e) => setOverlayBgOpacity(parseFloat(e.target.value))}
+                  className="w-full"
+                />
+              </div>
+
+              {/* Accent Color */}
+              <div className="mb-3">
+                <label className="block text-sm text-[--color-text-muted] mb-2">Accent Color</label>
+                <div className="flex items-center gap-2 flex-wrap">
+                  {[
+                    { label: 'None', color: 'transparent' },
+                    { label: 'POE Gold', color: '#af6025' },
+                    { label: 'Green', color: '#22c55e' },
+                    { label: 'Blue', color: '#3b82f6' },
+                    { label: 'White', color: '#d1d5db' },
+                  ].map(({ label, color }) => {
+                    const isSelected = overlayAccentColor === color;
+                    return (
+                      <button
+                        key={color}
+                        onClick={() => setOverlayAccentColor(color)}
+                        className={`flex items-center gap-1.5 px-3 py-1.5 text-sm rounded-md border-2 transition-all active:scale-95 font-medium ${
+                          isSelected
+                            ? 'bg-white/10 border-white/60 shadow-sm ring-1 ring-white/20'
+                            : 'border-[--color-border] hover:border-white/30'
+                        }`}
+                        title={label}
+                      >
+                        {color === 'transparent' ? (
+                          <span className="w-3 h-3 rounded-full border border-[--color-text-muted] relative overflow-hidden">
+                            <span className="absolute inset-0 flex items-center justify-center text-[8px] text-[--color-text-muted]">-</span>
+                          </span>
+                        ) : (
+                          <span className="w-3 h-3 rounded-full" style={{ backgroundColor: color }} />
+                        )}
+                        <span className={isSelected ? 'text-white' : 'text-[--color-text]'}>{label}</span>
+                        {isSelected && <span className="text-[10px] text-white/60">✓</span>}
+                      </button>
+                    );
+                  })}
+                  <input
+                    type="text"
+                    value={overlayAccentColor}
+                    onChange={(e) => setOverlayAccentColor(e.target.value)}
+                    placeholder="#af6025"
+                    className="w-24 px-2 py-1.5 text-sm bg-[--color-surface-elevated] border border-[--color-border] rounded-md text-[--color-text] font-mono"
+                  />
+                </div>
+              </div>
+            </div>
+
+            {/* Visible Sections */}
+            <div className="pt-3 border-t border-[--color-border]">
+              <h3 className="text-sm font-semibold text-[--color-text-muted] mb-3 uppercase tracking-wide">Visible Sections</h3>
+
+              {[
+                { label: 'Show Timer', value: overlayShowTimer, setter: setOverlayShowTimer },
+                { label: 'Show Current Zone', value: overlayShowZone, setter: setOverlayShowZone },
+                { label: 'Show Last Split', value: overlayShowLastSplit, setter: setOverlayShowLastSplit },
+                { label: 'Show Upcoming Breakpoints', value: overlayShowBreakpoints, setter: setOverlayShowBreakpoints },
+              ].map(({ label, value, setter }) => (
+                <div key={label} className="flex items-center justify-between mb-2">
+                  <span className="text-sm text-[--color-text]">{label}</span>
+                  <button
+                    onClick={() => setter(!value)}
+                    className={`w-10 h-5 rounded-full transition-all duration-150 active:scale-95 border ${
+                      value
+                        ? 'bg-green-600 border-green-500'
+                        : 'bg-zinc-700 border-zinc-600'
+                    }`}
+                  >
+                    <div
+                      className={`w-4 h-4 rounded-full bg-white shadow transition-transform duration-150 ${
+                        value ? 'translate-x-5' : 'translate-x-0.5'
+                      }`}
+                    />
+                  </button>
+                </div>
+              ))}
+
+            </div>
+
+            {/* Behavior */}
+            <div className="pt-3 border-t border-[--color-border]">
+              <h3 className="text-sm font-semibold text-[--color-text-muted] mb-3 uppercase tracking-wide">Behavior</h3>
+
+              <div className="flex items-center justify-between mb-2">
+                <div>
+                  <div className="text-sm text-[--color-text]">Always on Top</div>
+                  <div className="text-xs text-[--color-text-muted]">Keep overlay above other windows</div>
+                </div>
+                <button
+                  onClick={() => setOverlayAlwaysOnTop(!overlayAlwaysOnTop)}
+                  className={`w-12 h-6 rounded-full transition-all duration-150 active:scale-95 ${
+                    overlayAlwaysOnTop ? 'bg-[--color-poe-gold]' : 'bg-[--color-surface-elevated]'
+                  }`}
+                >
+                  <div
+                    className={`w-5 h-5 rounded-full bg-white shadow transition-transform duration-150 ${
+                      overlayAlwaysOnTop ? 'translate-x-6' : 'translate-x-0.5'
+                    }`}
+                  />
+                </button>
+              </div>
+
+              <div className="flex items-center justify-between mb-2">
+                <div>
+                  <div className="text-sm text-[--color-text]">Lock Overlay</div>
+                  <div className="text-xs text-[--color-text-muted]">Make click-through ({hotkeys.toggleOverlayLock})</div>
+                </div>
+                <button
+                  onClick={() => setOverlayLocked(!overlayLocked)}
+                  className={`w-12 h-6 rounded-full transition-all duration-150 active:scale-95 ${
+                    overlayLocked ? 'bg-[--color-poe-gold]' : 'bg-[--color-surface-elevated]'
+                  }`}
+                >
+                  <div
+                    className={`w-5 h-5 rounded-full bg-white shadow transition-transform duration-150 ${
+                      overlayLocked ? 'translate-x-6' : 'translate-x-0.5'
+                    }`}
+                  />
+                </button>
+              </div>
+            </div>
+
+            {/* Actions */}
+            <div className="pt-3 border-t border-[--color-border]">
+              <h3 className="text-sm font-semibold text-[--color-text-muted] mb-3 uppercase tracking-wide">Actions</h3>
+              <div className="flex gap-2 flex-wrap">
+                <button
+                  onClick={handleToggleOverlay}
+                  className={`px-4 py-2 text-sm rounded-md border-2 transition-all active:scale-95 font-medium ${
+                    overlayOpen
+                      ? 'bg-[--color-timer-behind] text-white border-red-400'
+                      : 'bg-[--color-surface] text-[--color-text] border-[--color-poe-gold]/40 hover:border-[--color-poe-gold]/70'
+                  }`}
+                >
+                  {overlayOpen ? 'Close Overlay' : 'Open Overlay'}
+                  <span className="ml-2 text-xs opacity-60">{hotkeys.toggleOverlay}</span>
+                </button>
+                <button
+                  onClick={handleResetPosition}
+                  className="px-4 py-2 text-sm bg-[--color-surface] text-[--color-text] rounded-md border-2 border-[--color-poe-gold]/40 shadow-sm hover:border-[--color-poe-gold]/70 hover:shadow-md active:scale-95 active:shadow-none transition-all font-medium"
+                >
+                  Reset Position
+                </button>
+              </div>
+            </div>
+          </div>
+          </details>
+        </section>
+
+        {/* Keyboard Shortcuts */}
+        <section className="mb-8">
+          <details className="group">
+            <summary className="cursor-pointer text-lg font-semibold text-[--color-text] mb-4 select-none flex items-center gap-2 hover:text-[--color-poe-gold] transition-colors">
+              <svg
+                className="w-4 h-4 text-[--color-text-muted] transition-transform group-open:rotate-90"
+                fill="none" stroke="currentColor" viewBox="0 0 24 24"
+              >
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+              </svg>
+              Keyboard Shortcuts
+            </summary>
+          <div className="bg-[--color-surface] rounded-lg p-4 space-y-3">
+            <p className="text-sm text-[--color-text-muted] mb-3">
+              Customize global hotkeys. Click a shortcut to rebind it, then press your desired key combination (must include Ctrl, Shift, or Alt). Press Escape to cancel.
+            </p>
+            {HOTKEY_ACTIONS.map(({ key, label }) => (
+              <div key={key} className="flex items-center justify-between">
+                <span className="text-sm text-[--color-text]">{label}</span>
+                <HotkeyInput
+                  value={editingHotkeys[key]}
+                  onChange={(v) => handleHotkeyChange(key, v)}
+                  error={hotkeyErrors[key]}
+                />
+              </div>
+            ))}
+            <div className="flex gap-2 pt-3 border-t border-[--color-border]">
+              <button
+                onClick={handleApplyHotkeys}
+                disabled={!hasHotkeyChanges || hasHotkeyErrors || hotkeyApplyStatus === 'applying'}
+                className={`px-4 py-2 text-sm font-semibold rounded-md border transition-all active:scale-95 ${
+                  hotkeyApplyStatus === 'applied'
+                    ? 'bg-[--color-timer-ahead] text-white border-green-400'
+                    : hotkeyApplyStatus === 'error'
+                    ? 'bg-[--color-timer-behind] text-white border-red-400'
+                    : 'bg-[--color-poe-gold] text-[--color-poe-darker] border-[--color-poe-gold-light] hover:bg-[--color-poe-gold-light] disabled:opacity-50 disabled:cursor-not-allowed'
+                }`}
+              >
+                {hotkeyApplyStatus === 'applying' ? 'Applying...' :
+                 hotkeyApplyStatus === 'applied' ? 'Applied!' :
+                 hotkeyApplyStatus === 'error' ? 'Error!' :
+                 'Apply Shortcuts'}
+              </button>
+              <button
+                onClick={handleResetHotkeys}
+                disabled={hotkeyApplyStatus === 'applying'}
+                className="px-4 py-2 text-sm bg-[--color-surface] text-[--color-text] rounded-md border-2 border-[--color-poe-gold]/40 shadow-sm hover:border-[--color-poe-gold]/70 hover:shadow-md active:scale-95 active:shadow-none transition-all font-medium disabled:opacity-50"
+              >
+                Reset to Defaults
+              </button>
+            </div>
+          </div>
+          </details>
+        </section>
+
+        {/* Updates */}
+        <section className="mb-8">
+          <details className="group">
+            <summary className="cursor-pointer text-lg font-semibold text-[--color-text] mb-4 select-none flex items-center gap-2 hover:text-[--color-poe-gold] transition-colors">
+              <svg
+                className="w-4 h-4 text-[--color-text-muted] transition-transform group-open:rotate-90"
+                fill="none" stroke="currentColor" viewBox="0 0 24 24"
+              >
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+              </svg>
+              Updates
+            </summary>
+          <div className="bg-[--color-surface] rounded-lg p-4 space-y-4">
+            <div className="flex items-center justify-between">
+              <div>
+                <div className="text-[--color-text]">Check for Updates Automatically</div>
+                <div className="text-xs text-[--color-text-muted]">Check for new versions on startup</div>
+              </div>
+              <button
+                onClick={() => setCheckUpdates(!checkUpdates)}
+                className={`w-12 h-6 rounded-full transition-all duration-150 active:scale-95 ${
+                  checkUpdates ? 'bg-[--color-poe-gold]' : 'bg-[--color-surface-elevated]'
+                }`}
+              >
+                <div
+                  className={`w-5 h-5 rounded-full bg-white shadow transition-transform duration-150 ${
+                    checkUpdates ? 'translate-x-6' : 'translate-x-0.5'
+                  }`}
+                />
+              </button>
+            </div>
+
+            <div className="flex items-center justify-between pt-2 border-t border-[--color-border]">
+              <div>
+                <div className="text-[--color-text]">Check Now</div>
+                <div className="text-xs text-[--color-text-muted]">
+                  {checking ? 'Checking...' :
+                   available ? `v${version} available` :
+                   updateError ? 'Check failed' :
+                   'Check for updates manually'}
+                </div>
+              </div>
+              <div className="flex items-center gap-2">
+                {available && !downloading && (
+                  <button
+                    onClick={downloadAndInstall}
+                    className="px-3 py-1.5 text-sm bg-[--color-poe-gold] text-[--color-poe-darker] rounded-md font-semibold hover:bg-[--color-poe-gold-light] active:scale-95 transition-all"
+                  >
+                    Update & Restart
+                  </button>
+                )}
+                {downloading && (
+                  <div className="w-24 bg-[--color-surface] rounded-full h-2">
+                    <div
+                      className="bg-[--color-poe-gold] h-2 rounded-full transition-all"
+                      style={{ width: `${progress}%` }}
+                    />
+                  </div>
+                )}
+                <button
+                  onClick={checkForUpdate}
+                  disabled={checking || downloading}
+                  className="px-4 py-2 text-sm bg-[--color-surface] text-[--color-text] rounded-md border-2 border-[--color-poe-gold]/40 shadow-sm hover:border-[--color-poe-gold]/70 hover:shadow-md active:scale-95 active:shadow-none transition-all font-medium disabled:opacity-50 disabled:cursor-wait"
+                >
+                  {checking ? 'Checking...' : 'Check Now'}
+                </button>
+              </div>
+            </div>
+          </div>
           </details>
         </section>
 

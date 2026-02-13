@@ -155,6 +155,9 @@ function App() {
           }
         }
 
+        // Load hotkey settings from backend
+        await useSettingsStore.getState().loadHotkeys();
+
         // Load PB splits and gold splits for comparison
         await loadPbAndGoldSplits();
       } catch (error) {
