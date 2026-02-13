@@ -1,13 +1,18 @@
 import { useRunStore } from '../../stores/runStore';
 import { useSettingsStore } from '../../stores/settingsStore';
+import { getWizardCategory } from '../../config/wizardRoutes';
 import { SplitRow } from './SplitRow';
 
 export function SplitList() {
-  const { timer } = useRunStore();
-  const { breakpoints } = useSettingsStore();
+  const { timer, currentRun, personalBests } = useRunStore();
+  const { breakpoints, wizardConfig } = useSettingsStore();
 
   const enabledBreakpoints = breakpoints.filter((bp) => bp.isEnabled);
   const completedSplits = timer.splits;
+
+  // Determine run category for PB lookup
+  const category = currentRun?.category
+    ?? (wizardConfig ? getWizardCategory(wizardConfig) : null);
 
   return (
     <div className="bg-[--color-surface] rounded-lg h-full flex flex-col">
@@ -41,6 +46,9 @@ export function SplitList() {
               const isNext = index === completedSplits.length;
               const isCompleted = index < completedSplits.length;
 
+              // Look up PB split time for this breakpoint
+              const pbTime = category ? (personalBests.get(`${category}-${bp.name}`) ?? null) : null;
+
               return (
                 <SplitRow
                   key={bp.name}
@@ -52,6 +60,7 @@ export function SplitList() {
                   isBestSegment={split?.isBestSegment ?? false}
                   isNext={isNext}
                   isCompleted={isCompleted}
+                  pbTime={pbTime}
                 />
               );
             })}

@@ -88,10 +88,24 @@ pub fn run() {
 
             {
                 let mut map = hotkey_map.lock().expect("Failed to lock hotkey map");
+
+                // Unregister any leftover shortcuts from a previous instance
+                // (force-killing the app on Windows can leave registrations dangling)
+                let _ = app.global_shortcut().unregister_all();
+
                 for (shortcut_str, action) in &hotkeys_to_register {
                     if let Ok(shortcut) = shortcut_str.parse::<Shortcut>() {
-                        let _ = app.global_shortcut().register(shortcut);
-                        map.insert(shortcut_str.clone(), action.to_string());
+                        match app.global_shortcut().register(shortcut.clone()) {
+                            Ok(_) => {
+                                eprintln!("[hotkeys] Registered global shortcut: {} -> {}", shortcut.to_string(), action);
+                            }
+                            Err(e) => {
+                                eprintln!("[hotkeys] Failed to register global shortcut {}: {}", shortcut_str, e);
+                            }
+                        }
+                        // Use canonical Shortcut::to_string() as key so it matches
+                        // the handler's shortcut_ref.to_string() lookup format.
+                        map.insert(shortcut.to_string(), action.to_string());
                     }
                 }
             }

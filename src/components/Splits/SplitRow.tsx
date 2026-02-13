@@ -9,6 +9,7 @@ interface SplitRowProps {
   isBestSegment: boolean;
   isNext: boolean;
   isCompleted: boolean;
+  pbTime?: number | null;
 }
 
 export function SplitRow({
@@ -20,6 +21,7 @@ export function SplitRow({
   isBestSegment,
   isNext,
   isCompleted,
+  pbTime,
 }: SplitRowProps) {
   const typeIcon = getTypeIcon(type);
   const deltaColor = getDeltaColor(delta);
@@ -75,8 +77,21 @@ export function SplitRow({
         </div>
       )}
 
+      {/* PB reference time for uncompleted splits */}
+      {!isCompleted && pbTime != null && (
+        <div className="flex items-center gap-3">
+          <span className="min-w-[50px]" />
+          <span className="min-w-[55px]" />
+          <div className="text-right min-w-[50px]">
+            <div className="timer-display text-xs text-[--color-text-muted]">
+              {formatTime(pbTime)}
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Current indicator */}
-      {isNext && (
+      {isNext && !pbTime && (
         <div className="w-2 h-2 rounded-full bg-[--color-poe-gold] animate-pulse" />
       )}
     </div>

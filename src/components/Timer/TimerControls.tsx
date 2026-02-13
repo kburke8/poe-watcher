@@ -1,4 +1,5 @@
 import { invoke } from '@tauri-apps/api/core';
+import { emit } from '@tauri-apps/api/event';
 import { useRunStore } from '../../stores/runStore';
 import { useSettingsStore } from '../../stores/settingsStore';
 
@@ -113,14 +114,24 @@ export function TimerControls() {
     }
 
     endRun();
+
+    // Reload PB/gold splits so next run shows updated comparisons
+    useRunStore.getState().loadPbAndGoldSplits();
   };
 
-  const handleManualSplit = async () => {
-    // Trigger a manual split
-    try {
-      await invoke('manual_split');
-    } catch (error) {
-      console.error('Failed to trigger manual split:', error);
+  const handleManualSplit = () => {
+    if (!timer.isRunning) return;
+
+    const { breakpoints } = useSettingsStore.getState();
+    const completedSplits = new Set(timer.splits.map(s => s.name));
+
+    // Find the next enabled breakpoint that hasn't been completed yet
+    for (const bp of breakpoints) {
+      if (!bp.isEnabled) continue;
+      if (completedSplits.has(bp.name)) continue;
+
+      emit('split-trigger', { name: bp.name, type: bp.type });
+      return;
     }
   };
 

@@ -170,6 +170,9 @@ export function useTauriEvents() {
         // Update local state: sync elapsed time then end the run
         useRunStore.getState().updateElapsed(splitTimeMs);
         useRunStore.getState().endRun();
+
+        // Reload PB/gold splits so next run shows updated comparisons
+        useRunStore.getState().loadPbAndGoldSplits();
       }
     }
   }, [addSplit, updatePollingSpeed]);

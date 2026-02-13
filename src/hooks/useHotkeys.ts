@@ -1,4 +1,4 @@
-import { useEffect, useCallback, useMemo } from 'react';
+import { useEffect, useCallback, useMemo, useRef } from 'react';
 import { invoke } from '@tauri-apps/api/core';
 import { listen } from '@tauri-apps/api/event';
 import { useRunStore } from '../stores/runStore';
@@ -156,6 +156,17 @@ export function useHotkeys() {
     }
   }, []);
 
+  // Debounce ref: prevents the same action from firing twice when both the
+  // local keydown handler and the Tauri global-shortcut event trigger for the
+  // same keypress (OS-level shortcut + browser keydown can both fire).
+  const lastActionRef = useRef(0);
+  const debounced = useCallback((action: () => void) => {
+    const now = Date.now();
+    if (now - lastActionRef.current < 300) return;
+    lastActionRef.current = now;
+    action();
+  }, []);
+
   // Build hotkeys dynamically from store config
   const hotkeys: HotkeyConfig[] = useMemo(() => {
     const toggleTimerParsed = parseShortcutToHotkeyConfig(hotkeyConfig.toggleTimer);
@@ -185,11 +196,12 @@ export function useHotkeys() {
         const ctrlMatch = hotkey.ctrl ? event.ctrlKey : !event.ctrlKey;
         const shiftMatch = hotkey.shift ? event.shiftKey : !event.shiftKey;
         const altMatch = hotkey.alt ? event.altKey : !event.altKey;
-        const keyMatch = event.key === hotkey.key;
+        // Case-insensitive: event.key is uppercase when Shift is held
+        const keyMatch = event.key.toLowerCase() === hotkey.key.toLowerCase();
 
         if (ctrlMatch && shiftMatch && altMatch && keyMatch) {
           event.preventDefault();
-          hotkey.action();
+          debounced(hotkey.action);
           return;
         }
       }
@@ -209,24 +221,25 @@ export function useHotkeys() {
     }
   }, []);
 
-  // Listen for global shortcut events from the backend (works when window is not focused)
+  // Listen for global shortcut events from the backend (works even when window is not focused).
+  // Uses the same debounce to avoid double-firing with the local keydown handler.
   useEffect(() => {
     const unlistenGlobal = listen<string>('global-shortcut', (event) => {
       if (event.payload === 'toggle-timer') {
-        toggleTimer();
+        debounced(toggleTimer);
       } else if (event.payload === 'reset-timer') {
-        resetTimer();
+        debounced(resetTimer);
       } else if (event.payload === 'manual-snapshot') {
-        captureManualSnapshot();
+        debounced(captureManualSnapshot);
       } else if (event.payload === 'manual-split') {
-        triggerManualSplit();
+        debounced(triggerManualSplit);
       } else if (event.payload === 'toggle-overlay') {
-        toggleOverlay();
+        debounced(toggleOverlay);
       }
     });
 
     return () => {
       unlistenGlobal.then((fn) => fn());
     };
-  }, [toggleTimer, resetTimer, captureManualSnapshot, triggerManualSplit, toggleOverlay]);
+  }, [toggleTimer, resetTimer, captureManualSnapshot, triggerManualSplit, toggleOverlay, debounced]);
 }

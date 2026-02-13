@@ -766,19 +766,16 @@ pub async fn update_hotkeys(app_handle: AppHandle, hotkeys: HotkeySettings) -> R
     {
         let mut map = hotkey_map.0.lock().map_err(|e| e.to_string())?;
 
-        // Unregister old shortcuts
-        for old_shortcut_str in map.keys() {
-            if let Ok(old_shortcut) = old_shortcut_str.parse::<Shortcut>() {
-                let _ = app_handle.global_shortcut().unregister(old_shortcut);
-            }
-        }
+        // Unregister all old shortcuts
+        let _ = app_handle.global_shortcut().unregister_all();
         map.clear();
 
-        // Register new shortcuts
+        // Register new shortcuts using canonical Shortcut::to_string() as key
+        // so it matches the handler's shortcut_ref.to_string() lookup format.
         for (shortcut, shortcut_str, action) in &parsed {
             app_handle.global_shortcut().register(shortcut.clone())
                 .map_err(|e| format!("Failed to register {}: {}", shortcut_str, e))?;
-            map.insert(shortcut_str.clone(), action.to_string());
+            map.insert(shortcut.to_string(), action.to_string());
         }
     }
 
@@ -849,6 +846,8 @@ pub async fn close_overlay(app_handle: AppHandle) -> Result<(), String> {
     if let Some(window) = app_handle.get_webview_window("overlay") {
         window.close().map_err(|e| e.to_string())?;
     }
+    // Notify main window that overlay was closed
+    let _ = app_handle.emit("overlay-closed", ());
     Ok(())
 }
 

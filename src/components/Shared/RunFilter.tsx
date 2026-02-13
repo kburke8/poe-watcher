@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { invoke } from '@tauri-apps/api/core';
+import { CustomSelect } from './CustomSelect';
 import type { RunFilters, Run } from '../../types';
 
 interface RunFilterProps {
@@ -80,115 +81,89 @@ export function RunFilter({
       {/* Class filter */}
       <div className="flex flex-col gap-1">
         <label className="text-xs text-[--color-text-muted]">Class</label>
-        <select
+        <CustomSelect
           value={filters.class || ''}
-          onChange={(e) => {
-            const newClass = e.target.value || undefined;
-            onFiltersChange({
-              class: newClass,
-              // Clear ascendancy if class changes
-              ascendancy: undefined,
-            });
-          }}
-          className="px-2 py-1.5 bg-[--color-surface-elevated] border border-[--color-border] rounded text-[--color-text] text-sm min-w-[120px]"
-        >
-          <option value="">All Classes</option>
-          {allClasses.map((cls) => (
-            <option key={cls} value={cls}>
-              {cls}
-            </option>
-          ))}
-        </select>
+          onChange={(v) => onFiltersChange({ class: v || undefined, ascendancy: undefined })}
+          className="min-w-[120px]"
+          options={[
+            { value: '', label: 'All Classes' },
+            ...allClasses.map((cls) => ({ value: cls, label: cls })),
+          ]}
+        />
       </div>
 
       {/* Ascendancy filter */}
       <div className="flex flex-col gap-1">
         <label className="text-xs text-[--color-text-muted]">Ascendancy</label>
-        <select
+        <CustomSelect
           value={filters.ascendancy || ''}
-          onChange={(e) => onFiltersChange({ ascendancy: e.target.value || undefined })}
-          className="px-2 py-1.5 bg-[--color-surface-elevated] border border-[--color-border] rounded text-[--color-text] text-sm min-w-[120px]"
+          onChange={(v) => onFiltersChange({ ascendancy: v || undefined })}
+          className="min-w-[120px]"
           disabled={!filters.class}
-        >
-          <option value="">All Ascendancies</option>
-          {availableAscendancies.map((asc) => (
-            <option key={asc} value={asc}>
-              {asc}
-            </option>
-          ))}
-        </select>
+          options={[
+            { value: '', label: 'All Ascendancies' },
+            ...availableAscendancies.map((asc) => ({ value: asc, label: asc })),
+          ]}
+        />
       </div>
 
       {/* Category filter */}
       <div className="flex flex-col gap-1">
         <label className="text-xs text-[--color-text-muted]">Category</label>
-        <select
+        <CustomSelect
           value={filters.category || ''}
-          onChange={(e) => onFiltersChange({ category: e.target.value || undefined })}
-          className="px-2 py-1.5 bg-[--color-surface-elevated] border border-[--color-border] rounded text-[--color-text] text-sm min-w-[100px]"
-        >
-          <option value="">All</option>
-          {availableCategories.map((cat) => (
-            <option key={cat} value={cat}>
-              {cat}
-            </option>
-          ))}
-        </select>
+          onChange={(v) => onFiltersChange({ category: v || undefined })}
+          className="min-w-[100px]"
+          options={[
+            { value: '', label: 'All' },
+            ...availableCategories.map((cat) => ({ value: cat, label: cat })),
+          ]}
+        />
       </div>
 
       {/* League filter */}
       <div className="flex flex-col gap-1">
         <label className="text-xs text-[--color-text-muted]">League</label>
-        <select
+        <CustomSelect
           value={filters.league || ''}
-          onChange={(e) => onFiltersChange({ league: e.target.value || undefined })}
-          className="px-2 py-1.5 bg-[--color-surface-elevated] border border-[--color-border] rounded text-[--color-text] text-sm min-w-[120px]"
-        >
-          <option value="">All Leagues</option>
-          {availableLeagues.map((league) => (
-            <option key={league} value={league}>
-              {league}
-            </option>
-          ))}
-        </select>
+          onChange={(v) => onFiltersChange({ league: v || undefined })}
+          className="min-w-[120px]"
+          options={[
+            { value: '', label: 'All Leagues' },
+            ...availableLeagues.map((league) => ({ value: league, label: league })),
+          ]}
+        />
       </div>
 
       {/* Preset filter */}
       {showPresetFilter && (
         <div className="flex flex-col gap-1">
           <label className="text-xs text-[--color-text-muted]">Preset</label>
-          <select
+          <CustomSelect
             value={filters.breakpointPreset || ''}
-            onChange={(e) => onFiltersChange({ breakpointPreset: e.target.value || undefined })}
-            className="px-2 py-1.5 bg-[--color-surface-elevated] border border-[--color-border] rounded text-[--color-text] text-sm min-w-[100px]"
-          >
-            <option value="">All Presets</option>
-            {availablePresets.map((preset) => (
-              <option key={preset} value={preset}>
-                {preset}
-              </option>
-            ))}
-          </select>
+            onChange={(v) => onFiltersChange({ breakpointPreset: v || undefined })}
+            className="min-w-[100px]"
+            options={[
+              { value: '', label: 'All Presets' },
+              ...availablePresets.map((preset) => ({ value: preset, label: preset })),
+            ]}
+          />
         </div>
       )}
 
       {/* Completed filter */}
       <div className="flex flex-col gap-1">
         <label className="text-xs text-[--color-text-muted]">Status</label>
-        <select
+        <CustomSelect
           value={filters.isCompleted === undefined ? '' : filters.isCompleted ? 'true' : 'false'}
-          onChange={(e) => {
-            const value = e.target.value;
-            onFiltersChange({
-              isCompleted: value === '' ? undefined : value === 'true',
-            });
-          }}
-          className="px-2 py-1.5 bg-[--color-surface-elevated] border border-[--color-border] rounded text-[--color-text] text-sm min-w-[100px]"
-        >
-          <option value="">All Runs</option>
-          <option value="true">Completed</option>
-          <option value="false">In Progress</option>
-        </select>
+          onChange={(v) => onFiltersChange({ isCompleted: v === '' ? undefined : v === 'true' })}
+          className="min-w-[100px]"
+          options={[
+            { value: '', label: 'All Runs' },
+            { value: 'true', label: 'Completed' },
+            { value: 'false', label: 'In Progress' },
+          ]}
+        />
       </div>
 
       {/* Reference runs toggle */}

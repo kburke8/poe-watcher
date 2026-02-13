@@ -1,6 +1,6 @@
 import { create } from 'zustand';
 import { invoke } from '@tauri-apps/api/core';
-import type { Run, Split, SplitTime, TimerState, RunFilters, RunStats, SplitStat } from '../types';
+import type { Run, Split, SplitTime, TimerState, RunFilters, RunStats, SplitStat, PersonalBest, GoldSplit } from '../types';
 import { useSettingsStore } from './settingsStore';
 import { getWizardCategory } from '../config/wizardRoutes';
 
@@ -42,6 +42,7 @@ interface RunState {
   setSplits: (splits: Split[]) => void;
   setPersonalBests: (pbs: Map<string, number>) => void;
   setGoldSplits: (golds: Map<string, number>) => void;
+  loadPbAndGoldSplits: () => Promise<void>;
 
   // Filtering actions
   setFilters: (filters: Partial<RunFilters>) => void;
@@ -133,9 +134,8 @@ export const useRunStore = create<RunState>((set, get) => ({
     const { currentRun, goldSplits, personalBests } = get();
     if (!currentRun) return;
 
-    const category = `${currentRun.category}-${currentRun.class}`;
-    const pbTime = personalBests.get(`${category}-${splitData.breakpointName}`);
-    const goldTime = goldSplits.get(`${category}-${splitData.breakpointName}`);
+    const pbTime = personalBests.get(`${currentRun.category}-${splitData.breakpointName}`);
+    const goldTime = goldSplits.get(`${currentRun.category}-${splitData.breakpointName}`);
 
     const deltaMs = pbTime ? splitData.splitTimeMs - pbTime : null;
     const isBestSegment = goldTime ? splitData.segmentTimeMs < goldTime : true;
@@ -275,6 +275,50 @@ export const useRunStore = create<RunState>((set, get) => ({
   setSplits: (splits) => set({ splits }),
   setPersonalBests: (pbs) => set({ personalBests: pbs }),
   setGoldSplits: (golds) => set({ goldSplits: golds }),
+
+  loadPbAndGoldSplits: async () => {
+    try {
+      const pbs = await invoke<PersonalBest[]>('get_personal_bests');
+      if (import.meta.env.DEV) {
+        console.log('[RunStore] loadPbAndGoldSplits: found', pbs.length, 'PBs:', pbs.map(pb => `${pb.category} (run ${pb.runId})`));
+      }
+      const pbSplitMap = new Map<string, number>();
+      for (const pb of pbs) {
+        try {
+          const splits = await invoke<Split[]>('get_splits', { runId: pb.runId });
+          if (import.meta.env.DEV) {
+            console.log('[RunStore] PB run', pb.runId, 'splits:', splits.map(s => `${s.breakpointName}=${s.splitTimeMs}ms`));
+          }
+          for (const split of splits) {
+            // Key by category-breakpointName only (no class) so PBs match
+            // across runs regardless of character class detection timing
+            const key = `${pb.category}-${split.breakpointName}`;
+            const existing = pbSplitMap.get(key);
+            // Keep the fastest split time if multiple PBs exist
+            if (existing === undefined || split.splitTimeMs < existing) {
+              pbSplitMap.set(key, split.splitTimeMs);
+            }
+          }
+        } catch {
+          // Skip PB runs whose splits can't be loaded
+        }
+      }
+      if (import.meta.env.DEV) {
+        console.log('[RunStore] PB map:', [...pbSplitMap.entries()]);
+      }
+      set({ personalBests: pbSplitMap });
+
+      const golds = await invoke<GoldSplit[]>('get_gold_splits');
+      const goldMap = new Map<string, number>();
+      for (const gold of golds) {
+        const key = `${gold.category}-${gold.breakpointName}`;
+        goldMap.set(key, gold.bestSegmentMs);
+      }
+      set({ goldSplits: goldMap });
+    } catch (error) {
+      console.error('[RunStore] Failed to load PB/gold splits:', error);
+    }
+  },
 
   // Filtering actions
   setFilters: (newFilters) => set((state) => ({

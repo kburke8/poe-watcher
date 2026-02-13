@@ -222,6 +222,13 @@ const levelMilestones: ZoneEntry[] = [
   { name: 'Level 90', zoneName: '', act: 0, bpType: 'level', triggerType: 'zone', verbosity: 'every_zone', captureSnapshot: false },
 ];
 
+// ── Dev-only test zones (just 2 zones for quick testing) ─────────
+
+const testZones: ZoneEntry[] = [
+  { name: "Lioneye's Watch", zoneName: "Lioneye's Watch", act: 1, bpType: 'zone', triggerType: 'zone', verbosity: 'acts_only', captureSnapshot: false },
+  { name: 'The Coast', zoneName: 'The Coast', act: 1, bpType: 'zone', triggerType: 'zone', verbosity: 'acts_only', captureSnapshot: false },
+];
+
 // ── All acts map ───────────────────────────────────────────────────
 
 const ALL_ACT_ZONES: Record<number, ZoneEntry[]> = {
@@ -367,6 +374,11 @@ export function generateBreakpoints(config: WizardConfig): Breakpoint[] {
   const maxAct = config.endAct;
   let allZones: ZoneEntry[] = [];
 
+  // Dev-only test category: just 2 zones, skip all act logic
+  if (maxAct === 0) {
+    return testZones.map(zoneToBreakpoint);
+  }
+
   // 1. Build zone list for acts 1 through endAct
   for (let act = 1; act <= maxAct; act++) {
     let actZones = [...(ALL_ACT_ZONES[act] || [])];
@@ -392,6 +404,18 @@ export function generateBreakpoints(config: WizardConfig): Breakpoint[] {
     }
 
     allZones.push(...actZones);
+  }
+
+  // 2b. If the final act doesn't end with a kitava trigger, add the first
+  //     zone of the next act as the finish-line breakpoint (e.g. The Southern
+  //     Forest after Act 1, The Aqueduct after Act 3).
+  const lastActZones = ALL_ACT_ZONES[maxAct] || [];
+  const hasKitavaFinish = lastActZones.some(z => z.triggerType === 'kitava');
+  if (!hasKitavaFinish) {
+    const nextActZones = ALL_ACT_ZONES[maxAct + 1];
+    if (nextActZones && nextActZones.length > 0) {
+      allZones.push(nextActZones[0]);
+    }
   }
 
   // 3. Filter by verbosity
@@ -442,6 +466,7 @@ export function groupByAct(breakpoints: Breakpoint[]): Map<number, Breakpoint[]>
 // ── Derive human-readable category from wizard config ──────────────
 
 export function getWizardCategory(config: WizardConfig): string {
+  if (config.endAct === 0) return 'Dev Test';
   const actLabel = `Act ${config.endAct}`;
   const typeLabel = config.runType === 'any_percent' ? 'Any%' : '100%';
   return `${actLabel} ${typeLabel}`;

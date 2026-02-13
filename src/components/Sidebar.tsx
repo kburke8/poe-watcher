@@ -40,10 +40,6 @@ export function Sidebar() {
 
   return (
     <aside className="w-16 bg-[--color-surface] border-r border-[--color-border] flex flex-col items-center py-4">
-      <div className="mb-8">
-        <span className="text-2xl text-[--color-poe-gold]">⚔</span>
-      </div>
-
       <nav className="flex flex-col gap-2">
         {navItems.map((item) => (
           <button

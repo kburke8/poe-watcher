@@ -118,7 +118,7 @@ export interface BreakpointTrigger {
 
 // Wizard configuration for guided breakpoint setup
 export interface WizardConfig {
-  endAct: 5 | 10;
+  endAct: 0 | 1 | 3 | 5 | 10;
   runType: 'any_percent' | 'hundred_percent';
   verbosity: 'every_zone' | 'key_zones' | 'bosses_only' | 'acts_only';
   snapshotFrequency: 'bosses_only' | 'acts_only';

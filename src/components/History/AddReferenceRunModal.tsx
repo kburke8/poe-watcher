@@ -1,6 +1,7 @@
 import { useState, useMemo } from 'react';
 import { invoke } from '@tauri-apps/api/core';
 import { useSettingsStore } from '../../stores/settingsStore';
+import { CustomSelect } from '../Shared/CustomSelect';
 import type { ReferenceRunData, ReferenceSplitData } from '../../types';
 
 interface AddReferenceRunModalProps {
@@ -184,38 +185,26 @@ export function AddReferenceRunModal({ isOpen, onClose, onSuccess }: AddReferenc
           <div className="grid grid-cols-2 gap-4">
             <div>
               <label className="block text-sm text-[--color-text-muted] mb-1">Class *</label>
-              <select
+              <CustomSelect
                 value={selectedClass}
-                onChange={(e) => {
-                  setSelectedClass(e.target.value);
-                  setAscendancy('');
-                }}
-                className="w-full px-3 py-2 bg-[--color-surface-elevated] border border-[--color-border] rounded-lg text-[--color-text]"
-              >
-                <option value="">Select class...</option>
-                {Object.keys(classAscendancies).map((cls) => (
-                  <option key={cls} value={cls}>
-                    {cls}
-                  </option>
-                ))}
-              </select>
+                onChange={(v) => { setSelectedClass(v); setAscendancy(''); }}
+                options={[
+                  { value: '', label: 'Select class...' },
+                  ...Object.keys(classAscendancies).map((cls) => ({ value: cls, label: cls })),
+                ]}
+              />
             </div>
             <div>
               <label className="block text-sm text-[--color-text-muted] mb-1">Ascendancy</label>
-              <select
+              <CustomSelect
                 value={ascendancy}
-                onChange={(e) => setAscendancy(e.target.value)}
+                onChange={(v) => setAscendancy(v)}
                 disabled={!selectedClass}
-                className="w-full px-3 py-2 bg-[--color-surface-elevated] border border-[--color-border] rounded-lg text-[--color-text] disabled:opacity-50"
-              >
-                <option value="">None</option>
-                {selectedClass &&
-                  classAscendancies[selectedClass]?.map((asc) => (
-                    <option key={asc} value={asc}>
-                      {asc}
-                    </option>
-                  ))}
-              </select>
+                options={[
+                  { value: '', label: 'None' },
+                  ...(selectedClass ? (classAscendancies[selectedClass] || []).map((asc) => ({ value: asc, label: asc })) : []),
+                ]}
+              />
             </div>
           </div>
 
@@ -223,17 +212,11 @@ export function AddReferenceRunModal({ isOpen, onClose, onSuccess }: AddReferenc
           <div className="grid grid-cols-2 gap-4">
             <div>
               <label className="block text-sm text-[--color-text-muted] mb-1">Category</label>
-              <select
+              <CustomSelect
                 value={category}
-                onChange={(e) => setCategory(e.target.value)}
-                className="w-full px-3 py-2 bg-[--color-surface-elevated] border border-[--color-border] rounded-lg text-[--color-text]"
-              >
-                {categories.map((cat) => (
-                  <option key={cat} value={cat}>
-                    {cat}
-                  </option>
-                ))}
-              </select>
+                onChange={(v) => setCategory(v)}
+                options={categories.map((cat) => ({ value: cat, label: cat }))}
+              />
             </div>
             <div>
               <label className="block text-sm text-[--color-text-muted] mb-1">League</label>

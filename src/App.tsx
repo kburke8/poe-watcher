@@ -1,5 +1,6 @@
 import { useEffect } from "react";
 import { invoke } from "@tauri-apps/api/core";
+import { listen } from "@tauri-apps/api/event";
 import { useSettingsStore } from "./stores/settingsStore";
 import { useRunStore } from "./stores/runStore";
 import { useTauriEvents } from "./hooks/useTauriEvents";
@@ -12,7 +13,7 @@ import { ComparisonView } from "./components/Comparison/ComparisonView";
 import { HistoryView } from "./components/History/HistoryView";
 import { SettingsView } from "./components/Settings/SettingsView";
 import { defaultBreakpoints } from "./config/breakpoints";
-import type { Breakpoint, PersonalBest, GoldSplit, Split, WizardConfig } from "./types";
+import type { Breakpoint, WizardConfig } from "./types";
 
 const BREAKPOINTS_STORAGE_KEY = 'poe-watcher-breakpoints';
 const WIZARD_CONFIG_STORAGE_KEY = 'poe-watcher-wizard-config';
@@ -30,6 +31,14 @@ function App() {
 
   // Sync state to overlay window
   useOverlaySync();
+
+  // Listen for overlay closed (e.g. via overlay's X button) to sync state
+  useEffect(() => {
+    const unlisten = listen('overlay-closed', () => {
+      useSettingsStore.getState().setOverlayOpen(false);
+    });
+    return () => { unlisten.then((fn) => fn()); };
+  }, []);
 
   // Auto-save breakpoints to localStorage whenever they change (after initial load)
   useEffect(() => {
@@ -94,7 +103,7 @@ function App() {
           const savedWizard = localStorage.getItem(WIZARD_CONFIG_STORAGE_KEY);
           if (savedWizard) {
             const parsed = JSON.parse(savedWizard) as WizardConfig;
-            if (parsed && parsed.endAct && parsed.verbosity) {
+            if (parsed && parsed.endAct != null && parsed.verbosity) {
               useSettingsStore.getState().loadSettings({ wizardConfig: parsed });
             }
           }
@@ -159,44 +168,9 @@ function App() {
         await useSettingsStore.getState().loadHotkeys();
 
         // Load PB splits and gold splits for comparison
-        await loadPbAndGoldSplits();
+        await useRunStore.getState().loadPbAndGoldSplits();
       } catch (error) {
         console.error('Failed to initialize:', error);
-      }
-    };
-
-    const loadPbAndGoldSplits = async () => {
-      try {
-        // Load personal bests to get PB run IDs
-        const pbs = await invoke<PersonalBest[]>('get_personal_bests');
-
-        // Build map of PB split times: key = "category-class-breakpointName" -> splitTimeMs
-        const pbSplitMap = new Map<string, number>();
-
-        for (const pb of pbs) {
-          try {
-            // Get splits for this PB run
-            const splits = await invoke<Split[]>('get_splits', { runId: pb.runId });
-            for (const split of splits) {
-              const key = `${pb.category}-${pb.class}-${split.breakpointName}`;
-              pbSplitMap.set(key, split.splitTimeMs);
-            }
-          } catch {
-            // Skip PB runs whose splits can't be loaded
-          }
-        }
-        useRunStore.getState().setPersonalBests(pbSplitMap);
-
-        // Load gold splits (best segment times)
-        const golds = await invoke<GoldSplit[]>('get_gold_splits');
-        const goldMap = new Map<string, number>();
-        for (const gold of golds) {
-          const key = `${gold.category}-${gold.breakpointName}`;
-          goldMap.set(key, gold.bestSegmentMs);
-        }
-        useRunStore.getState().setGoldSplits(goldMap);
-      } catch (error) {
-        console.error('[App] Failed to load PB/gold splits:', error);
       }
     };
 

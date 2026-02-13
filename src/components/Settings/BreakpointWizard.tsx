@@ -12,7 +12,7 @@ const STEP_LABELS = ['Category', 'Splits', 'Snapshots'] as const;
 function getStepSummary(step: number, config: WizardConfig): string {
   switch (step) {
     case 1:
-      return `Act ${config.endAct} ${config.runType === 'any_percent' ? 'Any%' : '100%'}`;
+      return config.endAct === 0 ? 'Dev Test' : `Act ${config.endAct} ${config.runType === 'any_percent' ? 'Any%' : '100%'}`;
     case 2:
       return ({
         every_zone: 'Every Zone',
@@ -185,7 +185,12 @@ function StepCategory({ config, setConfig, onAdvance }: {
   setConfig: (fn: (prev: WizardConfig) => WizardConfig) => void;
   onAdvance: () => void;
 }) {
-  const cards: { endAct: 5 | 10; runType: 'any_percent' | 'hundred_percent'; title: string; desc: string }[] = [
+  const cards: { endAct: WizardConfig['endAct']; runType: 'any_percent' | 'hundred_percent'; title: string; desc: string }[] = [
+    ...(import.meta.env.DEV ? [{ endAct: 0 as const, runType: 'any_percent' as const, title: 'Dev Test', desc: "Just Lioneye's Watch + The Coast for quick testing" }] : []),
+    { endAct: 1, runType: 'any_percent', title: 'Act 1 Any%', desc: 'Reach Act 2 as fast as possible' },
+    { endAct: 1, runType: 'hundred_percent', title: 'Act 1 100%', desc: 'Full clear through Act 1, all quests and side areas' },
+    { endAct: 3, runType: 'any_percent', title: 'Acts 1-3 Any%', desc: 'Kill Dominus as fast as possible' },
+    { endAct: 3, runType: 'hundred_percent', title: 'Acts 1-3 100%', desc: 'Full clear through Act 3, all quests and side areas' },
     { endAct: 5, runType: 'any_percent', title: 'Acts 1-5 Any%', desc: 'Kill Kitava Act 5' },
     { endAct: 5, runType: 'hundred_percent', title: 'Acts 1-5 100%', desc: 'Full clear through Act 5 (routing options coming soon)' },
     { endAct: 10, runType: 'any_percent', title: 'Acts 1-10 Any%', desc: 'Full campaign to maps' },
@@ -195,7 +200,7 @@ function StepCategory({ config, setConfig, onAdvance }: {
   return (
     <div>
       <h3 className="text-sm font-semibold text-[--color-text] mb-3">Which acts and run type?</h3>
-      <div className="grid grid-cols-2 gap-3">
+      <div className="grid grid-cols-2 gap-2">
         {cards.map(card => {
           const selected = config.endAct === card.endAct && config.runType === card.runType;
           return (

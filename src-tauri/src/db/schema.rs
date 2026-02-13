@@ -562,6 +562,7 @@ pub struct NewSnapshot {
 // ============================================================================
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct PersonalBest {
     pub id: i64,
     pub category: String,
@@ -630,6 +631,7 @@ impl PersonalBest {
 // ============================================================================
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct GoldSplit {
     pub id: i64,
     pub category: String,

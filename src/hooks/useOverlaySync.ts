@@ -3,6 +3,7 @@ import { invoke } from '@tauri-apps/api/core';
 import { listen } from '@tauri-apps/api/event';
 import { useRunStore } from '../stores/runStore';
 import { useSettingsStore } from '../stores/settingsStore';
+import { getWizardCategory } from '../config/wizardRoutes';
 import type { TimerState, Breakpoint } from '../types';
 
 interface OverlayState {
@@ -68,11 +69,19 @@ function buildOverlayState(
   goldSplits: Map<string, number>,
   currentRun: { category: string; class: string } | null,
   hotkeyLabels: HotkeyLabels,
+  fallbackCategory: string | null,
 ): OverlayState {
   const lastTimerSplit = timer.splits[timer.splits.length - 1] || null;
   const enabledBreakpoints = breakpoints.filter((bp: Breakpoint) => bp.isEnabled);
   const hitCount = timer.currentSplit;
-  const category = currentRun ? `${currentRun.category}-${currentRun.class}` : null;
+  // PB keys use category-breakpointName (no class)
+  const category = currentRun?.category ?? fallbackCategory;
+  if (import.meta.env.DEV) {
+    console.log('[OverlaySync] category:', category, '| PB entries:', personalBests.size, '| gold entries:', goldSplits.size);
+    if (personalBests.size > 0) {
+      console.log('[OverlaySync] PB keys:', [...personalBests.keys()]);
+    }
+  }
   const upcomingBreakpoints = enabledBreakpoints
     .slice(hitCount)
     .map((bp: Breakpoint, idx: number) => {
@@ -100,12 +109,10 @@ function buildOverlayState(
   // Look up PB and gold segment times for the last split
   let pbSegmentTimeMs: number | null = null;
   let goldSegmentTimeMs: number | null = null;
-  if (lastTimerSplit && currentRun) {
-    const category = `${currentRun.category}-${currentRun.class}`;
+  if (lastTimerSplit && category) {
     const pbSplitTime = personalBests.get(`${category}-${lastTimerSplit.name}`);
     const prevSplit = timer.splits.length >= 2 ? timer.splits[timer.splits.length - 2] : null;
     // PB segment = PB cumulative at this split - PB cumulative at previous split
-    // Since we only store cumulative PBs, we approximate by looking up previous split PB
     if (pbSplitTime !== undefined && prevSplit) {
       const prevPbTime = personalBests.get(`${category}-${prevSplit.name}`);
       if (prevPbTime !== undefined) {
@@ -170,6 +177,7 @@ export function useOverlaySync() {
   const goldSplits = useRunStore((state) => state.goldSplits);
   const currentRun = useRunStore((state) => state.currentRun);
   const breakpoints = useSettingsStore((state: { breakpoints: Breakpoint[] }) => state.breakpoints);
+  const wizardConfig = useSettingsStore((state) => state.wizardConfig);
   const overlayOpacity = useSettingsStore((state) => state.overlayOpacity);
   const overlayScale = useSettingsStore((state) => state.overlayScale);
   const overlayFontSize = useSettingsStore((state) => state.overlayFontSize);
@@ -211,10 +219,11 @@ export function useOverlaySync() {
   // Build and send current state
   const syncNow = useCallback(() => {
     const runInfo = currentRun ? { category: currentRun.category, class: currentRun.class } : null;
-    const state = buildOverlayState(timer, breakpoints, config, personalBests, goldSplits, runInfo, hotkeyLabels);
+    const fallbackCategory = wizardConfig ? getWizardCategory(wizardConfig) : null;
+    const state = buildOverlayState(timer, breakpoints, config, personalBests, goldSplits, runInfo, hotkeyLabels, fallbackCategory);
     sendToOverlay(state);
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [timer, breakpoints, overlayOpacity, overlayScale, overlayFontSize, overlayShowTimer, overlayShowZone, overlayShowLastSplit, overlayShowBreakpoints, overlayBreakpointCount, overlayBgOpacity, overlayAccentColor, overlayAlwaysOnTop, overlayLocked, personalBests, goldSplits, currentRun, hotkeys]);
+  }, [timer, breakpoints, overlayOpacity, overlayScale, overlayFontSize, overlayShowTimer, overlayShowZone, overlayShowLastSplit, overlayShowBreakpoints, overlayBreakpointCount, overlayBgOpacity, overlayAccentColor, overlayAlwaysOnTop, overlayLocked, personalBests, goldSplits, currentRun, hotkeys, wizardConfig]);
 
   // Emit immediately on meaningful state changes (zone, splits, start/stop, config, etc.)
   useEffect(() => {
@@ -237,13 +246,15 @@ export function useOverlaySync() {
       accentColor: overlayAccentColor,
       alwaysOnTop: overlayAlwaysOnTop,
       locked: overlayLocked,
+      pbCount: personalBests.size,
+      goldCount: goldSplits.size,
     });
 
     if (nonTimeKey !== prevNonTimeRef.current) {
       prevNonTimeRef.current = nonTimeKey;
       syncNow();
     }
-  }, [timer, overlayOpacity, overlayScale, overlayFontSize, overlayShowTimer, overlayShowZone, overlayShowLastSplit, overlayShowBreakpoints, overlayBreakpointCount, overlayBgOpacity, overlayAccentColor, overlayAlwaysOnTop, overlayLocked, syncNow]);
+  }, [timer, overlayOpacity, overlayScale, overlayFontSize, overlayShowTimer, overlayShowZone, overlayShowLastSplit, overlayShowBreakpoints, overlayBreakpointCount, overlayBgOpacity, overlayAccentColor, overlayAlwaysOnTop, overlayLocked, personalBests, goldSplits, syncNow]);
 
   // Listen for overlay-ready signal and immediately sync
   useEffect(() => {

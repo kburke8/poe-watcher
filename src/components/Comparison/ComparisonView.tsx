@@ -2,6 +2,7 @@ import { useState, useEffect, useMemo } from 'react';
 import { invoke } from '@tauri-apps/api/core';
 import { useRunStore } from '../../stores/runStore';
 import { RunFilter } from '../Shared/RunFilter';
+import { CustomSelect } from '../Shared/CustomSelect';
 import type { Run, Split, RunFilters } from '../../types';
 
 interface SplitComparison {
@@ -141,37 +142,35 @@ export function ComparisonView() {
       <div className="flex gap-6 mb-4">
         <div className="flex-1">
           <label className="block text-sm text-[--color-text-muted] mb-2">Left Run</label>
-          <select
-            value={leftRunId ?? ''}
-            onChange={(e) => setLeftRunId(e.target.value ? Number(e.target.value) : null)}
-            className="w-full p-3 bg-[--color-surface] border border-[--color-border] rounded-lg text-[--color-text]"
-          >
-            <option value="">Select a run...</option>
-            {displayRuns.map((run) => (
-              <option key={run.id} value={run.id}>
-                {run.characterName || run.character} - {run.class}
-                {run.ascendancy ? ` (${run.ascendancy})` : ''} - {formatTime(run.totalTimeMs ?? 0)}
-                {run.isReference && ' [REF]'}
-              </option>
-            ))}
-          </select>
+          <CustomSelect
+            value={leftRunId != null ? String(leftRunId) : ''}
+            onChange={(v) => setLeftRunId(v ? Number(v) : null)}
+            className="p-3"
+            placeholder="Select a run..."
+            options={[
+              { value: '', label: 'Select a run...' },
+              ...displayRuns.map((run) => ({
+                value: String(run.id),
+                label: `${run.characterName || run.character} - ${run.class}${run.ascendancy ? ` (${run.ascendancy})` : ''} - ${formatTime(run.totalTimeMs ?? 0)}${run.isReference ? ' [REF]' : ''}`,
+              })),
+            ]}
+          />
         </div>
         <div className="flex-1">
           <label className="block text-sm text-[--color-text-muted] mb-2">Right Run</label>
-          <select
-            value={rightRunId ?? ''}
-            onChange={(e) => setRightRunId(e.target.value ? Number(e.target.value) : null)}
-            className="w-full p-3 bg-[--color-surface] border border-[--color-border] rounded-lg text-[--color-text]"
-          >
-            <option value="">Select a run...</option>
-            {displayRuns.map((run) => (
-              <option key={run.id} value={run.id}>
-                {run.characterName || run.character} - {run.class}
-                {run.ascendancy ? ` (${run.ascendancy})` : ''} - {formatTime(run.totalTimeMs ?? 0)}
-                {run.isReference && ' [REF]'}
-              </option>
-            ))}
-          </select>
+          <CustomSelect
+            value={rightRunId != null ? String(rightRunId) : ''}
+            onChange={(v) => setRightRunId(v ? Number(v) : null)}
+            className="p-3"
+            placeholder="Select a run..."
+            options={[
+              { value: '', label: 'Select a run...' },
+              ...displayRuns.map((run) => ({
+                value: String(run.id),
+                label: `${run.characterName || run.character} - ${run.class}${run.ascendancy ? ` (${run.ascendancy})` : ''} - ${formatTime(run.totalTimeMs ?? 0)}${run.isReference ? ' [REF]' : ''}`,
+              })),
+            ]}
+          />
         </div>
       </div>
 
@@ -220,7 +219,7 @@ export function ComparisonView() {
                         {rightRun.characterName || rightRun.character}
                         {showSegmentTime && <span className="text-xs ml-1">(seg)</span>}
                       </th>
-                      <th className="p-3 text-right text-xs">Town</th>
+                      <th className="p-3 text-right text-xs">Town +/-</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -362,6 +361,12 @@ export function ComparisonView() {
                       Reference: {leftRun.sourceName}
                     </div>
                   )}
+                  {leftSplits.length > 0 && (
+                    <div className="flex gap-4 mt-2 pt-2 border-t border-[--color-border] text-xs">
+                      <span className="text-yellow-400/70">Town: <span className="timer-display text-[--color-text]">{formatTime(leftSplits[leftSplits.length - 1].townTimeMs ?? 0)}</span></span>
+                      <span className="text-blue-400/70">Hideout: <span className="timer-display text-[--color-text]">{formatTime(leftSplits[leftSplits.length - 1].hideoutTimeMs ?? 0)}</span></span>
+                    </div>
+                  )}
                 </div>
 
                 {/* Right run info */}
@@ -384,6 +389,12 @@ export function ComparisonView() {
                   {rightRun.isReference && (
                     <div className="text-xs text-[--color-poe-gem] mt-1">
                       Reference: {rightRun.sourceName}
+                    </div>
+                  )}
+                  {rightSplits.length > 0 && (
+                    <div className="flex gap-4 mt-2 pt-2 border-t border-[--color-border] text-xs">
+                      <span className="text-yellow-400/70">Town: <span className="timer-display text-[--color-text]">{formatTime(rightSplits[rightSplits.length - 1].townTimeMs ?? 0)}</span></span>
+                      <span className="text-blue-400/70">Hideout: <span className="timer-display text-[--color-text]">{formatTime(rightSplits[rightSplits.length - 1].hideoutTimeMs ?? 0)}</span></span>
                     </div>
                   )}
                 </div>
