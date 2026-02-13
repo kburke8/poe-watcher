@@ -83,75 +83,6 @@ export function SettingsView() {
     }
   }, []);
 
-  const overlayPreviewActive = useSettingsStore((s) => s.overlayPreviewActive);
-  const setOverlayPreviewActive = useSettingsStore((s) => s.setOverlayPreviewActive);
-
-  // Send fake split data to preview the overlay
-  const sendPreviewData = useCallback(async () => {
-    const now = Date.now();
-    await invoke('sync_overlay_state', {
-      state: {
-        startTime: now - 82000, // ~1:22 in
-        elapsedMs: 82000,
-        isRunning: true,
-        currentZone: 'The Mud Flats',
-        lastSplit: {
-          name: 'The Coast',
-          deltaMs: -2100,
-          isBestSegment: false,
-          splitTimeMs: 78000,
-          segmentTimeMs: 52000,
-          pbSegmentTimeMs: 54100,
-          goldSegmentTimeMs: 48000,
-        },
-        upcomingBreakpoints: [
-          { name: 'The Mud Flats', pbTimeMs: 125000, pbSegmentTimeMs: 45000 },
-          { name: 'The Submerged Passage', pbTimeMs: 195000, pbSegmentTimeMs: 70000 },
-          { name: 'The Ledge', pbTimeMs: 260000, pbSegmentTimeMs: 65000 },
-        ],
-        opacity: overlayOpacity,
-        scale: overlayScale,
-        fontSize: overlayFontSize,
-        showTimer: overlayShowTimer,
-        showZone: overlayShowZone,
-        showLastSplit: overlayShowLastSplit,
-        showBreakpoints: overlayShowBreakpoints,
-        breakpointCount: overlayBreakpointCount,
-        bgOpacity: overlayBgOpacity,
-        accentColor: overlayAccentColor,
-        alwaysOnTop: overlayAlwaysOnTop,
-        isLocked: overlayLocked,
-      },
-    });
-  }, [overlayOpacity, overlayScale, overlayFontSize, overlayShowTimer, overlayShowZone, overlayShowLastSplit, overlayShowBreakpoints, overlayBreakpointCount, overlayBgOpacity, overlayAccentColor, overlayAlwaysOnTop, overlayLocked]);
-
-  const handlePreviewOverlay = useCallback(async () => {
-    try {
-      // Open overlay if not already open
-      if (!overlayOpen) {
-        const isOpen = await invoke<boolean>('toggle_overlay');
-        setOverlayOpen(isOpen);
-        // Wait for overlay to mount
-        await new Promise((r) => setTimeout(r, 500));
-      }
-      setOverlayPreviewActive(true);
-      await sendPreviewData();
-    } catch (error) {
-      console.error('Failed to preview overlay:', error);
-    }
-  }, [overlayOpen, setOverlayOpen, setOverlayPreviewActive, sendPreviewData]);
-
-  const handleStopPreview = useCallback(() => {
-    setOverlayPreviewActive(false);
-  }, [setOverlayPreviewActive]);
-
-  // Re-send preview data when settings change during preview mode
-  useEffect(() => {
-    if (overlayPreviewActive) {
-      sendPreviewData().catch(() => {});
-    }
-  }, [overlayPreviewActive, sendPreviewData]);
-
   // Breakpoints are loaded and auto-saved in App.tsx
 
   // Get unique acts from breakpoints
@@ -563,21 +494,6 @@ export function SettingsView() {
                 >
                   Reset Position
                 </button>
-                {overlayPreviewActive ? (
-                  <button
-                    onClick={handleStopPreview}
-                    className="px-4 py-2 text-sm bg-amber-600/20 text-amber-400 rounded-md border-2 border-amber-500/50 shadow-sm hover:bg-amber-600/30 active:scale-95 transition-all font-medium"
-                  >
-                    Stop Preview
-                  </button>
-                ) : (
-                  <button
-                    onClick={handlePreviewOverlay}
-                    className="px-4 py-2 text-sm bg-[--color-surface] text-[--color-text] rounded-md border-2 border-[--color-poe-gold]/40 shadow-sm hover:border-[--color-poe-gold]/70 hover:shadow-md active:scale-95 active:shadow-none transition-all font-medium"
-                  >
-                    Preview with Demo Data
-                  </button>
-                )}
               </div>
             </div>
           </div>

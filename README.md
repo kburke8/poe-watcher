@@ -12,12 +12,24 @@ A local desktop application for tracking Path of Exile speedruns. Monitor your g
 - **Town/Hideout Time** - Tracks time spent in towns and hideouts separately
 - **Global Hotkey** - Ctrl+Space to toggle timer from anywhere
 
+### In-Game Overlay
+- **Always-on-top overlay** - See your timer, splits, and upcoming breakpoints while playing
+- **Live countdown** - Upcoming breakpoints show a live delta as you approach your PB pace
+- **Customizable** - Adjust size, opacity, accent color, and which sections to show
+- **Lock mode** - Click-through mode so the overlay never interferes with gameplay
+
+![Overlay](screenshots/overlay.png)
+
 ### Character Snapshots
 - **Auto-Capture** - Snapshots equipment, skills, and passive tree at each breakpoint
 - **Timeline View** - Scrub through snapshots to see character progression
-- **Equipment Grid** - Visual display of all equipped items
+- **Equipment Grid** - Visual display of all equipped items with socket colors
 - **Passive Tree** - Interactive visualization of allocated nodes
-- **Skills Display** - Shows socketed gems and links
+- **Skills Display** - Shows socketed gems grouped by item with link indicators
+
+![Snapshot - Equipment](screenshots/snapshot-equipment.png)
+
+![Snapshot - Passive Tree](screenshots/snapshot-passive-tree.png)
 
 ### Path of Building Integration
 - **PoB Export** - Copy build code to clipboard for Path of Building

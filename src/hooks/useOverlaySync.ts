@@ -187,9 +187,8 @@ export function useOverlaySync() {
   // Track previous non-time state to detect meaningful changes
   const prevNonTimeRef = useRef<string>('');
 
-  // Build and send current state (skips when preview mode is active)
+  // Build and send current state
   const syncNow = useCallback(() => {
-    if (useSettingsStore.getState().overlayPreviewActive) return;
     const runInfo = currentRun ? { category: currentRun.category, class: currentRun.class } : null;
     const state = buildOverlayState(timer, breakpoints, config, personalBests, goldSplits, runInfo);
     sendToOverlay(state);

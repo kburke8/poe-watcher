@@ -122,7 +122,7 @@ export function OverlayApp() {
     };
   }, [isLocked]);
 
-  // Ensure cursor events are enabled on mount (transparent windows on Windows may default to click-through)
+  // Ensure cursor events are enabled on mount
   useEffect(() => {
     getCurrentWindow().setIgnoreCursorEvents(false);
   }, []);
@@ -147,7 +147,7 @@ export function OverlayApp() {
     };
   }, []);
 
-  // Handle dragging (fallback for platforms where -webkit-app-region doesn't work)
+  // Handle dragging
   const handleMouseDown = useCallback((e: React.MouseEvent) => {
     if ((e.target as HTMLElement).closest('button')) return;
     if (isLocked) return;

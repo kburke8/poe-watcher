@@ -15,8 +15,6 @@ interface SettingsState extends Settings {
   currentView: ViewMode;
   // Runtime-only state (not persisted)
   overlayOpen: boolean;
-  overlayPreviewActive: boolean;
-
   // Actions
   setLogPath: (path: string) => void;
   setAccountName: (name: string) => void;
@@ -58,7 +56,6 @@ interface SettingsState extends Settings {
   setOverlayAlwaysOnTop: (enabled: boolean) => void;
   setOverlayLocked: (locked: boolean) => void;
   setOverlayOpen: (open: boolean) => void;
-  setOverlayPreviewActive: (active: boolean) => void;
 }
 
 export const useSettingsStore = create<SettingsState>((set, get) => ({
@@ -87,8 +84,6 @@ export const useSettingsStore = create<SettingsState>((set, get) => ({
   overlayLocked: false,
   // Runtime-only
   overlayOpen: false,
-  overlayPreviewActive: false,
-
   // Actions
   setLogPath: (path) => set({ poeLogPath: path }),
   setAccountName: (name) => set({ accountName: name }),
@@ -188,8 +183,6 @@ export const useSettingsStore = create<SettingsState>((set, get) => ({
   setOverlayAlwaysOnTop: (enabled) => set({ overlayAlwaysOnTop: enabled }),
   setOverlayLocked: (locked) => set({ overlayLocked: locked }),
   setOverlayOpen: (open) => set({ overlayOpen: open }),
-  setOverlayPreviewActive: (active) => set({ overlayPreviewActive: active }),
-
   // Detect current preset based on enabled breakpoints
   getCurrentPresetName: () => {
     const state = get();
