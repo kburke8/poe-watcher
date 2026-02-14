@@ -635,6 +635,7 @@ impl PersonalBest {
 pub struct GoldSplit {
     pub id: i64,
     pub category: String,
+    pub class: String,
     pub breakpoint_name: String,
     pub best_segment_ms: i64,
 }
@@ -644,18 +645,19 @@ impl GoldSplit {
         Ok(GoldSplit {
             id: row.get("id")?,
             category: row.get("category")?,
+            class: row.get("class")?,
             breakpoint_name: row.get("breakpoint_name")?,
             best_segment_ms: row.get("best_segment_ms")?,
         })
     }
 
-    pub fn update_if_better(category: &str, breakpoint_name: &str, segment_ms: i64) -> Result<bool> {
+    pub fn update_if_better(category: &str, class: &str, breakpoint_name: &str, segment_ms: i64) -> Result<bool> {
         let conn = get_db()?;
 
         let existing: Option<i64> = conn
             .query_row(
-                "SELECT best_segment_ms FROM gold_splits WHERE category = ?1 AND breakpoint_name = ?2",
-                params![category, breakpoint_name],
+                "SELECT best_segment_ms FROM gold_splits WHERE category = ?1 AND class = ?2 AND breakpoint_name = ?3",
+                params![category, class, breakpoint_name],
                 |row| row.get(0),
             )
             .ok();
@@ -663,15 +665,15 @@ impl GoldSplit {
         match existing {
             Some(existing_time) if segment_ms < existing_time => {
                 conn.execute(
-                    "UPDATE gold_splits SET best_segment_ms = ?1 WHERE category = ?2 AND breakpoint_name = ?3",
-                    params![segment_ms, category, breakpoint_name],
+                    "UPDATE gold_splits SET best_segment_ms = ?1 WHERE category = ?2 AND class = ?3 AND breakpoint_name = ?4",
+                    params![segment_ms, category, class, breakpoint_name],
                 )?;
                 Ok(true)
             }
             None => {
                 conn.execute(
-                    "INSERT INTO gold_splits (category, breakpoint_name, best_segment_ms) VALUES (?1, ?2, ?3)",
-                    params![category, breakpoint_name, segment_ms],
+                    "INSERT INTO gold_splits (category, class, breakpoint_name, best_segment_ms) VALUES (?1, ?2, ?3, ?4)",
+                    params![category, class, breakpoint_name, segment_ms],
                 )?;
                 Ok(true)
             }

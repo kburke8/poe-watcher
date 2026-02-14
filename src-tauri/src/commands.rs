@@ -208,7 +208,7 @@ pub async fn add_split(
     let run = Run::get_by_id(split.run_id).map_err(|e| e.to_string())?;
     if let Some(ref run) = run {
         let category = format!("{}", run.category);
-        let _ = GoldSplit::update_if_better(&category, &split.breakpoint_name, split.segment_time_ms);
+        let _ = GoldSplit::update_if_better(&category, &run.class, &split.breakpoint_name, split.segment_time_ms);
     }
 
     // Capture snapshot if requested

@@ -63,6 +63,7 @@ export interface PersonalBest {
 export interface GoldSplit {
   id: number;
   category: string;
+  class: string;
   breakpointName: string;
   bestSegmentMs: number;
 }

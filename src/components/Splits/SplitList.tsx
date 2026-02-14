@@ -10,9 +10,10 @@ export function SplitList() {
   const enabledBreakpoints = breakpoints.filter((bp) => bp.isEnabled);
   const completedSplits = timer.splits;
 
-  // Determine run category for PB lookup
+  // Determine run category and class for PB lookup
   const category = currentRun?.category
     ?? (wizardConfig ? getWizardCategory(wizardConfig) : null);
+  const cls = currentRun?.class ?? 'Unknown';
 
   return (
     <div className="bg-[--color-surface] rounded-lg h-full flex flex-col">
@@ -47,7 +48,7 @@ export function SplitList() {
               const isCompleted = index < completedSplits.length;
 
               // Look up PB split time for this breakpoint
-              const pbTime = category ? (personalBests.get(`${category}-${bp.name}`) ?? null) : null;
+              const pbTime = category ? (personalBests.get(`${category}-${cls}-${bp.name}`) ?? null) : null;
 
               return (
                 <SplitRow

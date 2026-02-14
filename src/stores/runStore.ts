@@ -134,8 +134,8 @@ export const useRunStore = create<RunState>((set, get) => ({
     const { currentRun, goldSplits, personalBests } = get();
     if (!currentRun) return;
 
-    const pbTime = personalBests.get(`${currentRun.category}-${splitData.breakpointName}`);
-    const goldTime = goldSplits.get(`${currentRun.category}-${splitData.breakpointName}`);
+    const pbTime = personalBests.get(`${currentRun.category}-${currentRun.class}-${splitData.breakpointName}`);
+    const goldTime = goldSplits.get(`${currentRun.category}-${currentRun.class}-${splitData.breakpointName}`);
 
     const deltaMs = pbTime ? splitData.splitTimeMs - pbTime : null;
     const isBestSegment = goldTime ? splitData.segmentTimeMs < goldTime : true;
@@ -290,9 +290,7 @@ export const useRunStore = create<RunState>((set, get) => ({
             console.log('[RunStore] PB run', pb.runId, 'splits:', splits.map(s => `${s.breakpointName}=${s.splitTimeMs}ms`));
           }
           for (const split of splits) {
-            // Key by category-breakpointName only (no class) so PBs match
-            // across runs regardless of character class detection timing
-            const key = `${pb.category}-${split.breakpointName}`;
+            const key = `${pb.category}-${pb.class}-${split.breakpointName}`;
             const existing = pbSplitMap.get(key);
             // Keep the fastest split time if multiple PBs exist
             if (existing === undefined || split.splitTimeMs < existing) {
@@ -311,7 +309,7 @@ export const useRunStore = create<RunState>((set, get) => ({
       const golds = await invoke<GoldSplit[]>('get_gold_splits');
       const goldMap = new Map<string, number>();
       for (const gold of golds) {
-        const key = `${gold.category}-${gold.breakpointName}`;
+        const key = `${gold.category}-${gold.class}-${gold.breakpointName}`;
         goldMap.set(key, gold.bestSegmentMs);
       }
       set({ goldSplits: goldMap });

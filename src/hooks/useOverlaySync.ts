@@ -74,10 +74,10 @@ function buildOverlayState(
   const lastTimerSplit = timer.splits[timer.splits.length - 1] || null;
   const enabledBreakpoints = breakpoints.filter((bp: Breakpoint) => bp.isEnabled);
   const hitCount = timer.currentSplit;
-  // PB keys use category-breakpointName (no class)
   const category = currentRun?.category ?? fallbackCategory;
+  const cls = currentRun?.class ?? 'Unknown';
   if (import.meta.env.DEV) {
-    console.log('[OverlaySync] category:', category, '| PB entries:', personalBests.size, '| gold entries:', goldSplits.size);
+    console.log('[OverlaySync] category:', category, '| class:', cls, '| PB entries:', personalBests.size, '| gold entries:', goldSplits.size);
     if (personalBests.size > 0) {
       console.log('[OverlaySync] PB keys:', [...personalBests.keys()]);
     }
@@ -85,7 +85,7 @@ function buildOverlayState(
   const upcomingBreakpoints = enabledBreakpoints
     .slice(hitCount)
     .map((bp: Breakpoint, idx: number) => {
-      const pbTimeMs = category ? (personalBests.get(`${category}-${bp.name}`) ?? null) : null;
+      const pbTimeMs = category ? (personalBests.get(`${category}-${cls}-${bp.name}`) ?? null) : null;
       // Compute PB segment time: this BP's PB - previous BP's PB
       let pbSegmentTimeMs: number | null = null;
       if (pbTimeMs != null) {
@@ -93,7 +93,7 @@ function buildOverlayState(
         const prevBpIndex = hitCount + idx - 1;
         if (prevBpIndex >= 0 && prevBpIndex < enabledBreakpoints.length) {
           const prevPbTime = category
-            ? (personalBests.get(`${category}-${enabledBreakpoints[prevBpIndex].name}`) ?? null)
+            ? (personalBests.get(`${category}-${cls}-${enabledBreakpoints[prevBpIndex].name}`) ?? null)
             : null;
           if (prevPbTime != null) {
             pbSegmentTimeMs = pbTimeMs - prevPbTime;
@@ -110,11 +110,11 @@ function buildOverlayState(
   let pbSegmentTimeMs: number | null = null;
   let goldSegmentTimeMs: number | null = null;
   if (lastTimerSplit && category) {
-    const pbSplitTime = personalBests.get(`${category}-${lastTimerSplit.name}`);
+    const pbSplitTime = personalBests.get(`${category}-${cls}-${lastTimerSplit.name}`);
     const prevSplit = timer.splits.length >= 2 ? timer.splits[timer.splits.length - 2] : null;
     // PB segment = PB cumulative at this split - PB cumulative at previous split
     if (pbSplitTime !== undefined && prevSplit) {
-      const prevPbTime = personalBests.get(`${category}-${prevSplit.name}`);
+      const prevPbTime = personalBests.get(`${category}-${cls}-${prevSplit.name}`);
       if (prevPbTime !== undefined) {
         pbSegmentTimeMs = pbSplitTime - prevPbTime;
       }
@@ -122,7 +122,7 @@ function buildOverlayState(
       // First split - PB segment = PB cumulative
       pbSegmentTimeMs = pbSplitTime;
     }
-    const goldTime = goldSplits.get(`${category}-${lastTimerSplit.name}`);
+    const goldTime = goldSplits.get(`${category}-${cls}-${lastTimerSplit.name}`);
     if (goldTime !== undefined) {
       goldSegmentTimeMs = goldTime;
     }
