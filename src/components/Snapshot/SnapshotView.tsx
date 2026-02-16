@@ -1,5 +1,6 @@
 import { useState, useEffect, useMemo, useCallback } from 'react';
 import { invoke } from '@tauri-apps/api/core';
+import { Camera, MousePointerClick } from 'lucide-react';
 import { useRunStore } from '../../stores/runStore';
 import { useSnapshotStore, parseItems, parsePassives, getEquippedItems } from '../../stores/snapshotStore';
 import { useSettingsStore } from '../../stores/settingsStore';
@@ -7,6 +8,9 @@ import { EquipmentGrid } from './EquipmentGrid';
 import { SkillsDisplay } from './SkillsDisplay';
 import { PassivesSummary } from './PassivesSummary';
 import { PassiveTree } from './PassiveTree';
+import { EmptyState } from '../Shared/EmptyState';
+import { LoadingSpinner } from '../Shared/LoadingSpinner';
+import { Button } from '../Shared/Button';
 import { exportToPob, shareOnPobbIn, exportAllToPob, shareAllOnPobbIn } from '../../utils/pobExport';
 import { exportRunToJson } from '../../utils/jsonExport';
 import type { Run, Split, Snapshot } from '../../types';
@@ -35,9 +39,9 @@ export function SnapshotView() {
     selectSnapshot,
     retryCapture,
   } = useSnapshotStore();
-  const { accountName } = useSettingsStore();
+  const { accountName, pendingSnapshotRunId } = useSettingsStore();
 
-  const [selectedRunId, setSelectedRunId] = useState<number | null>(null);
+  const [selectedRunId, setSelectedRunId] = useState<number | null>(pendingSnapshotRunId);
   const [runSplits, setRunSplits] = useState<Split[]>([]);
 
   // Load runs on mount
@@ -49,12 +53,12 @@ export function SnapshotView() {
       .catch(console.error);
   }, []);
 
-  // Select current run by default if active
+  // Select current run by default if active (only when no pending navigation)
   useEffect(() => {
-    if (currentRun && !selectedRunId) {
+    if (currentRun && !selectedRunId && !pendingSnapshotRunId) {
       setSelectedRunId(currentRun.id);
     }
-  }, [currentRun, selectedRunId]);
+  }, [currentRun, selectedRunId, pendingSnapshotRunId]);
 
   const selectedRun = runs.find((r) => r.id === selectedRunId) || currentRun;
 
@@ -117,25 +121,23 @@ export function SnapshotView() {
       </div>
       <div className="flex-1 flex gap-6 min-h-0">
         {/* Run list */}
-        <div className="w-80 bg-[--color-surface] rounded-lg overflow-hidden flex flex-col flex-shrink-0">
-          <div className="p-4 border-b border-[--color-border] flex items-center justify-between">
+        <div className="w-80 card-inset rounded-lg overflow-hidden flex flex-col flex-shrink-0">
+          <div className="p-4 section-header rounded-t-lg flex items-center justify-between">
             <h2 className="font-semibold text-[--color-text]">Runs</h2>
             {runs.length > 0 && (
-              <button
+              <Button
+                variant="ghost"
+                size="sm"
                 onClick={handleDeleteAll}
-                className="px-2 py-1 text-xs text-[--color-text-muted] hover:text-red-400 hover:bg-red-400/10 rounded transition-colors"
                 title="Delete all runs"
               >
                 Delete All
-              </button>
+              </Button>
             )}
           </div>
           <div className="flex-1 overflow-auto">
             {runs.length === 0 && !currentRun ? (
-              <div className="p-4 text-center text-[--color-text-muted]">
-                <p>No runs yet.</p>
-                <p className="text-sm mt-1">Complete a run to see snapshots.</p>
-              </div>
+              <EmptyState icon={Camera} title="No runs yet" description="Complete a run to see snapshots." />
             ) : (
               <div className="divide-y divide-[--color-border]">
                 {/* Current run first if active */}
@@ -162,7 +164,7 @@ export function SnapshotView() {
         </div>
 
         {/* Snapshot detail */}
-        <div className="flex-1 bg-[--color-surface] rounded-lg overflow-hidden flex flex-col min-w-0">
+        <div className="flex-1 card-inset rounded-lg overflow-hidden flex flex-col min-w-0">
           {selectedRun ? (
             <SnapshotDetail
               run={selectedRun}
@@ -186,8 +188,8 @@ export function SnapshotView() {
               }}
             />
           ) : (
-            <div className="h-full flex items-center justify-center text-[--color-text-muted]">
-              Select a run to view snapshots
+            <div className="h-full flex items-center justify-center">
+              <EmptyState icon={MousePointerClick} title="Select a run" description="Choose a run from the list to view its snapshots." />
             </div>
           )}
         </div>
@@ -207,10 +209,27 @@ interface RunListItemProps {
 function RunListItem({ run, isSelected, onClick, onDelete, isActive }: RunListItemProps) {
   return (
     <div
-      className={`w-full p-4 text-left hover:bg-[--color-surface-elevated] transition-colors cursor-pointer ${
-        isSelected ? 'bg-[--color-surface-elevated]' : ''
+      className={`w-full p-4 text-left transition-all duration-150 cursor-pointer ${
+        isSelected
+          ? 'bg-[--color-surface-elevated]'
+          : 'hover:bg-[--color-surface-elevated]/70'
       }`}
+      style={
+        isSelected
+          ? { borderLeft: '3px solid var(--color-poe-gold)', paddingLeft: '13px', boxShadow: 'inset 4px 0 8px -4px rgba(175, 96, 37, 0.3)' }
+          : { borderLeft: '3px solid transparent', paddingLeft: '13px' }
+      }
       onClick={onClick}
+      onMouseEnter={(e) => {
+        if (!isSelected) {
+          e.currentTarget.style.borderLeftColor = 'rgba(175, 96, 37, 0.4)';
+        }
+      }}
+      onMouseLeave={(e) => {
+        if (!isSelected) {
+          e.currentTarget.style.borderLeftColor = 'transparent';
+        }
+      }}
     >
       <div className="flex items-center justify-between gap-2">
         <div className="flex items-center gap-2 min-w-0">
@@ -239,12 +258,16 @@ function RunListItem({ run, isSelected, onClick, onDelete, isActive }: RunListIt
         )}
       </div>
       <div className="text-sm text-[--color-text-muted]">
-        {run.ascendancy || run.class} {run.league && `- ${run.league}`}
+        {run.ascendancy || run.class}
+        {run.category && run.category !== 'any%' && (
+          <span className="ml-1.5 text-xs text-[--color-poe-gold]/80">{run.category}</span>
+        )}
       </div>
-      <div className="text-xs text-[--color-text-muted] mt-1">
-        {run.totalTimeMs ? formatTime(run.totalTimeMs) : 'In Progress'}
+      <div className="text-xs text-[--color-text-muted] mt-1 flex items-center gap-2">
+        <span>{run.totalTimeMs ? formatTime(run.totalTimeMs) : 'In Progress'}</span>
+        {run.league && <span className="opacity-70">{run.league}</span>}
         {run.isPersonalBest && (
-          <span className="ml-2 text-[--color-timer-gold]">PB</span>
+          <span className="text-[--color-timer-gold]">PB</span>
         )}
       </div>
     </div>
@@ -383,7 +406,11 @@ function SnapshotDetail({
           {run.characterName || run.character || 'Unknown'}
         </h2>
         <p className="text-[--color-text-muted]">
-          {run.ascendancy || run.class || 'Unknown'} {run.league && `- ${run.league}`}
+          {run.ascendancy || run.class || 'Unknown'}
+          {run.category && run.category !== 'any%' && (
+            <span className="ml-1.5 text-[--color-poe-gold]/80">{run.category}</span>
+          )}
+          {run.league && <span className="ml-1.5">- {run.league}</span>}
         </p>
       </div>
 
@@ -391,39 +418,93 @@ function SnapshotDetail({
       <div className="px-6 py-4 border-b border-[--color-border]">
         <div className="text-sm text-[--color-text-muted] mb-2">
           Snapshot Timeline
-          {isLoading && <span className="ml-2 text-[--color-poe-gold]">Loading...</span>}
+          {isLoading && <span className="ml-2"><LoadingSpinner size="sm" /></span>}
         </div>
-        <div className="relative h-8 bg-[--color-surface-elevated] rounded-full">
-          {/* Progress bar */}
-          {selectedSnapshot && (
-            <div
-              className="absolute h-full bg-[--color-poe-gold]/20 rounded-full"
-              style={{ width: `${(selectedSnapshot.elapsedTimeMs / maxTime) * 100}%` }}
-            />
-          )}
+        <div className="relative h-8">
+          {/* Line segments connecting markers */}
+          {timelineMarkers.length > 0 && (() => {
+            const firstPos = (timelineMarkers[0].split.splitTimeMs / maxTime) * 100;
+            const lastPos = (timelineMarkers[timelineMarkers.length - 1].split.splitTimeMs / maxTime) * 100;
+            return (
+              <>
+                {/* Lead-in line from left edge to first dot */}
+                <div
+                  className="absolute top-1/2 -translate-y-1/2"
+                  style={{
+                    left: 0,
+                    width: `${firstPos}%`,
+                    height: '2px',
+                    opacity: 0.3,
+                    background: 'var(--color-text-muted)',
+                    maskImage: 'linear-gradient(90deg, transparent 0px, black 12px, black calc(100% - 9px), transparent 100%)',
+                    WebkitMaskImage: 'linear-gradient(90deg, transparent 0px, black 12px, black calc(100% - 9px), transparent 100%)',
+                  }}
+                />
+                {/* Segments between consecutive dots */}
+                {timelineMarkers.map((marker, i) => {
+                  if (i === 0) return null;
+                  const prevPos = (timelineMarkers[i - 1].split.splitTimeMs / maxTime) * 100;
+                  const currPos = (marker.split.splitTimeMs / maxTime) * 100;
+                  return (
+                    <div
+                      key={`line-${marker.split.id}`}
+                      className="absolute top-1/2 -translate-y-1/2"
+                      style={{
+                        left: `${prevPos}%`,
+                        width: `${currPos - prevPos}%`,
+                        height: '2px',
+                        opacity: 0.3,
+                        background: 'var(--color-text-muted)',
+                        maskImage: 'linear-gradient(90deg, transparent 0px, black 9px, black calc(100% - 9px), transparent 100%)',
+                        WebkitMaskImage: 'linear-gradient(90deg, transparent 0px, black 9px, black calc(100% - 9px), transparent 100%)',
+                      }}
+                    />
+                  );
+                })}
+                {/* Trail line from last dot to right edge */}
+                <div
+                  className="absolute top-1/2 -translate-y-1/2"
+                  style={{
+                    left: `${lastPos}%`,
+                    width: `${100 - lastPos}%`,
+                    height: '2px',
+                    opacity: 0.3,
+                    background: 'var(--color-text-muted)',
+                    maskImage: 'linear-gradient(90deg, transparent 0px, black 9px, black calc(100% - 12px), transparent 100%)',
+                    WebkitMaskImage: 'linear-gradient(90deg, transparent 0px, black 9px, black calc(100% - 12px), transparent 100%)',
+                  }}
+                />
+              </>
+            );
+          })()}
 
           {/* Timeline markers */}
           {timelineMarkers.map((marker) => {
             const position = (marker.split.splitTimeMs / maxTime) * 100;
             const isSelected = marker.snapshot?.id === selectedSnapshot?.id;
 
+            // Determine dot style
+            let dotClass: string;
+            if (marker.isPending) {
+              dotClass = 'bg-yellow-500 border-yellow-400 animate-pulse';
+            } else if (marker.failError) {
+              dotClass = 'bg-red-500 border-red-400 cursor-pointer';
+            } else if (isSelected) {
+              dotClass = 'scale-150 shadow-[0_0_12px_rgba(175,96,37,0.6)]';
+            } else if (marker.snapshot) {
+              dotClass = 'bg-[--color-poe-gold]/60 border-[--color-poe-gold-light]/60 hover:scale-110 hover:bg-[--color-poe-gold] hover:border-[--color-poe-gold-light]';
+            } else {
+              dotClass = 'bg-[--color-surface] border-[--color-border] hover:border-[--color-text-muted]';
+            }
+
             return (
               <button
                 key={marker.split.id}
-                className={`absolute top-1/2 -translate-y-1/2 -translate-x-1/2 w-4 h-4 rounded-full border-2 transition-all
-                  ${
-                    marker.isPending
-                      ? 'bg-yellow-500 border-yellow-400 animate-pulse'
-                      : marker.failError
-                      ? 'bg-red-500 border-red-400 cursor-pointer'
-                      : marker.snapshot
-                      ? isSelected
-                        ? 'bg-[--color-poe-gold] border-[--color-poe-gold-light] scale-125'
-                        : 'bg-[--color-poe-gold] border-[--color-poe-gold-light] hover:scale-110'
-                      : 'bg-[--color-border] border-[--color-text-muted]'
-                  }
-                `}
-                style={{ left: `${position}%` }}
+                className={`absolute top-1/2 -translate-y-1/2 -translate-x-1/2 w-4 h-4 rounded-full border-2 transition-all ${dotClass}`}
+                style={{
+                  left: `${position}%`,
+                  ...(isSelected ? { backgroundColor: '#af6025', borderColor: '#af6025' } : {}),
+                }}
                 onClick={() => {
                   if (marker.failError) {
                     onRetryCapture(marker.split.id, marker.split.splitTimeMs);
@@ -448,20 +529,19 @@ function SnapshotDetail({
         {/* Timeline labels */}
         <div className="flex justify-between mt-2 text-xs text-[--color-text-muted]">
           <span>Start</span>
-          <span>{selectedSnapshot ? `${formatTime(selectedSnapshot.elapsedTimeMs)} - Level ${selectedSnapshot.characterLevel}` : ''}</span>
+          <span>{selectedSnapshot ? (() => {
+            const matchingSplit = splits.find(s => s.id === selectedSnapshot.splitId);
+            const zoneName = matchingSplit?.breakpointName;
+            return `${formatTime(selectedSnapshot.elapsedTimeMs)} - Level ${selectedSnapshot.characterLevel}${zoneName ? ` - ${zoneName}` : ''}`;
+          })() : ''}</span>
           <span>{formatTime(maxTime)}</span>
         </div>
       </div>
 
       {/* Content area */}
       {snapshots.length === 0 && !isLoading ? (
-        <div className="flex-1 flex items-center justify-center text-[--color-text-muted]">
-          <div className="text-center">
-            <p className="mb-2">No snapshots captured yet.</p>
-            <p className="text-sm">
-              Snapshots are automatically captured at act transitions and boss kills.
-            </p>
-          </div>
+        <div className="flex-1 flex items-center justify-center">
+          <EmptyState icon={Camera} title="No snapshots yet" description="Snapshots are automatically captured at act transitions and boss kills." />
         </div>
       ) : selectedSnapshot ? (
         <>
@@ -487,14 +567,16 @@ function SnapshotDetail({
           {/* Tab content */}
           <div className="flex-1 overflow-auto p-6">
             {activeTab === 'equipment' && (
-              <div className="grid grid-cols-[auto_1fr_1fr] gap-6">
-                {/* Equipment grid - column 1 */}
+              <div className="grid grid-cols-[auto_1fr] gap-6">
+                {/* Equipment grid */}
                 <div className="shrink-0">
                   <EquipmentGrid items={equippedItems} />
                 </div>
-                {/* Skills panel - columns 2 & 3 */}
-                <div className="col-span-2">
-                  <div className="text-sm text-[#6a6a8a] mb-3">Socketed Gems</div>
+                {/* Skills panel */}
+                <div className="min-w-0">
+                  <div className="section-header rounded-t-lg px-3 py-2 mb-3">
+                    <span className="text-sm font-medium text-[--color-text]">Socketed Gems</span>
+                  </div>
                   <SkillsDisplay items={items} compact columns={2} />
                 </div>
               </div>
@@ -518,82 +600,95 @@ function SnapshotDetail({
             )}
           </div>
 
-          {/* Export buttons */}
-          <div className="p-6 pt-0 space-y-3">
-            {/* Single snapshot export */}
-            <div className="flex gap-3 items-center">
-              <span className="text-sm text-[--color-text-muted] w-24">This snapshot:</span>
-              <button
-                className="px-4 py-2 bg-[--color-poe-gold] text-[--color-poe-darker] rounded-lg font-medium hover:bg-[--color-poe-gold-light] transition-colors disabled:opacity-50"
-                onClick={handleExportToPob}
-                disabled={exportStatus === 'loading'}
-              >
-                {exportStatus === 'loading' ? 'Copying...' : exportStatus === 'success' ? 'Copied!' : 'Export to PoB'}
-              </button>
-              <button
-                className="px-4 py-2 bg-[--color-surface-elevated] text-[--color-text] rounded-lg font-medium hover:bg-[--color-border] transition-colors disabled:opacity-50"
-                onClick={handleShareOnPobbIn}
-                disabled={shareStatus === 'loading'}
-              >
-                {shareStatus === 'loading' ? 'Uploading...' : shareStatus === 'success' ? 'Shared!' : 'Share on pobb.in'}
-              </button>
-              {shareStatus === 'success' && shareUrl && (
-                <a href={shareUrl} target="_blank" rel="noopener noreferrer" className="text-sm text-[--color-poe-gold] hover:underline truncate max-w-xs">
-                  {shareUrl}
-                </a>
-              )}
-              {(exportStatus === 'error' || shareStatus === 'error') && (
-                <span className="text-sm text-red-400">Failed</span>
-              )}
-            </div>
-
-            {/* All snapshots export */}
-            {snapshots.length > 1 && (
-              <div className="flex gap-3 items-center">
-                <span className="text-sm text-[--color-text-muted] w-24">All ({snapshots.length}):</span>
-                <button
-                  className="px-4 py-2 bg-[--color-poe-gold] text-[--color-poe-darker] rounded-lg font-medium hover:bg-[--color-poe-gold-light] transition-colors disabled:opacity-50"
+          {/* Export bar */}
+          <div className="px-6 py-3 border-t border-[--color-border] flex items-center gap-2 flex-wrap">
+            {snapshots.length > 1 ? (
+              <>
+                <Button
+                  variant="primary"
+                  size="sm"
                   onClick={handleExportAllToPob}
                   disabled={exportAllStatus === 'loading'}
                   title="Export all snapshots as separate item/skill/tree sets"
                 >
-                  {exportAllStatus === 'loading' ? 'Copying...' : exportAllStatus === 'success' ? 'Copied!' : 'Export All to PoB'}
-                </button>
-                <button
-                  className="px-4 py-2 bg-[--color-surface-elevated] text-[--color-text] rounded-lg font-medium hover:bg-[--color-border] transition-colors disabled:opacity-50"
+                  {exportAllStatus === 'loading' ? 'Copying...' : exportAllStatus === 'success' ? 'Copied!' : `Export All to PoB (${snapshots.length})`}
+                </Button>
+                <Button
+                  variant="secondary"
+                  size="sm"
                   onClick={handleShareAllOnPobbIn}
                   disabled={shareAllStatus === 'loading'}
                   title="Share all snapshots as one build with multiple sets"
                 >
                   {shareAllStatus === 'loading' ? 'Uploading...' : shareAllStatus === 'success' ? 'Shared!' : 'Share All on pobb.in'}
-                </button>
-                {shareAllStatus === 'success' && shareAllUrl && (
-                  <a href={shareAllUrl} target="_blank" rel="noopener noreferrer" className="text-sm text-[--color-poe-gold] hover:underline truncate max-w-xs">
-                    {shareAllUrl}
-                  </a>
-                )}
-                {(exportAllStatus === 'error' || shareAllStatus === 'error') && (
-                  <span className="text-sm text-red-400">Failed</span>
-                )}
-              </div>
+                </Button>
+                <span className="w-px h-5 bg-[--color-border] mx-1" />
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={handleExportToPob}
+                  disabled={exportStatus === 'loading'}
+                  title="Export only the selected snapshot"
+                >
+                  {exportStatus === 'loading' ? 'Copying...' : exportStatus === 'success' ? 'Copied!' : 'This Snapshot'}
+                </Button>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={handleShareOnPobbIn}
+                  disabled={shareStatus === 'loading'}
+                  title="Share only the selected snapshot"
+                >
+                  {shareStatus === 'loading' ? 'Uploading...' : shareStatus === 'success' ? 'Shared!' : 'Share This'}
+                </Button>
+              </>
+            ) : (
+              <>
+                <Button
+                  variant="primary"
+                  size="sm"
+                  onClick={handleExportToPob}
+                  disabled={exportStatus === 'loading'}
+                >
+                  {exportStatus === 'loading' ? 'Copying...' : exportStatus === 'success' ? 'Copied!' : 'Export to PoB'}
+                </Button>
+                <Button
+                  variant="secondary"
+                  size="sm"
+                  onClick={handleShareOnPobbIn}
+                  disabled={shareStatus === 'loading'}
+                >
+                  {shareStatus === 'loading' ? 'Uploading...' : shareStatus === 'success' ? 'Shared!' : 'Share on pobb.in'}
+                </Button>
+              </>
             )}
-
-            {/* Full run JSON export */}
-            <div className="flex gap-3 items-center">
-              <span className="text-sm text-[--color-text-muted] w-24">Full run:</span>
-              <button
-                className="px-4 py-2 bg-[--color-surface-elevated] text-[--color-text] rounded-lg font-medium hover:bg-[--color-border] transition-colors"
-                onClick={() => exportRunToJson(run.id, run)}
-                title="Export full run data as JSON (splits, snapshots, items)"
-              >
-                Export JSON
-              </button>
-            </div>
+            <span className="w-px h-5 bg-[--color-border] mx-1" />
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => exportRunToJson(run.id, run)}
+              title="Export full run data as JSON"
+            >
+              Export JSON
+            </Button>
+            {(shareStatus === 'success' && shareUrl) && (
+              <a href={shareUrl} target="_blank" rel="noopener noreferrer" className="text-xs text-[--color-poe-gold] hover:underline truncate max-w-xs ml-auto">
+                {shareUrl}
+              </a>
+            )}
+            {(shareAllStatus === 'success' && shareAllUrl) && (
+              <a href={shareAllUrl} target="_blank" rel="noopener noreferrer" className="text-xs text-[--color-poe-gold] hover:underline truncate max-w-xs ml-auto">
+                {shareAllUrl}
+              </a>
+            )}
+            {(exportStatus === 'error' || shareStatus === 'error' || exportAllStatus === 'error' || shareAllStatus === 'error') && (
+              <span className="text-xs text-red-400 ml-auto">Export failed</span>
+            )}
           </div>
         </>
       ) : (
-        <div className="flex-1 flex items-center justify-center text-[--color-text-muted]">
-          Select a snapshot from the timeline
+        <div className="flex-1 flex items-center justify-center">
+          <EmptyState icon={MousePointerClick} title="Select a snapshot" description="Click a marker on the timeline above." />
         </div>
       )}
     </div>

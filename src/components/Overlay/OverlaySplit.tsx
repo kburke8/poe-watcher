@@ -45,7 +45,7 @@ function formatSegmentTime(ms: number): string {
 }
 
 export function OverlaySplit({ name, deltaMs, isBestSegment, splitTimeMs, segmentTimeMs, pbSegmentTimeMs, goldSegmentTimeMs, fontSize = 'medium', scale = 'medium' }: OverlaySplitProps) {
-  let deltaColor = '#9ca3af'; // neutral
+  let deltaColor = '#9a8e82'; // neutral
   if (isBestSegment) {
     deltaColor = '#fbbf24'; // gold
   } else if (deltaMs !== null) {
@@ -62,12 +62,12 @@ export function OverlaySplit({ name, deltaMs, isBestSegment, splitTimeMs, segmen
   return (
     <div className={`${ptClass}`} style={{ borderTop: '1px solid rgba(58, 58, 62, 0.5)' }}>
       <div className={`flex items-center justify-between ${sizeClass}`}>
-        <span className="truncate flex-1" style={{ color: '#9ca3af' }} title={name}>
+        <span className="truncate flex-1" style={{ color: '#9a8e82' }} title={name}>
           {name}
         </span>
         <span className="font-medium ml-2 flex items-center gap-1.5">
           {splitTimeMs != null && (
-            <span style={{ color: '#9ca3af' }} className="font-mono">
+            <span style={{ color: '#9a8e82' }} className="font-mono">
               {formatSplitTime(splitTimeMs)}
             </span>
           )}
@@ -83,7 +83,7 @@ export function OverlaySplit({ name, deltaMs, isBestSegment, splitTimeMs, segmen
       </div>
       {/* Segment comparison line */}
       {hasComparison && (
-        <div className={`${detailSizeClass} flex items-center gap-2 mt-0.5`} style={{ color: '#6b7280' }}>
+        <div className={`${detailSizeClass} flex items-center gap-2 mt-0.5`} style={{ color: '#7a6e62' }}>
           <span>Seg: {formatSegmentTime(segmentTimeMs!)}</span>
           {pbSegmentTimeMs != null && (
             <span>PB: {formatSegmentTime(pbSegmentTimeMs)}</span>

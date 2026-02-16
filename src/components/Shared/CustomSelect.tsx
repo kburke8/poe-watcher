@@ -132,7 +132,7 @@ export function CustomSelect({
       {isOpen && (
         <div
           className="absolute z-50 w-full mt-1 border border-[--color-border] rounded-lg shadow-xl overflow-hidden"
-          style={{ maxHeight, backgroundColor: '#1e1e22' }}
+          style={{ maxHeight, backgroundColor: 'var(--color-surface)' }}
         >
           <div ref={listRef} className="overflow-auto" style={{ maxHeight: maxHeight - 2 }}>
             {options.map((option, index) => {
@@ -153,9 +153,9 @@ export function CustomSelect({
                     }`}
                   style={{
                     backgroundColor: isSelected
-                      ? '#2a2520'
+                      ? 'var(--color-surface-elevated)'
                       : isHighlighted
-                        ? '#2a2a2e'
+                        ? 'var(--color-surface-elevated)'
                         : undefined,
                   }}
                 >

@@ -194,7 +194,7 @@ export function OverlayApp() {
   const fontSize = scale;
 
   // Background color with opacity
-  const bgR = 12, bgG = 12, bgB = 14; // #0c0c0e
+  const bgR = 13, bgG = 11, bgB = 10; // #0d0b0a (warm black)
   const bgColor = `rgba(${bgR}, ${bgG}, ${bgB}, ${bgOpacity})`;
 
   // Scale-based layout classes
@@ -224,7 +224,7 @@ export function OverlayApp() {
     >
       {/* Header with controls */}
       <div className={`flex items-center justify-between ${headerPx}`} style={{ borderBottom: '1px solid rgba(58, 58, 62, 0.5)' }}>
-        <span className={`${headerTextSize} font-semibold`} style={{ color: isTransparentAccent ? '#9ca3af' : accentColor }}>
+        <span className={`${headerTextSize} font-semibold`} style={{ color: isTransparentAccent ? '#9a8e82' : accentColor }}>
           {isLocked ? 'Locked' : 'POE Watcher'}
         </span>
         <div className="flex items-center gap-0.5">
@@ -232,7 +232,7 @@ export function OverlayApp() {
           <button
             onClick={handleToggleLock}
             className="p-0.5"
-            style={{ color: isLocked ? '#fbbf24' : '#9ca3af' }}
+            style={{ color: isLocked ? '#fbbf24' : '#9a8e82' }}
             title={isLocked ? `Unlock overlay (${state.hotkeyToggleOverlayLock || 'Ctrl+Shift+O'})` : `Lock overlay (${state.hotkeyToggleOverlayLock || 'Ctrl+Shift+O'})`}
           >
             {isLocked ? (
@@ -249,7 +249,7 @@ export function OverlayApp() {
           <button
             onClick={handleClose}
             className="p-0.5"
-            style={{ color: '#9ca3af' }}
+            style={{ color: '#9a8e82' }}
             title={`Close overlay (${state.hotkeyToggleOverlay || 'Ctrl+O'})`}
           >
             <svg className={iconSize} fill="none" stroke="currentColor" viewBox="0 0 24 24">

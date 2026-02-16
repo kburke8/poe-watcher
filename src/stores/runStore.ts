@@ -35,6 +35,7 @@ interface RunState {
   pauseTimer: () => void;
   updateElapsed: (ms: number) => void;
   enterZone: (zoneName: string, isTown: boolean, isHideout?: boolean) => void;
+  incrementDeathCount: () => void;
   setRunId: (id: number) => void;
 
   // Data loading
@@ -66,6 +67,8 @@ const initialTimerState: TimerState = {
   townEnteredAt: null,
   hideoutEnteredAt: null,
   currentZone: null,
+  // Death tracking
+  deathCount: 0,
 };
 
 export const useRunStore = create<RunState>((set, get) => ({
@@ -172,6 +175,8 @@ export const useRunStore = create<RunState>((set, get) => ({
     const { testCharacterName, wizardConfig } = useSettingsStore.getState();
 
     // Create a default run if none exists
+    const now = Date.now();
+
     if (!currentRun) {
       const category = wizardConfig ? getWizardCategory(wizardConfig) : 'any%';
       const run: Run = {
@@ -192,8 +197,11 @@ export const useRunStore = create<RunState>((set, get) => ({
         timer: {
           ...state.timer,
           isRunning: true,
-          startTime: Date.now() - state.timer.elapsedMs,
+          startTime: now - state.timer.elapsedMs,
           splits: [],
+          // Restart town/hideout tracking if still in one
+          townEnteredAt: state.timer.inTown ? now : state.timer.townEnteredAt,
+          hideoutEnteredAt: state.timer.inHideout ? now : state.timer.hideoutEnteredAt,
         },
       }));
     } else {
@@ -201,7 +209,10 @@ export const useRunStore = create<RunState>((set, get) => ({
         timer: {
           ...state.timer,
           isRunning: true,
-          startTime: Date.now() - state.timer.elapsedMs,
+          startTime: now - state.timer.elapsedMs,
+          // Restart town/hideout tracking if still in one
+          townEnteredAt: state.timer.inTown ? now : state.timer.townEnteredAt,
+          hideoutEnteredAt: state.timer.inHideout ? now : state.timer.hideoutEnteredAt,
         },
       }));
     }
@@ -217,12 +228,30 @@ export const useRunStore = create<RunState>((set, get) => ({
   },
 
   pauseTimer: () => {
-    set((state) => ({
+    const { timer } = get();
+    const now = Date.now();
+
+    // Flush any in-progress town/hideout time so it doesn't keep accumulating while paused
+    let newTownTimeMs = timer.townTimeMs;
+    if (timer.inTown && timer.townEnteredAt !== null) {
+      newTownTimeMs += now - timer.townEnteredAt;
+    }
+    let newHideoutTimeMs = timer.hideoutTimeMs;
+    if (timer.inHideout && timer.hideoutEnteredAt !== null) {
+      newHideoutTimeMs += now - timer.hideoutEnteredAt;
+    }
+
+    set({
       timer: {
-        ...state.timer,
+        ...timer,
         isRunning: false,
+        townTimeMs: newTownTimeMs,
+        hideoutTimeMs: newHideoutTimeMs,
+        // Clear timestamps so time doesn't accumulate while paused
+        townEnteredAt: null,
+        hideoutEnteredAt: null,
       },
-    }));
+    });
   },
 
   updateElapsed: (ms) => {
@@ -250,17 +279,26 @@ export const useRunStore = create<RunState>((set, get) => ({
       newHideoutTimeMs += now - timer.hideoutEnteredAt;
     }
 
+    // Only start tracking town/hideout time if the timer is running
+    const trackingActive = timer.isRunning;
+
     set((state) => ({
       timer: {
         ...state.timer,
         currentZone: zoneName,
         inTown: isTown,
         inHideout: isHideout,
-        townEnteredAt: isTown ? now : null,
-        hideoutEnteredAt: isHideout ? now : null,
+        townEnteredAt: isTown && trackingActive ? now : null,
+        hideoutEnteredAt: isHideout && trackingActive ? now : null,
         townTimeMs: newTownTimeMs,
         hideoutTimeMs: newHideoutTimeMs,
       },
+    }));
+  },
+
+  incrementDeathCount: () => {
+    set((state) => ({
+      timer: { ...state.timer, deathCount: state.timer.deathCount + 1 },
     }));
   },
 

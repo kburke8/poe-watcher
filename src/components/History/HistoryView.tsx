@@ -1,6 +1,8 @@
 import { useState, useEffect } from 'react';
+import { Plus } from 'lucide-react';
 import { useRunStore } from '../../stores/runStore';
 import { RunFilter } from '../Shared/RunFilter';
+import { Button } from '../Shared/Button';
 import { RunsTab } from './RunsTab';
 import { AnalyticsTab } from './AnalyticsTab';
 import { AddReferenceRunModal } from './AddReferenceRunModal';
@@ -51,34 +53,35 @@ export function HistoryView() {
 
       {/* Tabs and Actions */}
       <div className="flex justify-between items-center mb-4">
-        <div className="flex gap-1">
+        <div className="flex gap-6 border-b border-[--color-border]">
           <button
             onClick={() => setActiveTab('runs')}
-            className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
+            className={`pb-2 px-1 text-sm border-b-2 transition-colors ${
               activeTab === 'runs'
-                ? 'bg-[--color-poe-gold] text-[--color-poe-darker]'
-                : 'bg-[--color-surface] text-[--color-text-muted] hover:text-[--color-text]'
+                ? 'text-[--color-text] border-[--color-poe-gold] font-medium'
+                : 'text-[--color-text-muted] border-transparent hover:text-[--color-text] hover:border-[--color-poe-gold]/50'
             }`}
           >
             Runs
           </button>
           <button
             onClick={() => setActiveTab('analytics')}
-            className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
+            className={`pb-2 px-1 text-sm border-b-2 transition-colors ${
               activeTab === 'analytics'
-                ? 'bg-[--color-poe-gold] text-[--color-poe-darker]'
-                : 'bg-[--color-surface] text-[--color-text-muted] hover:text-[--color-text]'
+                ? 'text-[--color-text] border-[--color-poe-gold] font-medium'
+                : 'text-[--color-text-muted] border-transparent hover:text-[--color-text] hover:border-[--color-poe-gold]/50'
             }`}
           >
             Analytics
           </button>
         </div>
-        <button
+        <Button
+          variant="secondary"
+          icon={Plus}
           onClick={() => setShowAddReferenceModal(true)}
-          className="px-4 py-2 bg-[--color-poe-gem] text-white rounded-lg text-sm font-medium hover:bg-teal-600 transition-colors"
         >
-          + Add Reference Run
-        </button>
+          Add Reference Run
+        </Button>
       </div>
 
       {/* Tab content */}

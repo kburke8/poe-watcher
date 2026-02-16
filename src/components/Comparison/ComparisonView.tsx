@@ -1,8 +1,11 @@
 import { useState, useEffect, useMemo } from 'react';
 import { invoke } from '@tauri-apps/api/core';
+import { GitCompareArrows } from 'lucide-react';
 import { useRunStore } from '../../stores/runStore';
 import { RunFilter } from '../Shared/RunFilter';
 import { CustomSelect } from '../Shared/CustomSelect';
+import { EmptyState } from '../Shared/EmptyState';
+import { ComparisonCharts } from './ComparisonCharts';
 import type { Run, Split, RunFilters } from '../../types';
 
 interface SplitComparison {
@@ -22,8 +25,8 @@ export function ComparisonView() {
   const [showSegmentTime, setShowSegmentTime] = useState(false);
   const [compatibleOnly, setCompatibleOnly] = useState(false);
 
-  const leftRun = runs.find((r) => r.id === leftRunId);
-  const rightRun = runs.find((r) => r.id === rightRunId);
+  const leftRun = filteredRuns.find((r) => r.id === leftRunId) || runs.find((r) => r.id === leftRunId);
+  const rightRun = filteredRuns.find((r) => r.id === rightRunId) || runs.find((r) => r.id === rightRunId);
 
   // Load filtered runs
   useEffect(() => {
@@ -110,6 +113,24 @@ export function ComparisonView() {
     }));
   }, [leftSplits, rightSplits]);
 
+  // Compute biggest wins/losses by segment time
+  const keyDifferences = useMemo(() => {
+    const commonRows = comparisonData.filter(r => r.leftSplit && r.rightSplit);
+    if (commonRows.length === 0) return null;
+
+    const diffs = commonRows
+      .map(r => ({
+        name: r.breakpointName,
+        segDelta: r.leftSplit!.segmentTimeMs - r.rightSplit!.segmentTimeMs,
+      }))
+      .sort((a, b) => a.segDelta - b.segDelta); // negative = left faster
+
+    return {
+      gains: diffs.slice(0, 3),
+      losses: diffs.slice(-3).reverse(),
+    };
+  }, [comparisonData]);
+
   const handleFiltersChange = (newFilters: Partial<RunFilters>) => {
     setFilters((prev) => ({ ...prev, ...newFilters }));
   };
@@ -174,17 +195,8 @@ export function ComparisonView() {
         </div>
       </div>
 
-      {/* Options */}
+      {/* Options - run filter only */}
       <div className="flex gap-4 mb-4">
-        <label className="flex items-center gap-2 text-sm text-[--color-text]">
-          <input
-            type="checkbox"
-            checked={showSegmentTime}
-            onChange={(e) => setShowSegmentTime(e.target.checked)}
-            className="w-4 h-4 rounded"
-          />
-          Show segment times (instead of cumulative)
-        </label>
         <label className="flex items-center gap-2 text-sm text-[--color-text]">
           <input
             type="checkbox"
@@ -196,14 +208,34 @@ export function ComparisonView() {
         </label>
       </div>
 
-      {/* Comparison content */}
-      <div className="flex-1 flex gap-6 overflow-hidden">
-        {leftRun && rightRun ? (
-          <>
-            {/* Split comparison table */}
-            <div className="flex-1 bg-[--color-surface] rounded-lg overflow-hidden flex flex-col">
-              <div className="p-4 border-b border-[--color-border]">
+      {/* Scrollable content area: charts + table */}
+      <div className="flex-1 min-h-0 overflow-auto">
+        {/* Charts */}
+        {leftRun && rightRun && comparisonData.length > 0 && (
+          <ComparisonCharts
+            comparisonData={comparisonData}
+            leftRun={leftRun}
+            rightRun={rightRun}
+          />
+        )}
+
+        {/* Comparison content */}
+        <div className="flex gap-6" style={{ minHeight: '400px' }}>
+          {leftRun && rightRun ? (
+            <>
+              {/* Split comparison table */}
+              <div className="flex-1 card-inset rounded-lg overflow-hidden flex flex-col">
+              <div className="p-4 border-b border-[--color-border] flex items-center justify-between">
                 <h2 className="font-semibold text-[--color-text]">Split Comparison</h2>
+                <label className="flex items-center gap-2 text-xs text-[--color-text-muted]">
+                  <input
+                    type="checkbox"
+                    checked={showSegmentTime}
+                    onChange={(e) => setShowSegmentTime(e.target.checked)}
+                    className="w-3.5 h-3.5 rounded"
+                  />
+                  Segment times
+                </label>
               </div>
               <div className="flex-1 overflow-auto">
                 <table className="w-full">
@@ -220,10 +252,11 @@ export function ComparisonView() {
                         {showSegmentTime && <span className="text-xs ml-1">(seg)</span>}
                       </th>
                       <th className="p-3 text-right text-xs">Town +/-</th>
+                      <th className="p-3 text-center text-xs">Deaths</th>
                     </tr>
                   </thead>
                   <tbody>
-                    {comparisonData.map((row) => {
+                    {comparisonData.map((row, idx) => {
                       const leftTime = showSegmentTime
                         ? row.leftSplit?.segmentTimeMs
                         : row.leftSplit?.splitTimeMs;
@@ -240,6 +273,16 @@ export function ComparisonView() {
                         (row.rightSplit?.townTimeMs ?? 0) + (row.rightSplit?.hideoutTimeMs ?? 0);
                       const townDelta =
                         row.leftSplit && row.rightSplit ? leftTownTime - rightTownTime : null;
+
+                      // Per-segment deaths (derived from cumulative)
+                      const prevLeft = idx > 0 ? comparisonData[idx - 1].leftSplit : null;
+                      const prevRight = idx > 0 ? comparisonData[idx - 1].rightSplit : null;
+                      const leftDeaths = row.leftSplit
+                        ? (row.leftSplit.deathCount ?? 0) - (prevLeft?.deathCount ?? 0)
+                        : null;
+                      const rightDeaths = row.rightSplit
+                        ? (row.rightSplit.deathCount ?? 0) - (prevRight?.deathCount ?? 0)
+                        : null;
 
                       // Determine which run is faster for this split
                       const leftIsFaster = delta !== null && delta < 0;
@@ -298,6 +341,21 @@ export function ComparisonView() {
                               <span className="text-[--color-text-muted]">-</span>
                             )}
                           </td>
+                          <td className="p-3 text-center text-xs">
+                            {(leftDeaths !== null || rightDeaths !== null) ? (
+                              <span className="flex justify-center gap-1">
+                                <span className={leftDeaths && leftDeaths > 0 ? 'text-red-400' : 'text-[--color-text-muted]'}>
+                                  {leftDeaths ?? '-'}
+                                </span>
+                                <span className="text-[--color-text-muted]">/</span>
+                                <span className={rightDeaths && rightDeaths > 0 ? 'text-red-400' : 'text-[--color-text-muted]'}>
+                                  {rightDeaths ?? '-'}
+                                </span>
+                              </span>
+                            ) : (
+                              <span className="text-[--color-text-muted]">-</span>
+                            )}
+                          </td>
                         </tr>
                       );
                     })}
@@ -327,6 +385,19 @@ export function ComparisonView() {
                         {formatTime(rightRun.totalTimeMs ?? 0)}
                       </td>
                       <td className="p-3"></td>
+                      <td className="p-3 text-center text-xs">
+                        {(leftSplits.length > 0 || rightSplits.length > 0) && (
+                          <span className="flex justify-center gap-1">
+                            <span className={(leftSplits[leftSplits.length - 1]?.deathCount ?? 0) > 0 ? 'text-red-400' : 'text-[--color-text-muted]'}>
+                              {leftSplits[leftSplits.length - 1]?.deathCount ?? 0}
+                            </span>
+                            <span className="text-[--color-text-muted]">/</span>
+                            <span className={(rightSplits[rightSplits.length - 1]?.deathCount ?? 0) > 0 ? 'text-red-400' : 'text-[--color-text-muted]'}>
+                              {rightSplits[rightSplits.length - 1]?.deathCount ?? 0}
+                            </span>
+                          </span>
+                        )}
+                      </td>
                     </tr>
                   </tfoot>
                 </table>
@@ -334,7 +405,7 @@ export function ComparisonView() {
             </div>
 
             {/* Run info sidebar */}
-            <div className="w-80 bg-[--color-surface] rounded-lg overflow-hidden flex flex-col">
+            <div className="w-80 card-inset rounded-lg overflow-hidden flex flex-col">
               <div className="p-4 border-b border-[--color-border]">
                 <h2 className="font-semibold text-[--color-text]">Run Details</h2>
               </div>
@@ -365,6 +436,9 @@ export function ComparisonView() {
                     <div className="flex gap-4 mt-2 pt-2 border-t border-[--color-border] text-xs">
                       <span className="text-yellow-400/70">Town: <span className="timer-display text-[--color-text]">{formatTime(leftSplits[leftSplits.length - 1].townTimeMs ?? 0)}</span></span>
                       <span className="text-blue-400/70">Hideout: <span className="timer-display text-[--color-text]">{formatTime(leftSplits[leftSplits.length - 1].hideoutTimeMs ?? 0)}</span></span>
+                      {(leftSplits[leftSplits.length - 1]?.deathCount ?? 0) > 0 && (
+                        <span className="text-red-400/70">Deaths: <span className="text-[--color-text]">{leftSplits[leftSplits.length - 1].deathCount}</span></span>
+                      )}
                     </div>
                   )}
                 </div>
@@ -395,6 +469,9 @@ export function ComparisonView() {
                     <div className="flex gap-4 mt-2 pt-2 border-t border-[--color-border] text-xs">
                       <span className="text-yellow-400/70">Town: <span className="timer-display text-[--color-text]">{formatTime(rightSplits[rightSplits.length - 1].townTimeMs ?? 0)}</span></span>
                       <span className="text-blue-400/70">Hideout: <span className="timer-display text-[--color-text]">{formatTime(rightSplits[rightSplits.length - 1].hideoutTimeMs ?? 0)}</span></span>
+                      {(rightSplits[rightSplits.length - 1]?.deathCount ?? 0) > 0 && (
+                        <span className="text-red-400/70">Deaths: <span className="text-[--color-text]">{rightSplits[rightSplits.length - 1].deathCount}</span></span>
+                      )}
                     </div>
                   )}
                 </div>
@@ -447,14 +524,64 @@ export function ComparisonView() {
                     </div>
                   </div>
                 </div>
+
+                {/* Key Differences */}
+                {keyDifferences && (
+                  <div className="p-3 bg-[--color-surface-elevated] rounded-lg">
+                    <div className="text-xs text-[--color-text-muted] mb-2">Key Differences</div>
+                    <div className="space-y-3">
+                      {/* Biggest gains (left was faster) */}
+                      {keyDifferences.gains.some(g => g.segDelta < 0) && (
+                        <div>
+                          <div className="text-xs text-[--color-timer-ahead] mb-1">
+                            Biggest gains (left faster)
+                          </div>
+                          <div className="space-y-1">
+                            {keyDifferences.gains
+                              .filter(g => g.segDelta < 0)
+                              .map(g => (
+                                <div key={g.name} className="flex justify-between text-xs">
+                                  <span className="text-[--color-text] truncate mr-2">{g.name}</span>
+                                  <span className="text-[--color-timer-ahead] timer-display shrink-0">
+                                    {formatDelta(g.segDelta)}
+                                  </span>
+                                </div>
+                              ))}
+                          </div>
+                        </div>
+                      )}
+                      {/* Biggest losses (left was slower) */}
+                      {keyDifferences.losses.some(l => l.segDelta > 0) && (
+                        <div>
+                          <div className="text-xs text-[--color-timer-behind] mb-1">
+                            Biggest losses (left slower)
+                          </div>
+                          <div className="space-y-1">
+                            {keyDifferences.losses
+                              .filter(l => l.segDelta > 0)
+                              .map(l => (
+                                <div key={l.name} className="flex justify-between text-xs">
+                                  <span className="text-[--color-text] truncate mr-2">{l.name}</span>
+                                  <span className="text-[--color-timer-behind] timer-display shrink-0">
+                                    {formatDelta(l.segDelta)}
+                                  </span>
+                                </div>
+                              ))}
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                )}
               </div>
             </div>
           </>
         ) : (
-          <div className="flex-1 bg-[--color-surface] rounded-lg flex items-center justify-center text-[--color-text-muted]">
-            Select two runs to compare
+          <div className="flex-1 card-inset rounded-lg flex items-center justify-center">
+            <EmptyState icon={GitCompareArrows} title="Select two runs" description="Choose runs from the dropdowns above to compare split times." />
           </div>
         )}
+        </div>
       </div>
     </div>
   );

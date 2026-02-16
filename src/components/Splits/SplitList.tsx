@@ -1,6 +1,8 @@
+import { ListChecks } from 'lucide-react';
 import { useRunStore } from '../../stores/runStore';
 import { useSettingsStore } from '../../stores/settingsStore';
 import { getWizardCategory } from '../../config/wizardRoutes';
+import { EmptyState } from '../Shared/EmptyState';
 import { SplitRow } from './SplitRow';
 
 export function SplitList() {
@@ -16,8 +18,8 @@ export function SplitList() {
   const cls = currentRun?.class ?? 'Unknown';
 
   return (
-    <div className="bg-[--color-surface] rounded-lg h-full flex flex-col">
-      <div className="p-4 border-b border-[--color-border]">
+    <div className="card-inset rounded-lg h-full flex flex-col">
+      <div className="p-4 section-header rounded-t-lg">
         <h2 className="text-lg font-semibold text-[--color-text]">Splits</h2>
         <p className="text-xs text-[--color-text-muted] mt-1">
           {completedSplits.length} / {enabledBreakpoints.length}
@@ -26,10 +28,11 @@ export function SplitList() {
 
       <div className="flex-1 overflow-auto">
         {enabledBreakpoints.length === 0 ? (
-          <div className="p-4 text-center text-[--color-text-muted]">
-            <p>No breakpoints configured.</p>
-            <p className="text-sm mt-1">Add breakpoints in Settings.</p>
-          </div>
+          <EmptyState
+            icon={ListChecks}
+            title="No breakpoints configured"
+            description="Add breakpoints in Settings to start tracking splits."
+          />
         ) : (
           <div className="divide-y divide-[--color-border]">
             {/* Column headers */}
@@ -38,7 +41,7 @@ export function SplitList() {
               <span className="flex-1 text-xs text-[--color-text-muted] uppercase tracking-wide">Split</span>
               <div className="flex items-center gap-3">
                 <span className="text-xs text-[--color-text-muted] uppercase tracking-wide min-w-[50px] text-right">Seg</span>
-                <span className="text-xs text-[--color-text-muted] uppercase tracking-wide min-w-[55px] text-right">+/−</span>
+                <span className="text-xs text-[--color-text-muted] uppercase tracking-wide min-w-[55px] text-right">+/-</span>
                 <span className="text-xs text-[--color-text-muted] uppercase tracking-wide min-w-[50px] text-right">Time</span>
               </div>
             </div>

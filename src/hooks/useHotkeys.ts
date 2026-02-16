@@ -65,7 +65,7 @@ export function useHotkeys() {
                 accountName: accountName || '',
                 class: run.class || 'Unknown',
                 ascendancy: run.ascendancy || null,
-                league: run.league || 'Standard',
+                league: run.league || '',
                 category: run.category || 'any%',
                 startedAt: run.startedAt || new Date().toISOString(),
                 breakpointPreset: presetName,

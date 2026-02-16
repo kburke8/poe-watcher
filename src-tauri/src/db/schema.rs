@@ -140,7 +140,7 @@ impl Run {
         // Update league if provided and current league is empty
         if let Some(lg) = league {
             conn.execute(
-                "UPDATE runs SET league = ?1 WHERE id = ?2 AND (league IS NULL OR league = '')",
+                "UPDATE runs SET league = ?1 WHERE id = ?2 AND (league IS NULL OR league = '' OR league = 'Standard')",
                 params![lg, id],
             )?;
         }
@@ -350,6 +350,8 @@ pub struct Split {
     // Town/hideout time tracking (cumulative at this split)
     pub town_time_ms: i64,
     pub hideout_time_ms: i64,
+    // Death tracking (cumulative at this split)
+    pub death_count: i64,
 }
 
 impl Split {
@@ -364,14 +366,15 @@ impl Split {
             segment_time_ms: row.get("segment_time_ms")?,
             town_time_ms: row.get("town_time_ms")?,
             hideout_time_ms: row.get("hideout_time_ms")?,
+            death_count: row.get("death_count")?,
         })
     }
 
     pub fn insert(split: &NewSplit) -> Result<i64> {
         let conn = get_db()?;
         conn.execute(
-            "INSERT INTO splits (run_id, breakpoint_type, breakpoint_name, split_time_ms, delta_ms, segment_time_ms, town_time_ms, hideout_time_ms)
-             VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8)",
+            "INSERT INTO splits (run_id, breakpoint_type, breakpoint_name, split_time_ms, delta_ms, segment_time_ms, town_time_ms, hideout_time_ms, death_count)
+             VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9)",
             params![
                 split.run_id,
                 split.breakpoint_type,
@@ -381,6 +384,7 @@ impl Split {
                 split.segment_time_ms,
                 split.town_time_ms,
                 split.hideout_time_ms,
+                split.death_count,
             ],
         )?;
         Ok(conn.last_insert_rowid())
@@ -458,6 +462,9 @@ pub struct NewSplit {
     pub town_time_ms: i64,
     #[serde(default)]
     pub hideout_time_ms: i64,
+    // Death tracking (cumulative at this split)
+    #[serde(default)]
+    pub death_count: i64,
 }
 
 // ============================================================================

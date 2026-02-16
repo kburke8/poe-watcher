@@ -52,12 +52,12 @@ export function OverlayTimer({ startTime, elapsedMs, isRunning, fontSize = 'medi
     <div className="text-center">
       <div
         className={`timer-display ${timerSizeClass} font-bold`}
-        style={{ color: isRunning ? '#ffffff' : '#9ca3af' }}
+        style={{ color: isRunning ? '#ffffff' : '#9a8e82' }}
       >
         {formatTime(displayMs)}
       </div>
       {!isRunning && elapsedMs === 0 && (
-        <div className={`${hintSizeClass} mt-1`} style={{ color: '#6b7280' }}>
+        <div className={`${hintSizeClass} mt-1`} style={{ color: '#7a6e62' }}>
           {hotkeyToggleTimer || 'Ctrl+Space'} to start
         </div>
       )}

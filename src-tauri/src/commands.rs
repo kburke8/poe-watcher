@@ -176,6 +176,7 @@ pub async fn create_reference_run(data: ReferenceRunData) -> Result<i64, String>
             segment_time_ms: segment_time,
             town_time_ms: 0,
             hideout_time_ms: 0,
+            death_count: 0,
         };
         Split::insert(&new_split).map_err(|e| e.to_string())?;
         prev_time = split_data.split_time_ms;

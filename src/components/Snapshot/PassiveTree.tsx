@@ -745,7 +745,7 @@ export function PassiveTree({
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center h-64 text-[#6a6a8a]">
+      <div className="flex items-center justify-center h-64 text-[--color-text-muted]">
         Loading tree data...
       </div>
     );
@@ -775,7 +775,7 @@ export function PassiveTree({
       />
 
       {/* Stats overlay */}
-      <div className="absolute top-2 left-2 text-xs text-[#6a6a8a] bg-[#0a0a14]/80 px-2 py-1 rounded">
+      <div className="absolute top-2 left-2 text-xs text-[--color-text-muted] bg-[--color-poe-darker]/80 px-2 py-1 rounded">
         {allocatedCount} points allocated
         {loadingSprites && <span className="ml-2 text-[#c9aa58]">Loading icons...</span>}
       </div>
@@ -784,14 +784,14 @@ export function PassiveTree({
       <div className="absolute top-2 right-2 flex gap-1">
         <button
           onClick={() => setZoom(z => Math.min(0.5, z * 1.2))}
-          className="w-6 h-6 bg-[#1a1a2a] text-[#6a6a8a] rounded hover:bg-[#2a2a3a] text-sm"
+          className="w-6 h-6 bg-[--color-surface] text-[--color-text-muted] rounded hover:bg-[--color-surface-elevated] text-sm"
           title="Zoom in"
         >
           +
         </button>
         <button
           onClick={() => setZoom(z => Math.max(0.015, z / 1.2))}
-          className="w-6 h-6 bg-[#1a1a2a] text-[#6a6a8a] rounded hover:bg-[#2a2a3a] text-sm"
+          className="w-6 h-6 bg-[--color-surface] text-[--color-text-muted] rounded hover:bg-[--color-surface-elevated] text-sm"
           title="Zoom out"
         >
           -
@@ -799,7 +799,7 @@ export function PassiveTree({
         {characterClass && (
           <button
             onClick={() => centerOnClass(characterClass)}
-            className="px-2 h-6 bg-[#1a1a2a] text-[#6a6a8a] rounded hover:bg-[#2a2a3a] text-xs"
+            className="px-2 h-6 bg-[--color-surface] text-[--color-text-muted] rounded hover:bg-[--color-surface-elevated] text-xs"
             title={`Go to ${characterClass} start`}
           >
             Start
@@ -808,7 +808,7 @@ export function PassiveTree({
         {ascendancy && (
           <button
             onClick={centerOnAscendancy}
-            className="px-2 h-6 bg-[#1a1a2a] text-[#6a6a8a] rounded hover:bg-[#2a2a3a] text-xs"
+            className="px-2 h-6 bg-[--color-surface] text-[--color-text-muted] rounded hover:bg-[--color-surface-elevated] text-xs"
             title={`Go to ${ascendancy} ascendancy`}
           >
             Asc
@@ -823,7 +823,7 @@ export function PassiveTree({
               setZoom(0.035);
             }
           }}
-          className="px-2 h-6 bg-[#1a1a2a] text-[#6a6a8a] rounded hover:bg-[#2a2a3a] text-xs"
+          className="px-2 h-6 bg-[--color-surface] text-[--color-text-muted] rounded hover:bg-[--color-surface-elevated] text-xs"
           title="Show full tree"
         >
           Full
@@ -847,7 +847,7 @@ export function PassiveTree({
               maxWidth: 300,
             }}
           >
-            <div className="bg-[#0a0a14] border border-[#3a3a5a] rounded-lg p-3 shadow-xl">
+            <div className="bg-[--color-poe-darker] border border-[#3a3a5a] rounded-lg p-3 shadow-xl">
               <div className="font-medium text-[#c9aa58] mb-1">
                 {node.name || 'Unknown Node'}
               </div>
@@ -870,7 +870,7 @@ export function PassiveTree({
               )}
               {/* Show all available mastery options if not allocated */}
               {node.isMastery && !selectedEffect && node.masteryEffects && (
-                <div className="text-xs text-[#6a6a8a] space-y-1">
+                <div className="text-xs text-[--color-text-muted] space-y-1">
                   <div className="text-[#5a5a7a]">Available options:</div>
                   {node.masteryEffects.slice(0, 3).map((effect, i) => (
                     <div key={i} className="pl-2">• {effect.stats[0]}</div>
@@ -881,7 +881,7 @@ export function PassiveTree({
                 </div>
               )}
               {node.reminderText && (
-                <div className="text-xs text-[#6a6a8a] mt-2 italic">
+                <div className="text-xs text-[--color-text-muted] mt-2 italic">
                   {node.reminderText.join(' ')}
                 </div>
               )}

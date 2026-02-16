@@ -1,5 +1,6 @@
 import { useEffect, useRef, useCallback } from 'react';
 import { invoke } from '@tauri-apps/api/core';
+import { Monitor } from 'lucide-react';
 import { useRunStore } from '../../stores/runStore';
 import { useSettingsStore } from '../../stores/settingsStore';
 import { TimerDisplay } from './TimerDisplay';
@@ -46,7 +47,7 @@ export function TimerView() {
       {/* Header */}
       <div className="mb-6 flex items-start justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-[--color-text]">Speedrun Timer</h1>
+          <h1 className="text-2xl font-bold text-[--color-text]" style={{ textShadow: '0 0 30px rgba(175, 96, 37, 0.2)' }}>Speedrun Timer</h1>
           {currentRun && (
             <p className="text-[--color-text-muted] mt-1">
               {currentRun.characterName} - {currentRun.class} ({currentRun.league})
@@ -63,9 +64,7 @@ export function TimerView() {
             }`}
             title={overlayOpen ? `Close Overlay (${hotkeys.toggleOverlay})` : `Open Overlay (${hotkeys.toggleOverlay})`}
           >
-            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9.75 17L9 20l-1 1h8l-1-1-.75-3M3 13h18M5 17h14a2 2 0 002-2V5a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
-            </svg>
+            <Monitor className="w-5 h-5" strokeWidth={1.75} />
           </button>
         )}
       </div>
@@ -74,7 +73,7 @@ export function TimerView() {
       <div className="flex-1 flex gap-6">
         {/* Left side - Timer and controls */}
         <div className="flex-1 flex flex-col">
-          <div className="bg-[--color-surface] rounded-lg p-8 mb-6">
+          <div className="card-inset rounded-lg p-8 mb-6">
             <TimerDisplay elapsedMs={timer.elapsedMs} />
 
             {/* Current segment */}
@@ -120,7 +119,7 @@ export function TimerView() {
 
           {/* Run info panel */}
           {!currentRun && (
-            <div className="mt-6 bg-[--color-surface] rounded-lg p-6">
+            <div className="mt-6 card-inset rounded-lg p-6">
               <h3 className="text-lg font-semibold text-[--color-text] mb-3">Start a Run</h3>
               <p className="text-[--color-text-muted] text-sm mb-4">
                 Configure your POE log path in Settings, then start a new character or zone into the game.

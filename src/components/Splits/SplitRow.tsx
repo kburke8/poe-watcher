@@ -1,3 +1,5 @@
+import type { ReactNode } from 'react';
+import { MapPin, ArrowUp, Skull, Landmark, Trophy, Star } from 'lucide-react';
 import type { BreakpointType } from '../../types';
 
 interface SplitRowProps {
@@ -32,9 +34,12 @@ export function SplitRow({
     : 'opacity-50';
 
   return (
-    <div className={`px-4 py-2 flex items-center gap-3 ${rowBg}`}>
+    <div
+      className={`px-4 py-2 flex items-center gap-3 ${rowBg}`}
+      style={isNext ? { borderLeft: '3px solid var(--color-poe-gold)', paddingLeft: '13px' } : undefined}
+    >
       {/* Type icon */}
-      <span className="text-sm w-5 text-center" title={type}>
+      <span className="text-sm w-5 text-center flex items-center justify-center text-[--color-text-muted]" title={type}>
         {typeIcon}
       </span>
 
@@ -98,15 +103,17 @@ export function SplitRow({
   );
 }
 
-function getTypeIcon(type: BreakpointType): string {
+function getTypeIcon(type: BreakpointType): ReactNode {
+  const cls = "w-4 h-4";
+  const sw = 1.75;
   switch (type) {
-    case 'zone': return '📍';
-    case 'level': return '⬆';
-    case 'boss': return '💀';
-    case 'act': return '🏛';
-    case 'lab': return '🏆';
-    case 'custom': return '⭐';
-    default: return '•';
+    case 'zone': return <MapPin className={cls} strokeWidth={sw} />;
+    case 'level': return <ArrowUp className={cls} strokeWidth={sw} />;
+    case 'boss': return <Skull className={cls} strokeWidth={sw} />;
+    case 'act': return <Landmark className={cls} strokeWidth={sw} />;
+    case 'lab': return <Trophy className={cls} strokeWidth={sw} />;
+    case 'custom': return <Star className={cls} strokeWidth={sw} />;
+    default: return <span>•</span>;
   }
 }
 

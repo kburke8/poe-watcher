@@ -1,5 +1,7 @@
 import { useMemo } from 'react';
+import { BarChart3 } from 'lucide-react';
 import { useRunStore } from '../../stores/runStore';
+import { EmptyState } from '../Shared/EmptyState';
 import {
   LineChart,
   Line,
@@ -60,13 +62,13 @@ export function AnalyticsTab() {
     <div className="h-full overflow-auto space-y-6">
       {/* Stats Cards */}
       <div className="grid grid-cols-4 gap-4">
-        <div className="p-4 bg-[--color-surface] rounded-lg">
+        <div className="p-4 card-inset rounded-lg">
           <div className="text-xs text-[--color-text-muted] mb-1">Total Runs</div>
           <div className="text-2xl font-bold text-[--color-text]">
             {runStats?.totalRuns ?? 0}
           </div>
         </div>
-        <div className="p-4 bg-[--color-surface] rounded-lg">
+        <div className="p-4 card-inset rounded-lg">
           <div className="text-xs text-[--color-text-muted] mb-1">Completed</div>
           <div className="text-2xl font-bold text-[--color-timer-ahead]">
             {runStats?.completedRuns ?? 0}
@@ -77,13 +79,13 @@ export function AnalyticsTab() {
             )}
           </div>
         </div>
-        <div className="p-4 bg-[--color-surface] rounded-lg">
+        <div className="p-4 card-inset rounded-lg">
           <div className="text-xs text-[--color-text-muted] mb-1">Average Time</div>
           <div className="text-2xl font-bold timer-display text-[--color-text]">
             {runStats?.averageTimeMs ? formatTime(runStats.averageTimeMs) : '--:--'}
           </div>
         </div>
-        <div className="p-4 bg-[--color-surface] rounded-lg">
+        <div className="p-4 card-inset rounded-lg">
           <div className="text-xs text-[--color-text-muted] mb-1">Best Time</div>
           <div className="text-2xl font-bold timer-display text-[--color-poe-gold]">
             {runStats?.bestTimeMs ? formatTime(runStats.bestTimeMs) : '--:--'}
@@ -94,22 +96,22 @@ export function AnalyticsTab() {
       {/* Charts row */}
       <div className="grid grid-cols-2 gap-6">
         {/* Time Trend Chart */}
-        <div className="p-4 bg-[--color-surface] rounded-lg">
+        <div className="p-4 card-inset rounded-lg">
           <h3 className="text-sm font-semibold text-[--color-text] mb-4">
             Performance Over Time
           </h3>
           {trendData.length > 0 ? (
             <ResponsiveContainer width="100%" height={250}>
               <LineChart data={trendData}>
-                <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.1)" />
+                <CartesianGrid strokeDasharray="3 3" stroke="rgba(154, 142, 130, 0.15)" />
                 <XAxis
                   dataKey="date"
-                  stroke="rgba(255,255,255,0.5)"
-                  tick={{ fill: 'rgba(255,255,255,0.5)', fontSize: 11 }}
+                  stroke="rgba(154, 142, 130, 0.5)"
+                  tick={{ fill: 'rgba(154, 142, 130, 0.5)', fontSize: 11 }}
                 />
                 <YAxis
-                  stroke="rgba(255,255,255,0.5)"
-                  tick={{ fill: 'rgba(255,255,255,0.5)', fontSize: 11 }}
+                  stroke="rgba(154, 142, 130, 0.5)"
+                  tick={{ fill: 'rgba(154, 142, 130, 0.5)', fontSize: 11 }}
                   tickFormatter={(value) => formatTimeFromMinutes(value)}
                 />
                 <Tooltip
@@ -132,32 +134,32 @@ export function AnalyticsTab() {
               </LineChart>
             </ResponsiveContainer>
           ) : (
-            <div className="h-[250px] flex items-center justify-center text-[--color-text-muted]">
-              No completed runs to display
+            <div className="h-[250px] flex items-center justify-center">
+              <EmptyState icon={BarChart3} title="Not enough data" description="Complete some runs to see analytics." />
             </div>
           )}
         </div>
 
         {/* Split Comparison Chart */}
-        <div className="p-4 bg-[--color-surface] rounded-lg">
+        <div className="p-4 card-inset rounded-lg">
           <h3 className="text-sm font-semibold text-[--color-text] mb-4">
             Split Times (Average vs Best)
           </h3>
           {splitComparisonData.length > 0 ? (
             <ResponsiveContainer width="100%" height={250}>
               <BarChart data={splitComparisonData} layout="vertical">
-                <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.1)" />
+                <CartesianGrid strokeDasharray="3 3" stroke="rgba(154, 142, 130, 0.15)" />
                 <XAxis
                   type="number"
-                  stroke="rgba(255,255,255,0.5)"
-                  tick={{ fill: 'rgba(255,255,255,0.5)', fontSize: 11 }}
+                  stroke="rgba(154, 142, 130, 0.5)"
+                  tick={{ fill: 'rgba(154, 142, 130, 0.5)', fontSize: 11 }}
                   tickFormatter={(value) => `${value}m`}
                 />
                 <YAxis
                   type="category"
                   dataKey="name"
-                  stroke="rgba(255,255,255,0.5)"
-                  tick={{ fill: 'rgba(255,255,255,0.5)', fontSize: 10 }}
+                  stroke="rgba(154, 142, 130, 0.5)"
+                  tick={{ fill: 'rgba(154, 142, 130, 0.5)', fontSize: 10 }}
                   width={100}
                 />
                 <Tooltip
@@ -194,15 +196,15 @@ export function AnalyticsTab() {
               </BarChart>
             </ResponsiveContainer>
           ) : (
-            <div className="h-[250px] flex items-center justify-center text-[--color-text-muted]">
-              No split data to display
+            <div className="h-[250px] flex items-center justify-center">
+              <EmptyState icon={BarChart3} title="Not enough data" description="Complete some runs to see analytics." />
             </div>
           )}
         </div>
       </div>
 
       {/* Split Stats Table */}
-      <div className="p-4 bg-[--color-surface] rounded-lg">
+      <div className="p-4 card-inset rounded-lg">
         <h3 className="text-sm font-semibold text-[--color-text] mb-4">Per-Split Statistics</h3>
         {splitStats.length > 0 ? (
           <div className="overflow-auto max-h-[300px]">
@@ -241,9 +243,7 @@ export function AnalyticsTab() {
             </table>
           </div>
         ) : (
-          <div className="py-8 text-center text-[--color-text-muted]">
-            No split statistics available for the current filters
-          </div>
+          <EmptyState icon={BarChart3} title="Not enough data" description="Complete some runs to see analytics." />
         )}
       </div>
     </div>

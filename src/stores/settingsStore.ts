@@ -15,6 +15,7 @@ import { generateBreakpoints } from '../config/wizardRoutes';
 interface SettingsState extends Settings {
   // UI state
   currentView: ViewMode;
+  pendingSnapshotRunId: number | null;
   // Runtime-only state (not persisted)
   overlayOpen: boolean;
   // Hotkey settings
@@ -31,6 +32,7 @@ interface SettingsState extends Settings {
   toggleBreakpoint: (name: string) => void;
   toggleSnapshotCapture: (name: string) => void;
   setCurrentView: (view: ViewMode) => void;
+  navigateToSnapshot: (runId: number) => void;
   loadSettings: (settings: Partial<Settings>) => void;
   // Breakpoint management
   moveBreakpoint: (name: string, direction: 'up' | 'down') => void;
@@ -78,6 +80,7 @@ export const useSettingsStore = create<SettingsState>((set, get) => ({
   breakpoints: defaultBreakpoints,
   wizardConfig: undefined,
   currentView: 'timer',
+  pendingSnapshotRunId: null,
   // Overlay config defaults
   overlayScale: 'medium',
   overlayFontSize: 'medium',
@@ -116,7 +119,8 @@ export const useSettingsStore = create<SettingsState>((set, get) => ({
     ),
   })),
 
-  setCurrentView: (view) => set({ currentView: view }),
+  setCurrentView: (view) => set({ currentView: view, pendingSnapshotRunId: null }),
+  navigateToSnapshot: (runId) => set({ currentView: 'snapshots', pendingSnapshotRunId: runId }),
 
   loadSettings: (settings) => set((state) => ({
     ...state,

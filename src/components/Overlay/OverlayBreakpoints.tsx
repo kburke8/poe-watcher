@@ -93,7 +93,7 @@ export function OverlayBreakpoints({ breakpoints, maxCount = 3, fontSize = 'medi
             >
               <span
                 className="truncate flex-1"
-                style={{ color: index === 0 ? '#e5e5e5' : '#9ca3af' }}
+                style={{ color: index === 0 ? '#e8e0d6' : '#9a8e82' }}
               >
                 {index === 0 ? '> ' : '  '}
                 {bp.name}
@@ -104,7 +104,7 @@ export function OverlayBreakpoints({ breakpoints, maxCount = 3, fontSize = 'medi
                     {formatDelta(timeUntilPb)}
                   </span>
                 ) : (
-                  <span className="ml-2 font-mono flex-shrink-0" style={{ color: '#6b7280' }}>
+                  <span className="ml-2 font-mono flex-shrink-0" style={{ color: '#7a6e62' }}>
                     {formatPbTime(bp.pbTimeMs)}
                   </span>
                 )

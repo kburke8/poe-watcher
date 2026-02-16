@@ -1,6 +1,8 @@
 import { useEffect, useState } from 'react';
 import { invoke } from '@tauri-apps/api/core';
+import { X } from 'lucide-react';
 import { CustomSelect } from './CustomSelect';
+import { Button } from './Button';
 import type { RunFilters, Run } from '../../types';
 
 interface RunFilterProps {
@@ -77,7 +79,7 @@ export function RunFilter({
     filters.isCompleted !== undefined;
 
   return (
-    <div className="flex flex-wrap items-center gap-3 p-3 bg-[--color-surface] rounded-lg border border-[--color-border]">
+    <div className="flex flex-wrap items-center gap-3 p-3 card-inset rounded-lg">
       {/* Class filter */}
       <div className="flex flex-col gap-1">
         <label className="text-xs text-[--color-text-muted]">Class</label>
@@ -184,12 +186,9 @@ export function RunFilter({
 
       {/* Clear filters button */}
       {hasActiveFilters && (
-        <button
-          onClick={onClear}
-          className="mt-auto px-3 py-1.5 text-sm text-[--color-text-muted] hover:text-[--color-text] hover:bg-[--color-surface-elevated] rounded transition-colors"
-        >
-          Clear Filters
-        </button>
+        <Button variant="ghost" size="sm" icon={X} onClick={onClear} className="mt-auto">
+          Clear
+        </Button>
       )}
     </div>
   );

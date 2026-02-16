@@ -109,6 +109,9 @@ export function useTauriEvents() {
       console.log('[useTauriEvents] Triggering split:', breakpointName, 'at', splitTimeMs, 'ms');
     }
 
+    // Get cumulative death count
+    const deathCount = timer.deathCount;
+
     // Add split to local state
     addSplit({
       breakpointType: breakpointType as 'zone' | 'level' | 'boss' | 'act' | 'lab' | 'custom',
@@ -118,6 +121,7 @@ export function useTauriEvents() {
       deltaMs: null,
       townTimeMs,
       hideoutTimeMs,
+      deathCount,
     });
 
     // Check if next breakpoint needs fast polling
@@ -139,6 +143,7 @@ export function useTauriEvents() {
               segmentTimeMs: segmentTimeMs,
               townTimeMs: townTimeMs,
               hideoutTimeMs: hideoutTimeMs,
+              deathCount: deathCount,
             },
             capture_snapshot: shouldCaptureSnapshot,
             account_name: accountName || null,
@@ -240,6 +245,7 @@ export function useTauriEvents() {
   // Handle log events
   const handleLogEvent = useCallback((payload: LogEventPayload) => {
     const { event_type } = payload;
+    const { timer } = useRunStore.getState();
 
     switch (event_type) {
       case 'zone_enter':
@@ -301,7 +307,10 @@ export function useTauriEvents() {
         break;
 
       case 'death':
-        // Could track deaths in run stats
+        if (timer.isRunning) {
+          const { incrementDeathCount } = useRunStore.getState();
+          incrementDeathCount();
+        }
         break;
 
       case 'login':

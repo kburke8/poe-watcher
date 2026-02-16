@@ -24,46 +24,39 @@ const SOCKET_BORDER_COLORS: Record<string, string> = {
   'DV': 'border-yellow-700',
 };
 
-// PoE Website-style inventory layout
-// Using CSS Grid with explicit positioning to match the official layout
+// PoE-style inventory layout with larger cells
+const CELL = 42; // px per grid cell
+const GAP = 2;   // px gap between cells
 
 export function EquipmentGrid({ items }: EquipmentGridProps) {
   const [weaponSet, setWeaponSet] = useState<1 | 2>(1);
 
-  // Grid cell size in pixels
-  const cellSize = 32;
-
-  // Check if weapon swap exists
   const hasWeaponSwap = items.has('Weapon2') || items.has('Offhand2');
-
-  // Get weapon/offhand based on selected set
   const weaponKey = weaponSet === 1 ? 'Weapon' : 'Weapon2';
   const offhandKey = weaponSet === 1 ? 'Offhand' : 'Offhand2';
-
-  // Get flasks - stored as Flask1 through Flask5
   const flasks = [1, 2, 3, 4, 5].map((i) => items.get(`Flask${i}`) || null);
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-3">
       {/* Weapon Set Toggle */}
       {hasWeaponSwap && (
         <div className="flex justify-center gap-1">
           <button
             onClick={() => setWeaponSet(1)}
-            className={`px-3 py-1 text-xs rounded transition-colors ${
+            className={`w-7 h-7 text-xs font-semibold rounded transition-colors ${
               weaponSet === 1
-                ? 'bg-[#8a7a5a] text-white'
-                : 'bg-[#1a1a2e] text-[#6a6a8a] hover:bg-[#2a2a4a]'
+                ? 'bg-[--color-poe-gold] text-[--color-poe-darker]'
+                : 'bg-[--color-surface-elevated] text-[--color-text-muted] hover:text-[--color-text]'
             }`}
           >
             I
           </button>
           <button
             onClick={() => setWeaponSet(2)}
-            className={`px-3 py-1 text-xs rounded transition-colors ${
+            className={`w-7 h-7 text-xs font-semibold rounded transition-colors ${
               weaponSet === 2
-                ? 'bg-[#8a7a5a] text-white'
-                : 'bg-[#1a1a2e] text-[#6a6a8a] hover:bg-[#2a2a4a]'
+                ? 'bg-[--color-poe-gold] text-[--color-poe-darker]'
+                : 'bg-[--color-surface-elevated] text-[--color-text-muted] hover:text-[--color-text]'
             }`}
           >
             II
@@ -71,105 +64,43 @@ export function EquipmentGrid({ items }: EquipmentGridProps) {
         </div>
       )}
 
-      {/* Main equipment grid - matches PoE website layout */}
+      {/* Main equipment grid
+           Cols: [weapon 2] [ring1] [body 2] [ring2/amulet] [offhand 2] = 8 cols */}
       <div
-        className="grid gap-1 mx-auto"
+        className="grid mx-auto"
         style={{
-          gridTemplateColumns: `repeat(9, ${cellSize}px)`,
-          gridTemplateRows: `repeat(7, ${cellSize}px)`,
+          gridTemplateColumns: `repeat(8, ${CELL}px)`,
+          gridTemplateRows: `repeat(6, ${CELL}px)`,
+          gap: `${GAP}px`,
           width: 'fit-content',
         }}
       >
-        {/* Weapon - Left side, 2 cols x 4 rows */}
-        <GridSlot
-          item={items.get(weaponKey)}
-          label="Weapon"
-          col="1 / 3"
-          row="1 / 5"
-        />
-
-        {/* Helm - Top center, 2 cols x 2 rows */}
-        <GridSlot
-          item={items.get('Helm')}
-          label="Helm"
-          col="4 / 6"
-          row="1 / 3"
-        />
-
-        {/* Body Armour - Center, 2 cols x 3 rows */}
-        <GridSlot
-          item={items.get('BodyArmour')}
-          label="Body"
-          col="4 / 6"
-          row="3 / 6"
-        />
-
-        {/* Amulet - Right side, above Ring 2 */}
-        <GridSlot
-          item={items.get('Amulet')}
-          label="Amulet"
-          col="6 / 7"
-          row="4 / 5"
-        />
-
-        {/* Ring 1 - Left of body, just above Gloves */}
-        <GridSlot
-          item={items.get('Ring')}
-          label="Ring"
-          col="3 / 4"
-          row="5 / 6"
-        />
-
-        {/* Ring 2 - Right of body, below Amulet, just above Boots */}
-        <GridSlot
-          item={items.get('Ring2')}
-          label="Ring"
-          col="6 / 7"
-          row="5 / 6"
-        />
-
-        {/* Gloves - Bottom left, 2 cols x 2 rows */}
-        <GridSlot
-          item={items.get('Gloves')}
-          label="Gloves"
-          col="2 / 4"
-          row="6 / 8"
-        />
-
-        {/* Belt - Below body, 2 cols x 1 row */}
-        <GridSlot
-          item={items.get('Belt')}
-          label="Belt"
-          col="4 / 6"
-          row="6 / 7"
-        />
-
-        {/* Boots - Bottom right, 2 cols x 2 rows */}
-        <GridSlot
-          item={items.get('Boots')}
-          label="Boots"
-          col="6 / 8"
-          row="6 / 8"
-        />
-
-        {/* Offhand/Shield - Right side, 2 cols x 4 rows */}
-        <GridSlot
-          item={items.get(offhandKey)}
-          label="Offhand"
-          col="8 / 10"
-          row="1 / 5"
-        />
+        {/* Weapon - cols 1-2, rows 1-4 */}
+        <GridSlot item={items.get(weaponKey)} col="1 / 3" row="1 / 5" />
+        {/* Helm - cols 4-5, rows 1-2 */}
+        <GridSlot item={items.get('Helm')} col="4 / 6" row="1 / 3" />
+        {/* Offhand - cols 7-8, rows 1-4 */}
+        <GridSlot item={items.get(offhandKey)} col="7 / 9" row="1 / 5" />
+        {/* Ring 1 - col 3, row 4 (level with Ring 2) */}
+        <GridSlot item={items.get('Ring')} col="3 / 4" row="4 / 5" />
+        {/* Amulet - col 6, row 3 */}
+        <GridSlot item={items.get('Amulet')} col="6 / 7" row="3 / 4" />
+        {/* Body - cols 4-5, rows 3-5 */}
+        <GridSlot item={items.get('BodyArmour')} col="4 / 6" row="3 / 6" />
+        {/* Ring 2 - col 6, row 4 */}
+        <GridSlot item={items.get('Ring2')} col="6 / 7" row="4 / 5" />
+        {/* Gloves - cols 2-3, rows 5-6 */}
+        <GridSlot item={items.get('Gloves')} col="2 / 4" row="5 / 7" />
+        {/* Belt - cols 4-5, row 6 */}
+        <GridSlot item={items.get('Belt')} col="4 / 6" row="6 / 7" />
+        {/* Boots - cols 6-7, rows 5-6 */}
+        <GridSlot item={items.get('Boots')} col="6 / 8" row="5 / 7" />
       </div>
 
-      {/* Flask slots */}
-      <div className="flex gap-1 justify-center">
+      {/* Flask row */}
+      <div className="flex justify-center" style={{ gap: `${GAP}px` }}>
         {flasks.map((flask, i) => (
-          <FlaskSlot
-            key={`flask-${i}`}
-            item={flask ?? undefined}
-            label={`${i + 1}`}
-            cellSize={cellSize}
-          />
+          <FlaskSlot key={`flask-${i}`} item={flask ?? undefined} />
         ))}
       </div>
     </div>
@@ -178,20 +109,17 @@ export function EquipmentGrid({ items }: EquipmentGridProps) {
 
 interface GridSlotProps {
   item?: PoeItem;
-  label: string;
   col: string;
   row: string;
 }
 
-function GridSlot({ item, label, col, row }: GridSlotProps) {
+function GridSlot({ item, col, row }: GridSlotProps) {
   if (!item) {
     return (
       <div
-        className="bg-[#0a0a14] border border-[#2a2a4a] rounded-sm flex items-center justify-center"
+        className="rounded bg-[--color-poe-darker] border border-[--color-border]/50"
         style={{ gridColumn: col, gridRow: row }}
-      >
-        <span className="text-[8px] text-[#4a4a6a] text-center">{label}</span>
-      </div>
+      />
     );
   }
 
@@ -199,7 +127,7 @@ function GridSlot({ item, label, col, row }: GridSlotProps) {
 
   return (
     <div
-      className="bg-[#0a0a14] border border-[#2a2a4a] rounded-sm flex items-center justify-center relative overflow-hidden hover:border-[#8a7a5a] transition-colors cursor-pointer"
+      className="rounded bg-[--color-poe-darker] border border-[--color-border]/50 flex items-center justify-center relative overflow-hidden hover:border-[--color-poe-gold]/60 transition-colors cursor-pointer group"
       style={{ gridColumn: col, gridRow: row }}
       title={`${item.name}\n${item.typeLine}\n${item.explicitMods?.join('\n') || ''}`}
     >
@@ -207,15 +135,14 @@ function GridSlot({ item, label, col, row }: GridSlotProps) {
         <img
           src={item.icon}
           alt={displayName}
-          className="max-w-full max-h-full object-contain"
+          className="max-w-full max-h-full object-contain p-0.5 group-hover:scale-105 transition-transform"
           loading="lazy"
         />
       ) : (
-        <span className="text-[8px] text-[#8a8a9a] text-center px-0.5 line-clamp-2">
+        <span className="text-[9px] text-[--color-text-muted] text-center px-1 line-clamp-2">
           {displayName}
         </span>
       )}
-      {/* Socket display */}
       {item.sockets && item.sockets.length > 0 && (
         <SocketOverlay sockets={item.sockets} />
       )}
@@ -225,22 +152,15 @@ function GridSlot({ item, label, col, row }: GridSlotProps) {
 
 interface FlaskSlotProps {
   item?: PoeItem;
-  label: string;
-  cellSize: number;
 }
 
-function FlaskSlot({ item, label, cellSize }: FlaskSlotProps) {
-  const width = cellSize;
-  const height = cellSize * 2;
-
+function FlaskSlot({ item }: FlaskSlotProps) {
   if (!item) {
     return (
       <div
-        className="bg-[#0a0a14] border border-[#2a2a4a] rounded-sm flex items-center justify-center"
-        style={{ width, height }}
-      >
-        <span className="text-[10px] text-[#4a4a6a]">{label}</span>
-      </div>
+        className="rounded bg-[--color-poe-darker] border border-[--color-border]/50"
+        style={{ width: CELL, height: CELL * 2 }}
+      />
     );
   }
 
@@ -248,19 +168,19 @@ function FlaskSlot({ item, label, cellSize }: FlaskSlotProps) {
 
   return (
     <div
-      className="bg-[#0a0a14] border border-[#2a2a4a] rounded-sm flex items-center justify-center relative overflow-hidden hover:border-[#8a7a5a] transition-colors cursor-pointer"
-      style={{ width, height }}
+      className="rounded bg-[--color-poe-darker] border border-[--color-border]/50 flex items-center justify-center relative overflow-hidden hover:border-[--color-poe-gold]/60 transition-colors cursor-pointer group"
+      style={{ width: CELL, height: CELL * 2 }}
       title={`${item.name}\n${item.typeLine}\n${item.explicitMods?.join('\n') || ''}`}
     >
       {item.icon ? (
         <img
           src={item.icon}
           alt={displayName}
-          className="max-w-full max-h-full object-contain"
+          className="max-w-full max-h-full object-contain p-0.5 group-hover:scale-105 transition-transform"
           loading="lazy"
         />
       ) : (
-        <span className="text-[9px] text-[#8a8a9a] text-center line-clamp-3">
+        <span className="text-[9px] text-[--color-text-muted] text-center line-clamp-3">
           {displayName}
         </span>
       )}
@@ -276,16 +196,16 @@ function SocketOverlay({ sockets }: SocketOverlayProps) {
   if (!sockets || sockets.length === 0) return null;
 
   return (
-    <div className="absolute bottom-0.5 right-0.5 flex flex-wrap gap-px justify-end max-w-[60%]">
+    <div className="absolute bottom-1 right-1 flex flex-wrap gap-0.5 justify-end max-w-[70%]">
       {sockets.map((socket, i) => {
         const isLinked = i > 0 && sockets[i - 1]?.group === socket.group;
         return (
           <div key={i} className="flex items-center">
             {isLinked && (
-              <div className="w-1 h-0.5 bg-[#8a7a5a] -mx-px" />
+              <div className="w-1.5 h-0.5 bg-[--color-poe-gold-light]/60 -mx-0.5" />
             )}
             <div
-              className={`w-2 h-2 rounded-full border ${SOCKET_COLORS[socket.attr] || 'bg-gray-500'} ${SOCKET_BORDER_COLORS[socket.attr] || 'border-gray-600'}`}
+              className={`w-2.5 h-2.5 rounded-full border ${SOCKET_COLORS[socket.attr] || 'bg-gray-500'} ${SOCKET_BORDER_COLORS[socket.attr] || 'border-gray-600'}`}
             />
           </div>
         );
@@ -293,4 +213,3 @@ function SocketOverlay({ sockets }: SocketOverlayProps) {
     </div>
   );
 }
-

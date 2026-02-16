@@ -1,22 +1,25 @@
 import { useState, useEffect, useCallback } from 'react';
 import { getVersion } from '@tauri-apps/api/app';
 import { invoke } from '@tauri-apps/api/core';
+import { Timer, Camera, GitCompareArrows, History, Settings as SettingsIcon, Monitor } from 'lucide-react';
 import { useSettingsStore } from '../stores/settingsStore';
 import { useUpdateChecker } from '../hooks/useUpdateChecker';
+import { Button } from './Shared/Button';
 import type { ViewMode } from '../types';
+import type { LucideIcon } from 'lucide-react';
 
 interface NavItem {
   id: ViewMode;
   label: string;
-  icon: string;
+  icon: LucideIcon;
 }
 
 const navItems: NavItem[] = [
-  { id: 'timer', label: 'Timer', icon: '⏱' },
-  { id: 'snapshots', label: 'Snapshots', icon: '📸' },
-  { id: 'comparison', label: 'Compare', icon: '📊' },
-  { id: 'history', label: 'History', icon: '📋' },
-  { id: 'settings', label: 'Settings', icon: '⚙' },
+  { id: 'timer', label: 'Timer', icon: Timer },
+  { id: 'snapshots', label: 'Snapshots', icon: Camera },
+  { id: 'comparison', label: 'Compare', icon: GitCompareArrows },
+  { id: 'history', label: 'History', icon: History },
+  { id: 'settings', label: 'Settings', icon: SettingsIcon },
 ];
 
 export function Sidebar() {
@@ -39,23 +42,23 @@ export function Sidebar() {
   }, []);
 
   return (
-    <aside className="w-16 bg-[--color-surface] border-r border-[--color-border] flex flex-col items-center py-4">
+    <aside className="w-16 sidebar-gradient flex flex-col items-center py-4">
       <nav className="flex flex-col gap-2">
         {navItems.map((item) => (
           <button
             key={item.id}
             onClick={() => setCurrentView(item.id)}
             className={`
-              w-12 h-12 flex items-center justify-center rounded-lg
-              transition-all duration-100 active:scale-90 border
+              w-11 h-11 flex items-center justify-center rounded-lg
+              transition-all duration-150 active:scale-90
               ${currentView === item.id
-                ? 'bg-[--color-poe-gold] text-[--color-poe-darker] border-[--color-poe-gold-light] shadow-md active:shadow-sm'
-                : 'text-[--color-text-muted] border-transparent hover:bg-[--color-surface-elevated] hover:text-[--color-text] hover:border-[--color-border] hover:shadow-sm active:bg-[--color-border]'
+                ? 'sidebar-active text-[--color-poe-darker] font-bold'
+                : 'text-[--color-text-muted] hover:text-[--color-poe-gold-light] hover:bg-[--color-poe-gold]/10 hover:shadow-[0_0_12px_rgba(175,96,37,0.2)] active:bg-[--color-border]'
               }
             `}
             title={item.label}
           >
-            <span className="text-xl">{item.icon}</span>
+            <item.icon className="w-5 h-5" strokeWidth={currentView === item.id ? 2.25 : 1.75} />
           </button>
         ))}
       </nav>
@@ -65,18 +68,16 @@ export function Sidebar() {
         <button
           onClick={handleToggleOverlay}
           className={`
-            w-12 h-12 flex items-center justify-center rounded-lg mt-4
-            transition-all duration-100 active:scale-90 border
+            w-11 h-11 flex items-center justify-center rounded-lg mt-4
+            transition-all duration-150 active:scale-90 border
             ${overlayOpen
               ? 'text-[--color-poe-gold] border-[--color-poe-gold]/60 bg-[--color-poe-gold]/10'
-              : 'text-[--color-text-muted] border-transparent hover:bg-[--color-surface-elevated] hover:text-[--color-text] hover:border-[--color-border] hover:shadow-sm'
+              : 'text-[--color-text-muted] border-transparent hover:text-[--color-poe-gold-light] hover:bg-[--color-poe-gold]/10 hover:border-[--color-poe-gold]/30 hover:shadow-[0_0_12px_rgba(175,96,37,0.2)]'
             }
           `}
           title={overlayOpen ? `Close Overlay (${hotkeys.toggleOverlay})` : `Open Overlay (${hotkeys.toggleOverlay})`}
         >
-          <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9.75 17L9 20l-1 1h8l-1-1-.75-3M3 13h18M5 17h14a2 2 0 002-2V5a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
-          </svg>
+          <Monitor className="w-5 h-5" strokeWidth={1.75} />
         </button>
       )}
 
@@ -106,12 +107,9 @@ export function Sidebar() {
                 />
               </div>
             ) : (
-              <button
-                onClick={downloadAndInstall}
-                className="w-full px-3 py-1.5 text-sm bg-[--color-poe-gold] text-[--color-poe-darker] rounded-md font-semibold hover:bg-[--color-poe-gold-light] active:scale-95 transition-all"
-              >
+              <Button variant="primary" size="sm" className="w-full" onClick={downloadAndInstall}>
                 Update & Restart
-              </button>
+              </Button>
             )}
           </div>
         )}

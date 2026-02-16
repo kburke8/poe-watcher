@@ -1,8 +1,11 @@
 import { useState } from 'react';
 import { invoke } from '@tauri-apps/api/core';
+import { Search } from 'lucide-react';
 import { useRunStore } from '../../stores/runStore';
 import { useSettingsStore } from '../../stores/settingsStore';
 import { exportRunToJson } from '../../utils/jsonExport';
+import { Button } from '../Shared/Button';
+import { EmptyState } from '../Shared/EmptyState';
 import { format } from 'date-fns';
 import type { Run } from '../../types';
 
@@ -11,7 +14,7 @@ type SortDirection = 'asc' | 'desc';
 
 export function RunsTab() {
   const { filteredRuns, loadFilteredRuns } = useRunStore();
-  const { setCurrentView } = useSettingsStore();
+  const { navigateToSnapshot } = useSettingsStore();
   const [sortField, setSortField] = useState<SortField>('startedAt');
   const [sortDirection, setSortDirection] = useState<SortDirection>('desc');
 
@@ -55,9 +58,8 @@ export function RunsTab() {
     }
   };
 
-  const handleViewSnapshots = (_run: Run) => {
-    // TODO: Navigate to snapshots view with run selected
-    setCurrentView('snapshots');
+  const handleViewSnapshots = (run: Run) => {
+    navigateToSnapshot(run.id);
   };
 
   const SortIcon = ({ field }: { field: SortField }) => {
@@ -66,7 +68,7 @@ export function RunsTab() {
   };
 
   return (
-    <div className="h-full flex flex-col bg-[--color-surface] rounded-lg overflow-hidden">
+    <div className="h-full flex flex-col card-inset rounded-lg overflow-hidden">
       <div className="flex-1 overflow-auto">
         <table className="w-full">
           <thead className="sticky top-0 bg-[--color-surface]">
@@ -107,8 +109,8 @@ export function RunsTab() {
           <tbody>
             {sortedRuns.length === 0 ? (
               <tr>
-                <td colSpan={7} className="p-8 text-center text-[--color-text-muted]">
-                  No runs found matching the current filters
+                <td colSpan={7}>
+                  <EmptyState icon={Search} title="No matching runs" description="Try adjusting your filters." />
                 </td>
               </tr>
             ) : (
@@ -172,27 +174,31 @@ export function RunsTab() {
                   </td>
                   <td className="p-3 text-right">
                     <div className="flex justify-end gap-2">
-                      <button
+                      <Button
+                        variant="ghost"
+                        size="sm"
                         onClick={() => handleViewSnapshots(run)}
-                        className="px-2 py-1 text-xs text-[--color-text-muted] hover:text-[--color-text] hover:bg-[--color-surface-elevated] rounded"
                         title="View snapshots"
                       >
                         View
-                      </button>
-                      <button
+                      </Button>
+                      <Button
+                        variant="ghost"
+                        size="sm"
                         onClick={() => exportRunToJson(run.id, run)}
-                        className="px-2 py-1 text-xs text-[--color-text-muted] hover:text-[--color-text] hover:bg-[--color-surface-elevated] rounded"
                         title="Export run as JSON"
                       >
                         Export
-                      </button>
-                      <button
+                      </Button>
+                      <Button
+                        variant="ghost"
+                        size="sm"
                         onClick={() => handleDelete(run)}
-                        className="px-2 py-1 text-xs text-[--color-timer-behind] hover:bg-[--color-timer-behind]/20 rounded"
                         title="Delete run"
+                        className="text-[--color-timer-behind] hover:bg-[--color-timer-behind]/20"
                       >
                         Delete
-                      </button>
+                      </Button>
                     </div>
                   </td>
                 </tr>

@@ -54,18 +54,18 @@ const act2Zones: ZoneEntry[] = [
   { name: 'The Western Forest', zoneName: 'The Western Forest', act: 2, bpType: 'zone', triggerType: 'zone', verbosity: 'every_zone', captureSnapshot: false },
   { name: 'The Weaver Chambers', zoneName: "The Weaver's Chambers", act: 2, bpType: 'zone', triggerType: 'zone', verbosity: 'every_zone', captureSnapshot: false },
   { name: 'The Wetlands', zoneName: 'The Wetlands', act: 2, bpType: 'boss', triggerType: 'zone', verbosity: 'bosses_only', captureSnapshot: false },  // Weaver kill
+  // Standard crypt position: after bandits (Wetlands), before Vaal Ruins
+  { name: 'The Fellshrine Ruins', zoneName: 'The Fellshrine Ruins', act: 2, bpType: 'zone', triggerType: 'zone', verbosity: 'every_zone', captureSnapshot: false },
+  { name: 'The Crypt Level 1', zoneName: 'The Crypt Level 1', act: 2, bpType: 'zone', triggerType: 'zone', verbosity: 'key_zones', captureSnapshot: false },
+  { name: 'The Crypt Level 2', zoneName: 'The Crypt Level 2', act: 2, bpType: 'zone', triggerType: 'zone', verbosity: 'every_zone', captureSnapshot: false },
   { name: 'The Vaal Ruins', zoneName: 'The Vaal Ruins', act: 2, bpType: 'zone', triggerType: 'zone', verbosity: 'every_zone', captureSnapshot: false },
   { name: 'The Northern Forest', zoneName: 'The Northern Forest', act: 2, bpType: 'zone', triggerType: 'zone', verbosity: 'every_zone', captureSnapshot: false },
   { name: 'The Caverns', zoneName: 'The Caverns', act: 2, bpType: 'zone', triggerType: 'zone', verbosity: 'every_zone', captureSnapshot: false },
   { name: 'The Ancient Pyramid', zoneName: 'The Ancient Pyramid', act: 2, bpType: 'zone', triggerType: 'zone', verbosity: 'key_zones', captureSnapshot: false },  // Vaal Oversoul end-of-act (redundant with City of Sarn)
 ];
 
-// Extra zones for act 2 early_crypt route variant
-const act2CryptZones: ZoneEntry[] = [
-  { name: 'The Fellshrine Ruins', zoneName: 'The Fellshrine Ruins', act: 2, bpType: 'zone', triggerType: 'zone', verbosity: 'every_zone', captureSnapshot: false },
-  { name: 'The Crypt Level 1', zoneName: 'The Crypt Level 1', act: 2, bpType: 'zone', triggerType: 'zone', verbosity: 'key_zones', captureSnapshot: false },
-  { name: 'The Crypt Level 2', zoneName: 'The Crypt Level 2', act: 2, bpType: 'zone', triggerType: 'zone', verbosity: 'every_zone', captureSnapshot: false },
-];
+// Crypt zone names for route variant reordering
+const CRYPT_ZONE_NAMES = ['The Fellshrine Ruins', 'The Crypt Level 1', 'The Crypt Level 2'];
 
 const act3Zones: ZoneEntry[] = [
   { name: 'The City of Sarn', zoneName: 'The City of Sarn', act: 3, bpType: 'zone', triggerType: 'zone', verbosity: 'acts_only', captureSnapshot: true },  // First zone after Vaal Oversoul
@@ -222,6 +222,20 @@ const levelMilestones: ZoneEntry[] = [
   { name: 'Level 90', zoneName: '', act: 0, bpType: 'level', triggerType: 'zone', verbosity: 'every_zone', captureSnapshot: false },
 ];
 
+// ── Lab zone entries (inserted conditionally) ────────────────────
+
+const lab1Entry: ZoneEntry = {
+  name: 'Lab 1', zoneName: "Aspirants' Plaza", act: 3, bpType: 'lab', triggerType: 'zone', verbosity: 'acts_only', captureSnapshot: true,
+};
+
+const lab2Entry: ZoneEntry = {
+  name: 'Lab 2', zoneName: "Aspirants' Plaza", act: 7, bpType: 'lab', triggerType: 'zone', verbosity: 'acts_only', captureSnapshot: true,
+};
+
+const lab3Entry: ZoneEntry = {
+  name: 'Lab 3', zoneName: "Aspirants' Plaza", act: 10, bpType: 'lab', triggerType: 'zone', verbosity: 'acts_only', captureSnapshot: true,
+};
+
 // ── Dev-only test zones (just 2 zones for quick testing) ─────────
 
 const testZones: ZoneEntry[] = [
@@ -247,25 +261,22 @@ const ALL_ACT_ZONES: Record<number, ZoneEntry[]> = {
 // ── Route variant functions ────────────────────────────────────────
 
 function applyAct1EarlyDweller(zones: ZoneEntry[]): ZoneEntry[] {
-  // Move Tidal Island to right after Mud Flats
-  const result = zones.filter(z => z.name !== 'The Tidal Island');
-  const mudFlatsIdx = result.findIndex(z => z.name === 'The Mud Flats');
-  if (mudFlatsIdx >= 0) {
-    const tidalIsland = zones.find(z => z.name === 'The Tidal Island');
-    if (tidalIsland) {
-      // Promote to key_zones since it's now a deliberate routing choice
-      result.splice(mudFlatsIdx + 1, 0, { ...tidalIsland, verbosity: 'key_zones' });
-    }
-  }
-  return result;
+  // Promote The Flooded Depths (Dweller of the Deep) to key_zones verbosity
+  // since it's a deliberate routing choice to do it early after Submerged Passage
+  return zones.map(z =>
+    z.name === 'The Flooded Depths'
+      ? { ...z, verbosity: 'key_zones' as VerbosityLevel }
+      : z
+  );
 }
 
 function applyAct2EarlyCrypt(zones: ZoneEntry[]): ZoneEntry[] {
-  // Insert Fellshrine → Crypt L1 → Crypt L2 between Crossroads and Chamber of Sins
-  const result = [...zones];
+  // Move Fellshrine/Crypt from standard position (after Wetlands) to early position (after Crossroads)
+  const cryptZones = zones.filter(z => CRYPT_ZONE_NAMES.includes(z.name));
+  const result = zones.filter(z => !CRYPT_ZONE_NAMES.includes(z.name));
   const crossroadsIdx = result.findIndex(z => z.name === 'The Crossroads');
   if (crossroadsIdx >= 0) {
-    result.splice(crossroadsIdx + 1, 0, ...act2CryptZones);
+    result.splice(crossroadsIdx + 1, 0, ...cryptZones);
   }
   return result;
 }
@@ -406,6 +417,41 @@ export function generateBreakpoints(config: WizardConfig): Breakpoint[] {
     allZones.push(...actZones);
   }
 
+  // 2a. Insert lab breakpoints if enabled
+  // Default: 100% runs include labs, any% runs don't (unless user overrides)
+  const shouldIncludeLabs = config.routes.includeLabs ?? (config.runType === 'hundred_percent');
+  if (shouldIncludeLabs) {
+    // Lab 1 in Act 3: after Imperial Gardens
+    if (maxAct >= 3) {
+      const imperialIdx = allZones.findIndex(z => z.name === 'The Imperial Gardens');
+      if (imperialIdx >= 0) {
+        allZones.splice(imperialIdx + 1, 0, lab1Entry);
+      }
+    }
+    // Lab 2 in Act 7: after Vaal City
+    if (maxAct >= 7) {
+      const vaalCityIdx = allZones.findIndex(z => z.name === 'The Vaal City');
+      if (vaalCityIdx >= 0) {
+        allZones.splice(vaalCityIdx + 1, 0, lab2Entry);
+      }
+    }
+    // Lab 3 in Act 10: position depends on route config
+    if (maxAct >= 10) {
+      const lab3Position = config.routes.act10Lab3 || 'before_torched_courts';
+      if (lab3Position === 'before_torched_courts') {
+        const torchedIdx = allZones.findIndex(z => z.name === 'The Torched Courts (A10)');
+        if (torchedIdx >= 0) {
+          allZones.splice(torchedIdx, 0, lab3Entry);
+        }
+      } else {
+        const desecIdx = allZones.findIndex(z => z.name === 'The Desecrated Chambers');
+        if (desecIdx >= 0) {
+          allZones.splice(desecIdx + 1, 0, lab3Entry);
+        }
+      }
+    }
+  }
+
   // 2b. If the final act doesn't end with a kitava trigger, add the first
   //     zone of the next act as the finish-line breakpoint (e.g. The Southern
   //     Forest after Act 1, The Aqueduct after Act 3).
@@ -486,5 +532,7 @@ export const DEFAULT_WIZARD_CONFIG: WizardConfig = {
     act6SkipLily: false,
     act6AddTidal: false,
     act8: 'standard',
+    includeLabs: false,
+    act10Lab3: 'before_torched_courts',
   },
 };

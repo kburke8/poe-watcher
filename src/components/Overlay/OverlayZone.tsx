@@ -11,7 +11,7 @@ export function OverlayZone({ zoneName, fontSize = 'medium', isAhead }: OverlayZ
 
   const sizeClass = fontSize === 'small' ? 'text-xs' : fontSize === 'large' ? 'text-base' : 'text-sm';
   // Green when ahead of PB, amber when behind or no data
-  const color = isAhead === undefined ? '#9ca3af' : isAhead ? '#22c55e' : '#d4a574';
+  const color = isAhead === undefined ? '#9a8e82' : isAhead ? '#22c55e' : '#d4a574';
 
   return (
     <div className="text-center">

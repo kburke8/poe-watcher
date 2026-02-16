@@ -56,6 +56,7 @@ export const defaultBreakpoints: Breakpoint[] = [
   { name: 'The Lunaris Temple 1', type: 'zone', trigger: { type: 'zone', zoneName: 'The Lunaris Temple Level 1', act: 3 }, isEnabled: false, captureSnapshot: false },
   { name: 'The Lunaris Temple 2', type: 'zone', trigger: { type: 'zone', zoneName: 'The Lunaris Temple Level 2', act: 3 }, isEnabled: false, captureSnapshot: false },
   { name: 'The Imperial Gardens', type: 'zone', trigger: { type: 'zone', zoneName: 'The Imperial Gardens', act: 3 }, isEnabled: false, captureSnapshot: false },
+  { name: 'Lab 1', type: 'lab', trigger: { type: 'zone', zoneName: "Aspirants' Plaza", act: 3 }, isEnabled: false, captureSnapshot: true },
   { name: 'The Library', type: 'zone', trigger: { type: 'zone', zoneName: 'The Library', act: 3 }, isEnabled: false, captureSnapshot: false },
   { name: 'The Sceptre of God', type: 'zone', trigger: { type: 'zone', zoneName: 'The Sceptre of God', act: 3 }, isEnabled: false, captureSnapshot: false },
   { name: 'The Upper Sceptre of God', type: 'boss', trigger: { type: 'zone', zoneName: 'The Upper Sceptre of God', act: 3 }, isEnabled: true, captureSnapshot: false },
@@ -127,6 +128,7 @@ export const defaultBreakpoints: Breakpoint[] = [
   { name: 'The Dread Thicket', type: 'zone', trigger: { type: 'zone', zoneName: 'The Dread Thicket', act: 7 }, isEnabled: false, captureSnapshot: false },
   { name: 'The Causeway', type: 'zone', trigger: { type: 'zone', zoneName: 'The Causeway', act: 7 }, isEnabled: false, captureSnapshot: false },
   { name: 'The Vaal City', type: 'zone', trigger: { type: 'zone', zoneName: 'The Vaal City', act: 7 }, isEnabled: false, captureSnapshot: false },
+  { name: 'Lab 2', type: 'lab', trigger: { type: 'zone', zoneName: "Aspirants' Plaza", act: 7 }, isEnabled: false, captureSnapshot: true },
   { name: 'The Temple of Decay 1', type: 'zone', trigger: { type: 'zone', zoneName: 'The Temple of Decay Level 1', act: 7 }, isEnabled: false, captureSnapshot: false },
   { name: 'The Temple of Decay 2', type: 'boss', trigger: { type: 'zone', zoneName: 'The Temple of Decay Level 2', act: 7 }, isEnabled: true, captureSnapshot: false },
   // Act 7 town start
@@ -176,6 +178,7 @@ export const defaultBreakpoints: Breakpoint[] = [
   // Act 10 town start
   { name: 'Oriath Docks', type: 'act', trigger: { type: 'zone', zoneName: 'Oriath Docks', act: 10 }, isEnabled: true, captureSnapshot: true },
   { name: 'The Ravaged Square', type: 'zone', trigger: { type: 'zone', zoneName: 'The Ravaged Square', act: 10 }, isEnabled: false, captureSnapshot: false },
+  { name: 'Lab 3', type: 'lab', trigger: { type: 'zone', zoneName: "Aspirants' Plaza", act: 10 }, isEnabled: false, captureSnapshot: true },
   { name: 'The Torched Courts (A10)', type: 'zone', trigger: { type: 'zone', zoneName: 'The Torched Courts', act: 10 }, isEnabled: false, captureSnapshot: false },
   { name: 'The Desecrated Chambers', type: 'zone', trigger: { type: 'zone', zoneName: 'The Desecrated Chambers', act: 10 }, isEnabled: false, captureSnapshot: false },
   { name: 'The Canals', type: 'zone', trigger: { type: 'zone', zoneName: 'The Canals', act: 10 }, isEnabled: false, captureSnapshot: false },

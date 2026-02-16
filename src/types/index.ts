@@ -34,6 +34,8 @@ export interface Split {
   // Town/hideout time tracking (cumulative at this split)
   townTimeMs: number;
   hideoutTimeMs: number;
+  // Death tracking (cumulative at this split)
+  deathCount: number;
 }
 
 export type BreakpointType = 'zone' | 'level' | 'boss' | 'act' | 'lab' | 'custom';
@@ -130,6 +132,8 @@ export interface WizardConfig {
     act6SkipLily: boolean;
     act6AddTidal: boolean;
     act8: 'standard' | 'legacy';
+    includeLabs: boolean;
+    act10Lab3: 'before_torched_courts' | 'after_desecrated_chambers';
   };
 }
 
@@ -235,6 +239,8 @@ export interface TimerState {
   townEnteredAt: number | null;
   hideoutEnteredAt: number | null;
   currentZone: string | null;
+  // Death tracking
+  deathCount: number;
 }
 
 export interface SplitTime {

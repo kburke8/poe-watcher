@@ -9,7 +9,7 @@ export function TimerDisplay({ elapsedMs, deltaMs }: TimerDisplayProps) {
 
   return (
     <div className="text-center">
-      <div className="timer-display text-6xl font-bold text-[--color-text]">
+      <div className="timer-display timer-glow text-6xl font-bold text-[--color-text]">
         {formattedTime}
       </div>
 

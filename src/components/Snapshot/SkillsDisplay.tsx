@@ -58,7 +58,7 @@ export function SkillsDisplay({ items, compact = false, columns = 1 }: SkillsDis
 
   if (gemGroups.length === 0) {
     return (
-      <div className="text-center text-[#6a6a8a] py-4 text-sm">
+      <div className="text-center text-[--color-text-muted] py-4 text-sm">
         No socketed gems
       </div>
     );
@@ -109,7 +109,7 @@ function GemGroupDisplay({ group, compact = false }: GemGroupDisplayProps) {
   const slotIcon = SLOT_LABELS[slot] || '📦';
 
   return (
-    <div className={`bg-[#0d0d1a] rounded-lg ${compact ? 'px-3 py-2' : 'px-4 py-3'}`}>
+    <div className={`bg-[#141110] rounded-lg ${compact ? 'px-3 py-2' : 'px-4 py-3'}`}>
       {/* Gems with slot icon on right */}
       <div className="flex items-start gap-2">
         <div className="flex-1 space-y-1">
@@ -145,8 +145,8 @@ const GEM_COLORS: Record<string, string> = {
   'S': 'text-red-400',      // Strength - Red
   'D': 'text-green-400',    // Dexterity - Green
   'I': 'text-blue-400',     // Intelligence - Blue
-  'G': 'text-slate-200',    // Generic - White
-  'A': 'text-slate-400',    // Abyss
+  'G': 'text-[--color-text]',    // Generic - White
+  'A': 'text-[--color-text-muted]',    // Abyss
   'DV': 'text-yellow-400',  // Delve
 };
 
@@ -173,11 +173,11 @@ function GemDisplay({ gem, socketColor, isFirst, isLast, isOnly, compact = false
   let linkClass = '';
   if (!isOnly && isSupport) {
     if (isFirst) {
-      linkClass = 'before:content-[""] before:inline-block before:w-2 before:h-3 before:ml-2 before:border-l before:border-b before:border-[#6a6a8a] before:align-middle before:-translate-y-0.5';
+      linkClass = 'before:content-[""] before:inline-block before:w-2 before:h-3 before:ml-2 before:border-l before:border-b before:border-[--color-text-muted] before:align-middle before:-translate-y-0.5';
     } else if (isLast) {
-      linkClass = 'before:content-[""] before:inline-block before:w-2 before:h-3 before:ml-2 before:border-l before:border-[#6a6a8a] before:align-middle before:translate-y-0.5';
+      linkClass = 'before:content-[""] before:inline-block before:w-2 before:h-3 before:ml-2 before:border-l before:border-[--color-text-muted] before:align-middle before:translate-y-0.5';
     } else {
-      linkClass = 'before:content-[""] before:inline-block before:w-2 before:h-3 before:ml-2 before:border-l before:border-[#6a6a8a] before:align-middle';
+      linkClass = 'before:content-[""] before:inline-block before:w-2 before:h-3 before:ml-2 before:border-l before:border-[--color-text-muted] before:align-middle';
     }
   }
 

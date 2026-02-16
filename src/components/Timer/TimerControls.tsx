@@ -1,7 +1,9 @@
 import { invoke } from '@tauri-apps/api/core';
 import { emit } from '@tauri-apps/api/event';
+import { Play, Pause, SplitSquareHorizontal, Camera, Flag, RotateCcw } from 'lucide-react';
 import { useRunStore } from '../../stores/runStore';
 import { useSettingsStore } from '../../stores/settingsStore';
+import { Button } from '../Shared/Button';
 
 export function TimerControls() {
   const { timer, currentRun, startTimer, stopTimer, resetRun, endRun, setRunId } = useRunStore();
@@ -28,7 +30,7 @@ export function TimerControls() {
             accountName: accountName || '',
             class: run.class || 'Unknown',
             ascendancy: run.ascendancy || null,
-            league: run.league || 'Standard',
+            league: run.league || '',
             category: run.category || 'any%',
             startedAt: run.startedAt || new Date().toISOString(),
             breakpointPreset: presetName,
@@ -91,6 +93,7 @@ export function TimerControls() {
                 segmentTimeMs,
                 townTimeMs: t.townTimeMs,
                 hideoutTimeMs: t.hideoutTimeMs,
+                deathCount: t.deathCount,
               },
               capture_snapshot: true,
               account_name: acct,
@@ -167,6 +170,7 @@ export function TimerControls() {
             segmentTimeMs,
             townTimeMs: t.townTimeMs,
             hideoutTimeMs: t.hideoutTimeMs,
+            deathCount: t.deathCount,
           },
           capture_snapshot: true,
           account_name: acct,
@@ -182,77 +186,76 @@ export function TimerControls() {
     <div className="flex flex-col gap-2">
       <div className="flex gap-3">
       {!timer.isRunning ? (
-        <button
+        <Button
+          variant="primary"
+          size="lg"
+          icon={Play}
           onClick={handleStart}
-          className="flex-1 py-3 px-6 bg-[--color-timer-ahead] text-white font-semibold rounded-lg
-                     border border-green-400 shadow-md
-                     hover:bg-green-600 hover:shadow-lg active:scale-95 active:shadow-sm transition-all duration-100"
           title={hotkeys.toggleTimer}
+          className="flex-1"
+          style={{ background: 'linear-gradient(180deg, #2cc660 0%, #189845 100%)', borderColor: '#44d070', color: 'white', boxShadow: '0 0 14px rgba(34, 197, 94, 0.3), inset 0 1px 0 rgba(255,255,255,0.15)' }}
         >
           {timer.elapsedMs > 0 ? 'Resume' : 'Start'}
-        </button>
+        </Button>
       ) : (
-        <button
+        <Button
+          variant="primary"
+          size="lg"
+          icon={Pause}
           onClick={handlePause}
-          className="flex-1 py-3 px-6 bg-[--color-poe-gold] text-[--color-poe-darker] font-semibold rounded-lg
-                     border border-[--color-poe-gold-light] shadow-md
-                     hover:bg-[--color-poe-gold-light] hover:shadow-lg active:scale-95 active:shadow-sm transition-all duration-100"
           title={hotkeys.toggleTimer}
+          className="flex-1"
         >
           Pause
-        </button>
+        </Button>
       )}
 
-      <button
+      <Button
+        variant="secondary"
+        size="lg"
+        icon={SplitSquareHorizontal}
         onClick={handleManualSplit}
         disabled={!timer.isRunning}
-        className="py-3 px-6 bg-[--color-surface] text-[--color-text] font-semibold rounded-lg
-                   border-2 border-[--color-poe-gold]/40 shadow-md
-                   hover:border-[--color-poe-gold]/70 hover:shadow-lg active:scale-95 active:shadow-sm transition-all duration-100
-                   disabled:opacity-50 disabled:cursor-not-allowed disabled:active:scale-100 disabled:shadow-none disabled:border-[--color-border]"
         title={hotkeys.manualSplit}
       >
         Split
-      </button>
+      </Button>
 
-      {currentRun && (
-        <button
-          onClick={handleManualSnapshot}
-          disabled={!accountName}
-          className="py-3 px-6 bg-[--color-surface] text-[--color-text] font-semibold rounded-lg
-                     border-2 border-purple-500/40 shadow-md
-                     hover:border-purple-500/70 hover:shadow-lg active:scale-95 active:shadow-sm transition-all duration-100
-                     disabled:opacity-50 disabled:cursor-not-allowed disabled:active:scale-100 disabled:shadow-none disabled:border-[--color-border]"
-          title={hotkeys.manualSnapshot}
-        >
-          Snapshot
-        </button>
-      )}
+      <Button
+        variant="secondary"
+        size="lg"
+        icon={Camera}
+        onClick={handleManualSnapshot}
+        disabled={!currentRun || !accountName}
+        title={hotkeys.manualSnapshot}
+        className="border-purple-500/40 hover:border-purple-500/70"
+      >
+        Snapshot
+      </Button>
 
-      {currentRun && (
-        <button
-          onClick={handleEnd}
-          className="py-3 px-6 bg-[--color-poe-gem] text-white font-semibold rounded-lg
-                     border border-teal-400 shadow-md
-                     hover:bg-teal-600 hover:shadow-lg active:scale-95 active:shadow-sm transition-all duration-100"
-        >
-          End Run
-        </button>
-      )}
+      <Button
+        variant="secondary"
+        size="lg"
+        icon={Flag}
+        onClick={handleEnd}
+        disabled={!currentRun || currentRun.isCompleted}
+        style={currentRun && !currentRun.isCompleted ? { background: 'linear-gradient(180deg, #22b09a 0%, #147868 100%)', borderColor: '#2ac0a8', color: 'white', boxShadow: '0 0 10px rgba(27, 162, 155, 0.25), inset 0 1px 0 rgba(255,255,255,0.1)' } : undefined}
+      >
+        End Run
+      </Button>
 
-      <button
+      <Button
+        variant="destructive"
+        size="lg"
+        icon={RotateCcw}
         onClick={handleReset}
         disabled={timer.elapsedMs === 0}
-        className="py-3 px-6 bg-[--color-timer-behind] text-white font-semibold rounded-lg
-                   border border-red-400 shadow-md
-                   hover:bg-red-600 hover:shadow-lg active:scale-95 active:shadow-sm transition-all duration-100
-                   disabled:opacity-50 disabled:cursor-not-allowed disabled:active:scale-100 disabled:shadow-none"
       >
         Reset
-      </button>
+      </Button>
       </div>
       <div className="text-center text-xs text-[--color-text-muted]">
-        Hotkey: <kbd className="px-1.5 py-0.5 bg-[--color-surface-elevated] rounded text-[--color-text]">{hotkeys.toggleTimer}</kbd> to start/pause
+        Hotkey: <kbd>{hotkeys.toggleTimer}</kbd> to start/pause
       </div>
     </div>
   );

@@ -106,7 +106,7 @@ export function BreakpointWizard() {
       </div>
 
       {/* Step content */}
-      <div className="bg-[--color-surface] rounded-lg p-4">
+      <div className="card-inset rounded-lg p-4">
         {step === 1 && <StepCategory config={config} setConfig={setConfig} onAdvance={() => setStep(2)} />}
         {step === 2 && <StepVerbosity config={config} setConfig={setConfig} onAdvance={() => setStep(3)} />}
         {step === 3 && <StepSnapshots config={config} setConfig={setConfig} onAdvance={() => {}} />}
@@ -140,7 +140,7 @@ export function BreakpointWizard() {
       </div>
 
       {/* Preview panel */}
-      <details className="bg-[--color-surface] rounded-lg overflow-hidden" open>
+      <details className="card-inset rounded-lg overflow-hidden" open>
         <summary className="p-3 cursor-pointer text-sm font-medium text-[--color-text] hover:bg-[--color-surface-elevated]/50 select-none">
           Preview — {enabledCount} splits, {snapshotCount} snapshots
         </summary>
@@ -162,6 +162,8 @@ export function BreakpointWizard() {
                           ? 'bg-red-900/30 text-red-300'
                           : bp.type === 'act'
                           ? 'bg-amber-900/30 text-amber-300'
+                          : bp.type === 'lab'
+                          ? 'bg-purple-900/30 text-purple-300'
                           : 'bg-[--color-surface-elevated] text-[--color-text-muted]'
                       } ${bp.captureSnapshot ? 'ring-1 ring-blue-400/50' : ''}`}
                     >
@@ -377,13 +379,13 @@ export function RouteCustomizations() {
       <RouteSection title="Act 1">
         <RadioOption
           label="Standard"
-          desc="Skip or do Tidal Island later"
+          desc="Skip or delay Dweller of the Deep"
           selected={wizardConfig.routes.act1 === 'standard'}
           onSelect={() => setRoute('act1', 'standard')}
         />
         <RadioOption
           label="Early Dweller"
-          desc="Do Tidal Island right after Mud Flats"
+          desc="Do Flooded Depths early after Submerged Passage"
           selected={wizardConfig.routes.act1 === 'early_dweller'}
           onSelect={() => setRoute('act1', 'early_dweller')}
         />
@@ -393,13 +395,13 @@ export function RouteCustomizations() {
       <RouteSection title="Act 2">
         <RadioOption
           label="Standard"
-          desc="Skip Fellshrine / Crypt areas"
+          desc="Fellshrine / Crypt after bandits (after Wetlands)"
           selected={wizardConfig.routes.act2 === 'standard'}
           onSelect={() => setRoute('act2', 'standard')}
         />
         <RadioOption
           label="Early Crypt"
-          desc="Fellshrine Ruins and Crypt after Crossroads"
+          desc="Fellshrine / Crypt before bandits (after Crossroads)"
           selected={wizardConfig.routes.act2 === 'early_crypt'}
           onSelect={() => setRoute('act2', 'early_crypt')}
         />
@@ -454,6 +456,41 @@ export function RouteCustomizations() {
             selected={wizardConfig.routes.act8 === 'legacy'}
             onSelect={() => setRoute('act8', 'legacy')}
           />
+        </RouteSection>
+      )}
+
+      {/* Labyrinth */}
+      {wizardConfig.endAct >= 3 && (
+        <RouteSection title="Labyrinth">
+          <ToggleOption
+            label="Include Lab Splits"
+            desc={
+              wizardConfig.endAct >= 10
+                ? 'Track Normal, Cruel, and Merciless Labs'
+                : wizardConfig.endAct >= 5
+                ? 'Track Normal Lab (after Imperial Gardens)'
+                : 'Track Normal Lab (after Imperial Gardens)'
+            }
+            checked={wizardConfig.routes.includeLabs ?? (wizardConfig.runType === 'hundred_percent')}
+            onToggle={() => setRoute('includeLabs', !(wizardConfig.routes.includeLabs ?? (wizardConfig.runType === 'hundred_percent')))}
+          />
+          {(wizardConfig.routes.includeLabs ?? (wizardConfig.runType === 'hundred_percent')) && wizardConfig.endAct >= 10 && (
+            <>
+              <div className="text-xs text-[--color-text-muted] px-2 pt-1">Lab 3 position in Act 10:</div>
+              <RadioOption
+                label="Before Torched Courts"
+                desc="Lab after Ravaged Square, before Innocence"
+                selected={(wizardConfig.routes.act10Lab3 || 'before_torched_courts') === 'before_torched_courts'}
+                onSelect={() => setRoute('act10Lab3', 'before_torched_courts')}
+              />
+              <RadioOption
+                label="After Desecrated Chambers"
+                desc="Lab after Innocence, before The Canals"
+                selected={wizardConfig.routes.act10Lab3 === 'after_desecrated_chambers'}
+                onSelect={() => setRoute('act10Lab3', 'after_desecrated_chambers')}
+              />
+            </>
+          )}
         </RouteSection>
       )}
     </div>
@@ -525,7 +562,7 @@ function ToggleOption({ label, desc, checked, onToggle }: {
         <div className="text-xs text-[--color-text-muted]">{desc}</div>
       </div>
       <div className={`w-10 h-5 rounded-full transition-all duration-150 border flex-shrink-0 ${
-        checked ? 'bg-[--color-poe-gold] border-[--color-poe-gold-light]' : 'bg-zinc-700 border-zinc-600'
+        checked ? 'bg-[--color-poe-gold] border-[--color-poe-gold-light]' : 'bg-[--color-surface-elevated] border-[--color-border]'
       }`}>
         <div className={`w-4 h-4 rounded-full bg-white shadow transition-transform duration-150 ${
           checked ? 'translate-x-5' : 'translate-x-0.5'
