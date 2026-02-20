@@ -556,12 +556,6 @@ impl Snapshot {
         Ok(snapshot)
     }
 
-    pub fn get_by_split(split_id: i64) -> Result<Option<Snapshot>> {
-        let conn = get_db()?;
-        let mut stmt = conn.prepare("SELECT * FROM snapshots WHERE split_id = ?1")?;
-        let snapshot = stmt.query_row([split_id], Snapshot::from_row).ok();
-        Ok(snapshot)
-    }
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
