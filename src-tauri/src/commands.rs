@@ -816,14 +816,17 @@ pub async fn open_overlay(app_handle: AppHandle) -> Result<(), String> {
     let (saved_x, saved_y) = Settings::get_overlay_position().unwrap_or((None, None));
     let settings = Settings::load().unwrap_or_default();
 
-    // Determine size from scale setting
+    // Determine size from scale setting (must match OverlayApp.tsx sizes)
     let (width, height) = match settings.overlay_scale.as_str() {
-        "small" => (260.0, 150.0),
-        "large" => (400.0, 220.0),
+        "small" => (240.0, 120.0),
+        "large" => (420.0, 240.0),
         _ => (320.0, 180.0), // medium (default)
     };
 
     // Build the overlay window
+    // Note: transparent(true) is NOT used because OBS/streaming tools cannot
+    // capture layered windows on Windows. Instead we use a solid dark background
+    // via CSS that matches the overlay theme.
     let mut builder = WebviewWindowBuilder::new(
         &app_handle,
         "overlay",
@@ -832,7 +835,6 @@ pub async fn open_overlay(app_handle: AppHandle) -> Result<(), String> {
     .title("POE Watcher Overlay")
     .inner_size(width, height)
     .decorations(false)
-    .transparent(true)
     .always_on_top(settings.overlay_always_on_top)
     .skip_taskbar(true)
     .resizable(false);

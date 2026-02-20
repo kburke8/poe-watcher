@@ -105,9 +105,7 @@ export function OverlayApp() {
     }
   }, [state.alwaysOnTop]);
 
-  // Window opacity is applied via CSS (Tauri 2.x doesn't have setOpacity API)
-
-  // Listen for lock toggle from global shortcut
+  // Listen for lock toggle from global shortcut (click-through mode)
   useEffect(() => {
     const unlistenLock = listen<string>('global-shortcut', async (event) => {
       if (event.payload === 'toggle-overlay-lock') {
@@ -151,39 +149,17 @@ export function OverlayApp() {
     };
   }, []);
 
-  // Handle dragging
+  // Handle dragging (only when unlocked)
   const handleMouseDown = useCallback((e: React.MouseEvent) => {
-    if ((e.target as HTMLElement).closest('button')) return;
     if (isLocked) return;
     e.preventDefault();
     getCurrentWindow().startDragging();
   }, [isLocked]);
 
-  // Toggle lock
-  const handleToggleLock = useCallback(async () => {
-    const newLocked = !isLocked;
-    setIsLocked(newLocked);
-    try {
-      await getCurrentWindow().setIgnoreCursorEvents(newLocked);
-    } catch (error) {
-      console.error('Failed to set cursor events:', error);
-    }
-  }, [isLocked]);
-
-  // Close overlay
-  const handleClose = useCallback(async () => {
-    try {
-      await invoke('close_overlay');
-    } catch (error) {
-      console.error('Failed to close overlay:', error);
-    }
-  }, []);
-
   // Derive display values from config
   const accentColor = state.accentColor || 'transparent';
   const isTransparentAccent = accentColor === 'transparent';
   const bgOpacity = state.bgOpacity ?? 0.9;
-  const windowOpacity = state.opacity ?? 0.8;
   const showTimer = state.showTimer ?? true;
   const showZone = state.showZone ?? true;
   const showLastSplit = state.showLastSplit ?? true;
@@ -198,17 +174,12 @@ export function OverlayApp() {
   const bgColor = `rgba(${bgR}, ${bgG}, ${bgB}, ${bgOpacity})`;
 
   // Scale-based layout classes
-  const headerPx = scale === 'small' ? 'px-2 py-0.5' : scale === 'large' ? 'px-4 py-1.5' : 'px-3 py-1';
   const contentPadding = scale === 'small' ? 'p-1.5 space-y-1' : scale === 'large' ? 'p-4 space-y-2' : 'p-3 space-y-2';
-  const headerTextSize = scale === 'small' ? 'text-[10px]' : 'text-xs';
-  const iconSize = scale === 'small' ? 'w-2.5 h-2.5' : 'w-3 h-3';
 
   // Border style based on accent color
-  const borderStyle = isLocked
-    ? '1px solid rgba(58, 58, 62, 0.5)'
-    : isTransparentAccent
-      ? '1px solid rgba(58, 58, 62, 0.3)'
-      : `2px solid ${accentColor}`;
+  const borderStyle = isTransparentAccent
+    ? '1px solid rgba(58, 58, 62, 0.3)'
+    : `2px solid ${accentColor}`;
 
   return (
     <div
@@ -217,49 +188,11 @@ export function OverlayApp() {
         backgroundColor: bgColor,
         border: borderStyle,
         boxShadow: isTransparentAccent ? 'none' : '0 4px 12px rgba(0, 0, 0, 0.8)',
-        opacity: windowOpacity,
         '--overlay-accent': accentColor,
       } as React.CSSProperties}
       onMouseDown={handleMouseDown}
     >
-      {/* Header with controls */}
-      <div className={`flex items-center justify-between ${headerPx}`} style={{ borderBottom: '1px solid rgba(58, 58, 62, 0.5)' }}>
-        <span className={`${headerTextSize} font-semibold`} style={{ color: isTransparentAccent ? '#9a8e82' : accentColor }}>
-          {isLocked ? 'Locked' : 'POE Watcher'}
-        </span>
-        <div className="flex items-center gap-0.5">
-          {/* Lock button */}
-          <button
-            onClick={handleToggleLock}
-            className="p-0.5"
-            style={{ color: isLocked ? '#fbbf24' : '#9a8e82' }}
-            title={isLocked ? `Unlock overlay (${state.hotkeyToggleOverlayLock || 'Ctrl+Shift+O'})` : `Lock overlay (${state.hotkeyToggleOverlayLock || 'Ctrl+Shift+O'})`}
-          >
-            {isLocked ? (
-              <svg className={iconSize} fill="currentColor" viewBox="0 0 24 24">
-                <path d="M18 8h-1V6c0-2.76-2.24-5-5-5S7 3.24 7 6v2H6c-1.1 0-2 .9-2 2v10c0 1.1.9 2 2 2h12c1.1 0 2-.9 2-2V10c0-1.1-.9-2-2-2zm-6 9c-1.1 0-2-.9-2-2s.9-2 2-2 2 .9 2 2-.9 2-2 2zm3.1-9H8.9V6c0-1.71 1.39-3.1 3.1-3.1 1.71 0 3.1 1.39 3.1 3.1v2z"/>
-              </svg>
-            ) : (
-              <svg className={iconSize} fill="currentColor" viewBox="0 0 24 24">
-                <path d="M12 17c1.1 0 2-.9 2-2s-.9-2-2-2-2 .9-2 2 .9 2 2 2zm6-9h-1V6c0-2.76-2.24-5-5-5S7 3.24 7 6h1.9c0-1.71 1.39-3.1 3.1-3.1 1.71 0 3.1 1.39 3.1 3.1v2H6c-1.1 0-2 .9-2 2v10c0 1.1.9 2 2 2h12c1.1 0 2-.9 2-2V10c0-1.1-.9-2-2-2zm0 12H6V10h12v10z"/>
-              </svg>
-            )}
-          </button>
-          {/* Close button */}
-          <button
-            onClick={handleClose}
-            className="p-0.5"
-            style={{ color: '#9a8e82' }}
-            title={`Close overlay (${state.hotkeyToggleOverlay || 'Ctrl+O'})`}
-          >
-            <svg className={iconSize} fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-            </svg>
-          </button>
-        </div>
-      </div>
-
-      {/* Content */}
+      {/* Content - overflow hidden clips breakpoints on small scale */}
       <div className={contentPadding}>
         {/* Timer */}
         {showTimer && (
