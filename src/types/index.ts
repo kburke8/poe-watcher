@@ -224,7 +224,7 @@ export const DEFAULT_HOTKEYS: HotkeySettings = {
   manualSnapshot: 'Ctrl+Alt+Space',
   manualSplit: 'Ctrl+Shift+S',
   toggleOverlay: 'Ctrl+O',
-  toggleOverlayLock: 'Ctrl+Shift+O',
+  toggleOverlayLock: 'Ctrl+Shift+L',
 };
 
 // Timer state

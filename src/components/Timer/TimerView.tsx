@@ -1,6 +1,6 @@
 import { useEffect, useRef, useCallback } from 'react';
 import { invoke } from '@tauri-apps/api/core';
-import { Monitor } from 'lucide-react';
+import { Monitor, Lock, Unlock } from 'lucide-react';
 import { useRunStore } from '../../stores/runStore';
 import { useSettingsStore } from '../../stores/settingsStore';
 import { TimerDisplay } from './TimerDisplay';
@@ -10,7 +10,7 @@ import type { TimerState } from '../../types';
 
 export function TimerView() {
   const { timer, updateElapsed, currentRun } = useRunStore();
-  const { overlayOpen, overlayEnabled, setOverlayOpen, hotkeys } = useSettingsStore();
+  const { overlayOpen, overlayEnabled, overlayLocked, setOverlayOpen, setOverlayLocked, hotkeys } = useSettingsStore();
   const animationRef = useRef<number | null>(null);
 
   const handleToggleOverlay = useCallback(async () => {
@@ -21,6 +21,10 @@ export function TimerView() {
       console.error('Failed to toggle overlay:', error);
     }
   }, [setOverlayOpen]);
+
+  const handleToggleLock = useCallback(() => {
+    setOverlayLocked(!overlayLocked);
+  }, [overlayLocked, setOverlayLocked]);
 
   // Update timer every frame when running
   useEffect(() => {
@@ -55,17 +59,32 @@ export function TimerView() {
           )}
         </div>
         {overlayEnabled && (
-          <button
-            onClick={handleToggleOverlay}
-            className={`p-2 rounded-lg border-2 transition-all active:scale-95 ${
-              overlayOpen
-                ? 'text-[--color-poe-gold] border-[--color-poe-gold]/60 bg-[--color-poe-gold]/10'
-                : 'text-[--color-text-muted] border-[--color-border] hover:text-[--color-text] hover:border-[--color-poe-gold]/40'
-            }`}
-            title={overlayOpen ? `Close Overlay (${hotkeys.toggleOverlay})` : `Open Overlay (${hotkeys.toggleOverlay})`}
-          >
-            <Monitor className="w-5 h-5" strokeWidth={1.75} />
-          </button>
+          <div className="flex items-center gap-1.5">
+            {overlayOpen && (
+              <button
+                onClick={handleToggleLock}
+                className={`p-2 rounded-lg transition-all active:scale-95 ${
+                  overlayLocked
+                    ? 'text-[--color-poe-gold] border-2 border-[--color-poe-gold]/60 bg-[--color-poe-gold]/10'
+                    : 'text-[--color-text-muted] hover:text-[--color-text]'
+                }`}
+                title={overlayLocked ? `Unlock Overlay (${hotkeys.toggleOverlayLock})` : `Lock Overlay (${hotkeys.toggleOverlayLock})`}
+              >
+                {overlayLocked ? <Lock className="w-5 h-5" strokeWidth={1.75} /> : <Unlock className="w-5 h-5" strokeWidth={1.75} />}
+              </button>
+            )}
+            <button
+              onClick={handleToggleOverlay}
+              className={`p-2 rounded-lg border-2 transition-all active:scale-95 ${
+                overlayOpen
+                  ? 'text-[--color-poe-gold] border-[--color-poe-gold]/60 bg-[--color-poe-gold]/10'
+                  : 'text-[--color-text-muted] border-[--color-border] hover:text-[--color-text] hover:border-[--color-poe-gold]/40'
+              }`}
+              title={overlayOpen ? `Close Overlay (${hotkeys.toggleOverlay})` : `Open Overlay (${hotkeys.toggleOverlay})`}
+            >
+              <Monitor className="w-5 h-5" strokeWidth={1.75} />
+            </button>
+          </div>
         )}
       </div>
 

@@ -757,7 +757,7 @@ impl Default for Settings {
             sound_enabled: true,
             overlay_x: None,
             overlay_y: None,
-            overlay_scale: "medium".to_string(),
+            overlay_scale: "small".to_string(),
             overlay_font_size: "medium".to_string(),
             overlay_show_timer: true,
             overlay_show_zone: true,
@@ -772,7 +772,7 @@ impl Default for Settings {
             hotkey_reset_timer: "Ctrl+Shift+Space".to_string(),
             hotkey_manual_snapshot: "Ctrl+Alt+Space".to_string(),
             hotkey_toggle_overlay: "Ctrl+O".to_string(),
-            hotkey_toggle_overlay_lock: "Ctrl+Shift+O".to_string(),
+            hotkey_toggle_overlay_lock: "Ctrl+Shift+L".to_string(),
             hotkey_manual_split: "Ctrl+Shift+S".to_string(),
         }
     }

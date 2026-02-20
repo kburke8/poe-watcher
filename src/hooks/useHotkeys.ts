@@ -233,6 +233,12 @@ export function useHotkeys() {
     }
   }, []);
 
+  // Toggle overlay lock (click-through)
+  const toggleOverlayLock = useCallback(() => {
+    const { overlayLocked, setOverlayLocked } = useSettingsStore.getState();
+    setOverlayLocked(!overlayLocked);
+  }, []);
+
   // Listen for global shortcut events from the backend (works even when window is not focused).
   // Uses the same debounce to avoid double-firing with the local keydown handler.
   useEffect(() => {
@@ -247,11 +253,13 @@ export function useHotkeys() {
         debounced(triggerManualSplit);
       } else if (event.payload === 'toggle-overlay') {
         debounced(toggleOverlay);
+      } else if (event.payload === 'toggle-overlay-lock') {
+        debounced(toggleOverlayLock);
       }
     });
 
     return () => {
       unlistenGlobal.then((fn) => fn());
     };
-  }, [toggleTimer, resetTimer, captureManualSnapshot, triggerManualSplit, toggleOverlay, debounced]);
+  }, [toggleTimer, resetTimer, captureManualSnapshot, triggerManualSplit, toggleOverlay, toggleOverlayLock, debounced]);
 }

@@ -63,7 +63,9 @@ function debounce<T extends (...args: unknown[]) => unknown>(fn: T, ms: number) 
 export function OverlayApp() {
   const [state, setState] = useState<OverlayState>(initialState);
   const [isLocked, setIsLocked] = useState(false);
+  const [lockHint, setLockHint] = useState(false);
   const prevScaleRef = useRef<string | undefined>(undefined);
+  const contentRef = useRef<HTMLDivElement>(null);
 
   // Listen for state updates from main window
   useEffect(() => {
@@ -83,20 +85,50 @@ export function OverlayApp() {
   useEffect(() => {
     if (state.isLocked !== undefined && state.isLocked !== isLocked) {
       setIsLocked(state.isLocked);
-      getCurrentWindow().setIgnoreCursorEvents(state.isLocked).catch(() => {});
+      // Show unlock hint briefly when locking
+      if (state.isLocked) {
+        setLockHint(true);
+        const timer = setTimeout(() => {
+          setLockHint(false);
+          // Delay click-through until hint fades so user can see it
+          getCurrentWindow().setIgnoreCursorEvents(true).catch(() => {});
+        }, 2000);
+        return () => clearTimeout(timer);
+      } else {
+        getCurrentWindow().setIgnoreCursorEvents(false).catch(() => {});
+      }
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [state.isLocked]);
 
-  // Sync scale changes - resize overlay window
+  // Sync scale changes - update width (height is auto-sized from content)
   useEffect(() => {
     if (state.scale && state.scale !== prevScaleRef.current) {
       prevScaleRef.current = state.scale;
-      const sizes = { small: [240, 120], medium: [320, 180], large: [420, 240] };
-      const [w, h] = sizes[state.scale] || sizes.medium;
+      const widths = { small: 240, medium: 320, large: 420 };
+      const w = widths[state.scale] || widths.medium;
+      // Set width; height will be adjusted by ResizeObserver below
+      const el = contentRef.current;
+      const h = el ? el.scrollHeight + 4 : 120; // 4px for border
       invoke('resize_overlay', { width: w, height: h }).catch(() => {});
     }
   }, [state.scale]);
+
+  // Auto-resize overlay height to fit content
+  useEffect(() => {
+    const el = contentRef.current;
+    if (!el) return;
+    const scale = state.scale || 'medium';
+    const widths = { small: 240, medium: 320, large: 420 };
+    const w = widths[scale] || widths.medium;
+
+    const observer = new ResizeObserver(() => {
+      const h = el.scrollHeight + 4; // 4px for border
+      invoke('resize_overlay', { width: w, height: h }).catch(() => {});
+    });
+    observer.observe(el);
+    return () => observer.disconnect();
+  }, [state.scale, state.showTimer, state.showZone, state.showLastSplit, state.showBreakpoints, state.breakpointCount]);
 
   // Sync always-on-top changes
   useEffect(() => {
@@ -105,24 +137,8 @@ export function OverlayApp() {
     }
   }, [state.alwaysOnTop]);
 
-  // Listen for lock toggle from global shortcut (click-through mode)
-  useEffect(() => {
-    const unlistenLock = listen<string>('global-shortcut', async (event) => {
-      if (event.payload === 'toggle-overlay-lock') {
-        const newLocked = !isLocked;
-        setIsLocked(newLocked);
-        try {
-          await getCurrentWindow().setIgnoreCursorEvents(newLocked);
-        } catch (error) {
-          console.error('Failed to set cursor events:', error);
-        }
-      }
-    });
-
-    return () => {
-      unlistenLock.then((fn) => fn());
-    };
-  }, [isLocked]);
+  // Lock toggle is handled by the main window's useHotkeys hook, which updates
+  // the settings store. The overlay receives the updated isLocked via overlay-state-update.
 
   // Ensure cursor events are enabled on mount
   useEffect(() => {
@@ -157,6 +173,7 @@ export function OverlayApp() {
   }, [isLocked]);
 
   // Derive display values from config
+  const scale = state.scale || 'medium';
   const accentColor = state.accentColor || 'transparent';
   const isTransparentAccent = accentColor === 'transparent';
   const bgOpacity = state.bgOpacity ?? 0.9;
@@ -165,7 +182,6 @@ export function OverlayApp() {
   const showLastSplit = state.showLastSplit ?? true;
   const showBreakpoints = state.showBreakpoints ?? true;
   const breakpointCount = state.breakpointCount ?? 3;
-  const scale = state.scale || 'medium';
   // Scale drives font size directly - ensures content fits the window
   const fontSize = scale;
 
@@ -183,8 +199,9 @@ export function OverlayApp() {
 
   return (
     <div
-      className={`w-full h-full rounded-lg overflow-hidden ${isLocked ? '' : 'drag-handle'}`}
+      className={`w-full h-full overflow-hidden ${isLocked ? '' : 'drag-handle'}`}
       style={{
+        opacity: state.opacity ?? 0.8,
         backgroundColor: bgColor,
         border: borderStyle,
         boxShadow: isTransparentAccent ? 'none' : '0 4px 12px rgba(0, 0, 0, 0.8)',
@@ -192,8 +209,14 @@ export function OverlayApp() {
       } as React.CSSProperties}
       onMouseDown={handleMouseDown}
     >
-      {/* Content - overflow hidden clips breakpoints on small scale */}
-      <div className={contentPadding}>
+      <div ref={contentRef} className={contentPadding}>
+        {/* Lock hint */}
+        {lockHint && (
+          <div className="text-center py-1 text-xs text-[--color-poe-gold] animate-pulse">
+            {state.hotkeyToggleOverlayLock || 'Ctrl+Shift+L'} to unlock
+          </div>
+        )}
+
         {/* Timer */}
         {showTimer && (
           <OverlayTimer startTime={state.startTime} elapsedMs={state.elapsedMs} isRunning={state.isRunning} fontSize={fontSize} hotkeyToggleTimer={state.hotkeyToggleTimer} />

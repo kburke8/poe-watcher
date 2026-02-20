@@ -824,9 +824,10 @@ pub async fn open_overlay(app_handle: AppHandle) -> Result<(), String> {
     };
 
     // Build the overlay window
-    // Note: transparent(true) is NOT used because OBS/streaming tools cannot
-    // capture layered windows on Windows. Instead we use a solid dark background
-    // via CSS that matches the overlay theme.
+    // transparent(true) is required for setIgnoreCursorEvents (click-through) to work
+    // on Windows — it sets WS_EX_LAYERED which enables per-pixel alpha hit-testing.
+    // OBS "Window Capture" won't work (layered window limitation), but "Game Capture"
+    // or "Display Capture" will. The overlay content is fully opaque via CSS.
     let mut builder = WebviewWindowBuilder::new(
         &app_handle,
         "overlay",
@@ -835,9 +836,11 @@ pub async fn open_overlay(app_handle: AppHandle) -> Result<(), String> {
     .title("POE Watcher Overlay")
     .inner_size(width, height)
     .decorations(false)
+    .transparent(true)
     .always_on_top(settings.overlay_always_on_top)
     .skip_taskbar(true)
-    .resizable(false);
+    .resizable(false)
+    .background_color(tauri::window::Color(13, 11, 10, 255));
 
     // Set position if saved
     if let (Some(x), Some(y)) = (saved_x, saved_y) {

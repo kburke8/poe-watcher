@@ -22,12 +22,12 @@
   --color-text-muted: #9a8e82;
 }
 
-/* Solid dark background for overlay — matches the overlay theme.
-   We intentionally do NOT use a transparent window because OBS and other
-   streaming/capture tools cannot capture layered (WS_EX_LAYERED) windows
-   on Windows, which would render as a black rectangle. */
+/* Transparent background — the visible background is controlled by the
+   bgColor rgba in OverlayApp.tsx. transparent(true) on the window enables
+   click-through (WS_EX_LAYERED) on Windows. OBS users should use
+   "Game Capture" or "Display Capture" instead of "Window Capture". */
 html, body {
-  background: #0d0b0a !important;
+  background: transparent !important;
   margin: 0;
   padding: 0;
   overflow: hidden;
@@ -38,7 +38,7 @@ html, body {
 #overlay-root {
   width: 100%;
   height: 100%;
-  background: #0d0b0a;
+  background: transparent;
   color: #e8e0d6;
 }
 

@@ -979,7 +979,6 @@ function OverlayTab({
           <div className="flex items-center gap-2 flex-wrap">
             {[
               { label: 'None', color: 'transparent' },
-              { label: 'POE Gold', color: '#af6025' },
               { label: 'Green', color: '#22c55e' },
               { label: 'Blue', color: '#3b82f6' },
               { label: 'White', color: '#d1d5db' },
