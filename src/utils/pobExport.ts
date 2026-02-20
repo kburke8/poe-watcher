@@ -223,7 +223,7 @@ function generatePobXml(data: BuildData): string {
     // Build slot mapping
     let slotName = slotNameMap[item.inventoryId];
 
-    // Handle flasks - POE API returns "Flask" for all, use x coordinate to determine slot
+    // Handle flasks - PoE API returns "Flask" for all, use x coordinate to determine slot
     if (item.inventoryId === 'Flask' && item.x !== undefined && item.x !== null) {
       const flaskSlot = item.x + 1; // x is 0-indexed, slots are 1-indexed
       slotName = `Flask ${flaskSlot}`;
@@ -274,12 +274,12 @@ ${skillsXml || '\t\t<SkillSet id="1"/>'}
 			<Sockets></Sockets>
 		</Spec>
 	</Tree>
-	<Notes>Exported from POE Watcher speedrun tracker</Notes>
+	<Notes>Exported from PoE Watcher speedrun tracker</Notes>
 </PathOfBuilding>`;
 }
 
 /**
- * Format a POE item for PoB import - must match PoB's expected text format exactly
+ * Format a PoE item for PoB import - must match PoB's expected text format exactly
  */
 function formatItemForPob(item: PoeItem): string {
   const lines: string[] = [];
@@ -695,7 +695,7 @@ function getAscendancyId(ascendancy: string | undefined): number {
 
 /**
  * Derive both class AND ascendancy from rawClass and ascendancy params
- * Handles the case where rawClass is actually an ascendancy name (from POE log)
+ * Handles the case where rawClass is actually an ascendancy name (from PoE log)
  */
 function deriveClassAndAscendancy(rawClass: string | undefined, ascendancy: string | undefined): { class: string; ascendancy: string } {
   const ascendancyToClass: Record<string, string> = {
@@ -723,7 +723,7 @@ function deriveClassAndAscendancy(rawClass: string | undefined, ascendancy: stri
     };
   }
 
-  // Case 2: rawClass is actually an ascendancy name (from POE log)
+  // Case 2: rawClass is actually an ascendancy name (from PoE log)
   if (rawClass && ascendancyToClass[rawClass]) {
     return {
       class: ascendancyToClass[rawClass],
@@ -985,7 +985,7 @@ ${specsXml.join('\n')}
 	<Config activeConfigSet="${defaultSet}">
 ${configSetsXml.join('\n')}
 	</Config>
-	<Notes>Exported from POE Watcher speedrun tracker - ${snapshots.length} snapshots</Notes>
+	<Notes>Exported from PoE Watcher speedrun tracker - ${snapshots.length} snapshots</Notes>
 </PathOfBuilding>`;
 }
 

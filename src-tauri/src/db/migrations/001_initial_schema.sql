@@ -1,4 +1,4 @@
--- Initial schema for POE Watcher
+-- Initial schema for PoE Watcher
 
 -- Speedrun attempts
 CREATE TABLE IF NOT EXISTS runs (

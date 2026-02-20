@@ -7,7 +7,7 @@ use std::time::{Duration, Instant};
 use tokio::sync::Mutex;
 
 const POE_API_BASE: &str = "https://www.pathofexile.com";
-const USER_AGENT: &str = "POE-Watcher/0.2.0 (https://github.com/kburke8/poe-watcher; Discord: beerdz)";
+const USER_AGENT: &str = "PoE-Watcher/0.2.0 (https://github.com/kburke8/poe-watcher; Discord: beerdz)";
 
 /// Rate limiter using token bucket algorithm
 struct RateLimiter {
@@ -60,7 +60,7 @@ struct CacheEntry<T> {
     expires_at: Instant,
 }
 
-/// POE API client with rate limiting and caching
+/// PoE API client with rate limiting and caching
 pub struct PoeApiClient {
     client: Client,
     rate_limiter: Arc<Mutex<RateLimiter>>,
@@ -139,7 +139,7 @@ impl PoeApiClient {
 
         if response.status() == 403 {
             return Err(anyhow::anyhow!(
-                "Profile is private. Please set your POE profile to public in account settings."
+                "Profile is private. Please set your PoE profile to public in account settings."
             ));
         }
 
@@ -176,7 +176,7 @@ impl PoeApiClient {
 
         if response.status() == 403 {
             return Err(anyhow::anyhow!(
-                "Profile is private. Please set your POE profile to public in account settings."
+                "Profile is private. Please set your PoE profile to public in account settings."
             ));
         }
 
@@ -217,7 +217,7 @@ impl PoeApiClient {
 
         if response.status() == 403 {
             return Err(anyhow::anyhow!(
-                "Profile is private. Please set your POE profile to public in account settings."
+                "Profile is private. Please set your PoE profile to public in account settings."
             ));
         }
 
@@ -326,7 +326,7 @@ pub struct ItemProperty {
     pub values: Vec<PropertyValue>,
 }
 
-// POE API returns values as [value, display_mode] where value can be string or number
+// PoE API returns values as [value, display_mode] where value can be string or number
 // Handle multiple possible formats from the API
 pub type PropertyValue = serde_json::Value;
 

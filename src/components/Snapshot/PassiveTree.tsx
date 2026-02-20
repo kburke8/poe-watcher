@@ -112,9 +112,9 @@ const CLASS_START_POSITIONS: Record<string, { x: number; y: number }> = {
 };
 
 // Map display names to internal ascendancy IDs in the tree data
-// POE API returns display names, but tree data uses internal IDs
+// PoE API returns display names, but tree data uses internal IDs
 const ASCENDANCY_NAME_MAP: Record<string, string> = {
-  // Ranger ascendancies (POE2 renamed Raider to Warden)
+  // Ranger ascendancies (PoE2 renamed Raider to Warden)
   'Warden': 'Raider',
   'Deadeye': 'Deadeye',
   'Pathfinder': 'Pathfinder',

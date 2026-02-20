@@ -1,4 +1,4 @@
-# POE Watcher
+# PoE Watcher
 
 A local desktop application for tracking Path of Exile speedruns. Monitor your gameplay, capture splits at key breakpoints, and analyze your builds with Path of Building integration.
 
@@ -47,7 +47,7 @@ A local desktop application for tracking Path of Exile speedruns. Monitor your g
 
 - Windows 10/11
 - Path of Exile installed
-- POE profile set to **public** (for character data fetching)
+- PoE profile set to **public** (for character data fetching)
 
 ## Installation
 
@@ -73,7 +73,7 @@ The app is open source - you can review the code or build it yourself if you pre
 Some antivirus software may flag the app due to:
 - File system monitoring (watching Client.txt)
 - Global hotkey registration (Ctrl+Space)
-- Network requests (POE API)
+- Network requests (PoE API)
 
 These are all legitimate features. You may need to add an exception in your antivirus software.
 
@@ -83,13 +83,13 @@ See [CONTRIBUTING.md](CONTRIBUTING.md) for detailed build instructions.
 
 ## Configuration
 
-1. Launch POE Watcher
+1. Launch PoE Watcher
 2. Go to **Settings** (gear icon)
 3. Set your **Client.txt Log Path**:
    - Steam: `C:\Program Files (x86)\Steam\steamapps\common\Path of Exile\logs\Client.txt`
    - Standalone: `C:\Program Files (x86)\Grinding Gear Games\Path of Exile\logs\Client.txt`
    - Or click **Auto-detect**
-4. Enter your **POE Account Name**
+4. Enter your **PoE Account Name**
 5. Optionally set a **Test Character Name** for simulating snapshots
 6. Configure breakpoints - enable/disable specific splits, toggle snapshot capture
 7. Click **Save Settings**
@@ -117,7 +117,7 @@ The app monitors Client.txt for these events:
 
 When snapshot capture is enabled for a breakpoint:
 1. Split triggers on zone enter or level up
-2. App fetches character data from POE API
+2. App fetches character data from PoE API
 3. Equipment, skills, and passive tree are saved
 4. View snapshots in the Snapshots tab
 
@@ -159,7 +159,7 @@ poe-watcher/
 ├── src-tauri/              # Rust backend
 │   ├── src/
 │   │   ├── db/             # SQLite database
-│   │   ├── api_client.rs   # POE API client
+│   │   ├── api_client.rs   # PoE API client
 │   │   ├── log_watcher.rs  # Client.txt monitor
 │   │   └── commands.rs     # Tauri IPC commands
 │   └── Cargo.toml
@@ -176,7 +176,7 @@ The app respects GGG's API rate limits:
 ## Troubleshooting
 
 ### "Profile is private" error
-Set your POE profile to public at [pathofexile.com/account/privacy](https://www.pathofexile.com/account/privacy)
+Set your PoE profile to public at [pathofexile.com/account/privacy](https://www.pathofexile.com/account/privacy)
 
 ### Log file not found
 Verify the path in Settings. The file must exist and be readable.
@@ -187,7 +187,7 @@ Ensure the log watcher is running (check the status indicator in the app).
 ### Snapshots not capturing
 - Verify your account name is correct in Settings
 - Ensure character name is detected (shows in timer view)
-- Check that the character exists on the POE website
+- Check that the character exists on the PoE website
 
 ### Wrong class in PoB export
 This is handled automatically - the app detects ascendancy from level-up events and derives the correct base class.
@@ -203,7 +203,7 @@ Contributions welcome! See [CONTRIBUTING.md](CONTRIBUTING.md) for:
 
 ## Disclaimer
 
-POE Watcher is not affiliated with or endorsed by Grinding Gear Games in any way.
+PoE Watcher is not affiliated with or endorsed by Grinding Gear Games in any way.
 
 ## Support
 

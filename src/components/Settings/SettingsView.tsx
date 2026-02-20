@@ -251,7 +251,7 @@ export function SettingsView() {
       if (result) {
         setLogPath(result);
       } else {
-        alert('Could not auto-detect POE log path. Please browse manually.');
+        alert('Could not auto-detect PoE log path. Please browse manually.');
       }
     } catch (error) {
       console.error('Failed to detect log path:', error);
@@ -468,7 +468,7 @@ function GeneralTab({
 }: GeneralTabProps) {
   return (
     <div className="space-y-8">
-      {/* POE Configuration */}
+      {/* PoE Configuration */}
       <section>
         <h2 className="text-lg font-semibold text-[--color-text] mb-4">Path of Exile</h2>
         <div className="card-inset rounded-lg p-4 space-y-4">
@@ -500,7 +500,7 @@ function GeneralTab({
           {/* Account name */}
           <div>
             <label className="block text-sm text-[--color-text-muted] mb-2">
-              POE Account Name
+              PoE Account Name
             </label>
             <input
               type="text"
@@ -510,7 +510,7 @@ function GeneralTab({
               className="w-full p-3 bg-[--color-surface-elevated] border border-[--color-border] rounded-lg text-[--color-text] placeholder-[--color-text-muted]"
             />
             <p className="text-xs text-[--color-text-muted] mt-2">
-              Required for fetching character data from the POE API. Your profile must be set to public.
+              Required for fetching character data from the PoE API. Your profile must be set to public.
             </p>
           </div>
 

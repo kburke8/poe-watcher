@@ -1,6 +1,6 @@
 {
   "$schema": "https://schema.tauri.app/config/2",
-  "productName": "POE Watcher",
+  "productName": "PoE Watcher",
   "version": "0.6.0",
   "identifier": "com.poe-watcher.app",
   "build": {
@@ -12,7 +12,7 @@
   "app": {
     "windows": [
       {
-        "title": "POE Watcher - Speedrun Tracker",
+        "title": "PoE Watcher - Speedrun Tracker",
         "width": 1200,
         "height": 800,
         "minWidth": 800,

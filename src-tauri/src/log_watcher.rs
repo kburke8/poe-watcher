@@ -217,7 +217,7 @@ impl LogWatcher {
     fn parse_line(line: &str) -> Option<LogEvent> {
         lazy_static::lazy_static! {
             // Pattern: 2024/01/15 12:34:56 12345678 abc [INFO Client 1234] : You have entered The Coast.
-            // Note: POE log format has "] : " before the message
+            // Note: PoE log format has "] : " before the message
             static ref ZONE_ENTER: Regex = Regex::new(
                 r"(\d{4}/\d{2}/\d{2} \d{2}:\d{2}:\d{2}).*\] :? ?You have entered (.+)\."
             ).unwrap();
@@ -302,7 +302,7 @@ impl LogWatcher {
     }
 }
 
-/// Detect the POE log path automatically
+/// Detect the PoE log path automatically
 pub fn detect_log_path() -> Option<PathBuf> {
     let possible_paths = [
         // Steam
@@ -334,7 +334,7 @@ mod tests {
 
     #[test]
     fn test_parse_zone_enter() {
-        // Test with colon format (actual POE format)
+        // Test with colon format (actual PoE format)
         let line = "2024/01/15 12:34:56 12345678 abc [INFO Client 1234] : You have entered The Coast.";
         let event = LogWatcher::parse_line(line);
         assert!(matches!(event, Some(LogEvent::ZoneEnter { zone_name, .. }) if zone_name == "The Coast"));

@@ -1,6 +1,6 @@
 # Runbook
 
-> Operational guide for releasing, troubleshooting, and maintaining POE Watcher.
+> Operational guide for releasing, troubleshooting, and maintaining PoE Watcher.
 > Last updated: 2026-02-11
 
 ## Release Procedure
@@ -41,8 +41,8 @@ This triggers the GitHub Actions release workflow (`.github/workflows/release.ym
 
 | File | Type | Purpose |
 |------|------|---------|
-| `POE Watcher_X.Y.Z_x64_en-US.msi` | MSI installer | Standard Windows installer |
-| `POE Watcher_X.Y.Z_x64-setup.exe` | NSIS installer | Alternative installer |
+| `PoE Watcher_X.Y.Z_x64_en-US.msi` | MSI installer | Standard Windows installer |
+| `PoE Watcher_X.Y.Z_x64-setup.exe` | NSIS installer | Alternative installer |
 | `latest.json` | JSON | Auto-updater manifest |
 | `*.sig` | Signature | Tauri update signatures |
 
@@ -85,17 +85,17 @@ The app checks for updates on startup via the Tauri updater plugin:
 
 | Issue | Cause | Fix |
 |-------|-------|-----|
-| "Profile is private" | POE account privacy settings | Set profile to public at [pathofexile.com/account/privacy](https://www.pathofexile.com/account/privacy) |
+| "Profile is private" | PoE account privacy settings | Set profile to public at [pathofexile.com/account/privacy](https://www.pathofexile.com/account/privacy) |
 | Log file not found | Wrong path or file missing | Verify path in Settings, use Auto-detect |
 | Timer not starting | Log watcher not running | Check status indicator in app; restart watcher |
-| Snapshots not capturing | Account name wrong or API down | Verify account name; check POE API status |
+| Snapshots not capturing | Account name wrong or API down | Verify account name; check PoE API status |
 | Wrong class in PoB | Ascendancy detection edge case | `deriveClassAndAscendancy()` handles this; file a bug if incorrect |
 | Overlay not syncing | Window label mismatch | Ensure overlay window label is "overlay" in `lib.rs` |
 | Split times stuck at 0 | Using stale `timer.elapsedMs` | Must calculate `Date.now() - timer.startTime` |
 | API 429 errors | Rate limit exceeded | Token bucket in `api_client.rs` should handle this; check for concurrent requests |
 | SmartScreen warning | App not code-signed | Expected for unsigned apps; click "More info" > "Run anyway" |
 
-### POE API Notes
+### PoE API Notes
 
 - **Rate limit**: 5 req/sec, burst of 10
 - **Caching**: 30-second response cache in `api_client.rs`
@@ -130,8 +130,8 @@ No server-side monitoring (fully client-side app). Users report issues via [GitH
 
 When triaging user issues, ask for:
 - Windows version
-- POE Watcher version (shown in Settings)
-- POE version (Steam vs Standalone)
+- PoE Watcher version (shown in Settings)
+- PoE version (Steam vs Standalone)
 - Client.txt path
 - Steps to reproduce
 - Console errors (if accessible via DevTools: `Ctrl+Shift+I` in dev mode)

@@ -1,8 +1,8 @@
-# POE Watcher - Engineering Rules
+# PoE Watcher - Engineering Rules
 
 ## Project Overview
 
-POE Watcher is a local desktop application for tracking Path of Exile speedruns. It monitors the game's Client.txt log file, captures breakpoints during gameplay, creates snapshots for analysis, and provides an in-game overlay for live timer display.
+PoE Watcher is a local desktop application for tracking Path of Exile speedruns. It monitors the game's Client.txt log file, captures breakpoints during gameplay, creates snapshots for analysis, and provides an in-game overlay for live timer display.
 
 ## Technology Stack
 
@@ -63,7 +63,7 @@ POE Watcher is a local desktop application for tracking Path of Exile speedruns.
 
 ### CSS/Tailwind
 - Use CSS variables for theming (`--color-poe-gold`, etc.)
-- Dark theme only (POE aesthetic)
+- Dark theme only (PoE aesthetic)
 - Timer text uses `font-variant-numeric: tabular-nums`
 
 ## File Structure
@@ -82,14 +82,14 @@ src/                    # React frontend
 src-tauri/src/          # Rust backend
   db/                   # Database module
     migrations/         # SQL migration files
-  api_client.rs         # POE API integration
+  api_client.rs         # PoE API integration
   log_watcher.rs        # Client.txt monitoring
   commands.rs           # Tauri IPC commands
 ```
 
 ## Key Constraints
 
-1. **Public API Only**: App uses POE public API - user must set profile to public
+1. **Public API Only**: App uses PoE public API - user must set profile to public
 2. **No OAuth**: Avoiding OAuth complexity for MVP
 3. **Windows Focus**: Primary target, log paths assume Windows
 4. **Single Instance**: Only one log watcher runs at a time
@@ -101,7 +101,7 @@ src-tauri/src/          # Rust backend
 - Don't make API calls without rate limiting
 - Don't block the UI thread with database operations
 - Don't parse log lines without regex validation
-- Don't assume POE installation location - always allow manual config
+- Don't assume PoE installation location - always allow manual config
 
 ## Testing
 

@@ -1,7 +1,7 @@
 @import "tailwindcss";
 
 @theme {
-  /* POE-inspired color palette — warm dark tones */
+  /* PoE-inspired color palette — warm dark tones */
   --color-poe-dark: #141110;
   --color-poe-darker: #0d0b0a;
   --color-poe-gold: #af6025;

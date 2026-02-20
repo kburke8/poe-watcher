@@ -23,14 +23,14 @@ body:
   - type: input
     id: version
     attributes:
-      label: POE Watcher version
+      label: PoE Watcher version
       placeholder: "0.2.0"
     validations:
       required: true
   - type: dropdown
     id: poe-version
     attributes:
-      label: POE client
+      label: PoE client
       options:
         - Steam
         - Standalone

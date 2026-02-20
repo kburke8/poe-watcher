@@ -524,7 +524,7 @@ pub async fn upload_to_pobbin(pob_code: String) -> Result<PobbInResponse, String
     let response = client
         .post("https://pobb.in/pob")
         .header("Content-Type", "text/plain")
-        .header("User-Agent", "POE-Watcher/0.2.0 (https://github.com/kburke8/poe-watcher; Discord: beerdz)")
+        .header("User-Agent", "PoE-Watcher/0.2.0 (https://github.com/kburke8/poe-watcher; Discord: beerdz)")
         .body(pob_code)
         .send()
         .await
@@ -595,7 +595,7 @@ pub async fn proxy_image(url: String) -> Result<String, String> {
     let client = reqwest::Client::new();
     let response = client
         .get(&url)
-        .header("User-Agent", "POE-Watcher/0.2.0 (https://github.com/kburke8/poe-watcher; Discord: beerdz)")
+        .header("User-Agent", "PoE-Watcher/0.2.0 (https://github.com/kburke8/poe-watcher; Discord: beerdz)")
         .send()
         .await
         .map_err(|e| format!("Failed to fetch image: {}", e))?;
@@ -833,7 +833,7 @@ pub async fn open_overlay(app_handle: AppHandle) -> Result<(), String> {
         "overlay",
         WebviewUrl::App("overlay.html".into()),
     )
-    .title("POE Watcher Overlay")
+    .title("PoE Watcher Overlay")
     .inner_size(width, height)
     .decorations(false)
     .transparent(true)

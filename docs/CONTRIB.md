@@ -114,7 +114,7 @@ npm run dev
 Manual test checklist:
 - Timer starts/stops/resets correctly
 - Splits trigger on zone changes
-- Snapshots capture via POE API
+- Snapshots capture via PoE API
 - PoB export produces valid XML
 - Overlay window opens, syncs state, and persists position
 - Settings save and restore correctly
@@ -144,7 +144,7 @@ Manual test checklist:
 |-------|---------|
 | `tauri` | Desktop framework |
 | `rusqlite` | SQLite database |
-| `reqwest` | HTTP client (POE API) |
+| `reqwest` | HTTP client (PoE API) |
 | `notify` | File system watcher (Client.txt) |
 | `tokio` | Async runtime |
 | `serde` / `serde_json` | Serialization |

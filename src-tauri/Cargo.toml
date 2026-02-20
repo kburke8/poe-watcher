@@ -2,7 +2,7 @@
 name = "poe-watcher"
 version = "0.6.0"
 description = "Local Path of Exile Speedrun Tracker"
-authors = ["Kyle Burke <kburke.dev@gmail.com>"]
+authors = ["beerdz (Discord: beerdz)"]
 license = "MIT"
 edition = "2021"
 

@@ -1,6 +1,6 @@
 import type { Breakpoint } from '../types';
 
-// All POE zones organized by act - comprehensive list for speedrunning
+// All PoE zones organized by act - comprehensive list for speedrunning
 export const defaultBreakpoints: Breakpoint[] = [
   // ===== ACT 1 =====
   { name: 'Twilight Strand', type: 'zone', trigger: { type: 'zone', zoneName: 'The Twilight Strand', act: 1 }, isEnabled: true, captureSnapshot: true },

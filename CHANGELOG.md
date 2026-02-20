@@ -14,7 +14,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Zone detection and split tracking
 - Configurable breakpoints with wizard (Act 5/10, Any%/100%)
 - Snapshot frequency options (Acts Only, Bosses Only)
-- Character snapshot capture via POE public API
+- Character snapshot capture via PoE public API
 - Path of Building export (XML and pobb.in upload)
 - Personal best tracking per category and class
 - Gold split tracking (best segment times)

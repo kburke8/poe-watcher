@@ -13,7 +13,7 @@ interface RunFilterProps {
   showReferenceToggle?: boolean;
 }
 
-// POE class/ascendancy mapping
+// PoE class/ascendancy mapping
 const classAscendancies: Record<string, string[]> = {
   Marauder: ['Juggernaut', 'Berserker', 'Chieftain'],
   Ranger: ['Raider', 'Deadeye', 'Pathfinder', 'Warden'],

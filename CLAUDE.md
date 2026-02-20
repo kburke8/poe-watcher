@@ -1,8 +1,8 @@
-# Claude Code Instructions for POE Watcher
+# Claude Code Instructions for PoE Watcher
 
 ## Project Overview
 
-POE Watcher is a Tauri 2.x desktop application for tracking Path of Exile speedruns. It monitors the game's Client.txt log file, captures breakpoints, creates character snapshots, and exports to Path of Building. It includes an always-on-top overlay window for in-game timer display.
+PoE Watcher is a Tauri 2.x desktop application for tracking Path of Exile speedruns. It monitors the game's Client.txt log file, captures breakpoints, creates character snapshots, and exports to Path of Building. It includes an always-on-top overlay window for in-game timer display.
 
 ## Technology Stack
 
@@ -47,7 +47,7 @@ On Windows, requires Visual Studio Build Tools with C++ workload. Run builds fro
 - `lib.rs` - Tauri app setup, plugin registration, global hotkey setup, overlay window lifecycle
 - `commands.rs` - IPC commands exposed to frontend
 - `log_watcher.rs` - File system monitoring for Client.txt
-- `api_client.rs` - POE public API with rate limiting and caching
+- `api_client.rs` - PoE public API with rate limiting and caching
 - `db/mod.rs` - SQLite connection management
 - `db/schema.rs` - Database models and queries
 
@@ -120,7 +120,7 @@ Commands are defined in `commands.rs` and invoked from React:
 
 **Snapshots:**
 - `create_snapshot` / `get_snapshots` / `get_snapshot`
-- `capture_snapshot` - Fetch from POE API and store
+- `capture_snapshot` - Fetch from PoE API and store
 
 **Personal Bests:**
 - `get_personal_bests` / `get_gold_splits`
@@ -197,15 +197,15 @@ const result = await invoke<string>('my_command', { arg: 'value' });
 The `pobExport.ts` file handles Path of Building integration:
 - `generatePobXml()` - Single snapshot to PoB XML
 - `generateMultiSnapshotPobXml()` - Multiple snapshots with Loadouts
-- `deriveClassAndAscendancy()` - Handles POE log storing ascendancy as class
+- `deriveClassAndAscendancy()` - Handles PoE log storing ascendancy as class
 - `exportToPob()` / `exportAllToPob()` - Copy to clipboard
 - `shareOnPobbIn()` / `shareAllOnPobbIn()` - Upload to pobb.in
 
-Key insight: POE logs capture **ascendancy names** (e.g., "Pathfinder") in level-up events, not base class. The `deriveClassAndAscendancy()` function handles this by checking if `rawClass` is actually an ascendancy name.
+Key insight: PoE logs capture **ascendancy names** (e.g., "Pathfinder") in level-up events, not base class. The `deriveClassAndAscendancy()` function handles this by checking if `rawClass` is actually an ascendancy name.
 
 ## Important Constraints
 
-- POE API requires public profile - handle 403 gracefully
+- PoE API requires public profile - handle 403 gracefully
 - Rate limit: 5 req/sec, burst 10 - use the token bucket in api_client.rs
 - Log file may not exist - always check before watching
 - Timer accuracy: Use `Date.now() - timer.startTime` for accurate elapsed time, not `timer.elapsedMs` which only updates during UI renders

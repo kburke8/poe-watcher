@@ -1,4 +1,4 @@
-// Core types for POE Watcher
+// Core types for PoE Watcher
 
 export type RunStatus = 'completed' | 'abandoned' | 'in_progress';
 
@@ -165,7 +165,7 @@ export interface Settings {
   overlayLocked: boolean;
 }
 
-// POE API types
+// PoE API types
 export interface PoeCharacter {
   name: string;
   league: string;

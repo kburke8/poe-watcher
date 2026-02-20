@@ -1,4 +1,4 @@
-# Contributing to POE Watcher
+# Contributing to PoE Watcher
 
 Thanks for your interest in contributing! This document covers how to set up your development environment and build releases.
 
@@ -58,9 +58,9 @@ src-tauri/target/release/
 ├── poe-watcher.exe                           # Standalone executable
 └── bundle/
     ├── msi/
-    │   └── POE Watcher_0.1.0_x64_en-US.msi   # MSI installer
+    │   └── PoE Watcher_0.1.0_x64_en-US.msi   # MSI installer
     └── nsis/
-        └── POE Watcher_0.1.0_x64-setup.exe   # NSIS installer
+        └── PoE Watcher_0.1.0_x64-setup.exe   # NSIS installer
 ```
 
 ### Build Specific Installer
@@ -120,7 +120,7 @@ poe-watcher/
 │   ├── src/
 │   │   ├── lib.rs          # App setup, plugins
 │   │   ├── commands.rs     # Tauri IPC commands
-│   │   ├── api_client.rs   # POE API client
+│   │   ├── api_client.rs   # PoE API client
 │   │   ├── log_watcher.rs  # Client.txt monitor
 │   │   └── db/             # SQLite database
 │   ├── Cargo.toml          # Rust dependencies
