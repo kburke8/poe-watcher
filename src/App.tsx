@@ -1,4 +1,4 @@
-import { useEffect } from "react";
+import { useEffect, lazy, Suspense } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import { listen } from "@tauri-apps/api/event";
 import { useSettingsStore } from "./stores/settingsStore";
@@ -8,15 +8,25 @@ import { useHotkeys } from "./hooks/useHotkeys";
 import { useOverlaySync } from "./hooks/useOverlaySync";
 import { Sidebar } from "./components/Sidebar";
 import { TimerView } from "./components/Timer/TimerView";
-import { SnapshotView } from "./components/Snapshot/SnapshotView";
-import { ComparisonView } from "./components/Comparison/ComparisonView";
-import { HistoryView } from "./components/History/HistoryView";
 import { SettingsView } from "./components/Settings/SettingsView";
 import { defaultBreakpoints } from "./config/breakpoints";
 import type { Breakpoint, WizardConfig } from "./types";
 
+// Lazy-load heavy views (recharts, snapshot rendering) to reduce initial bundle
+const SnapshotView = lazy(() => import("./components/Snapshot/SnapshotView").then(m => ({ default: m.SnapshotView })));
+const ComparisonView = lazy(() => import("./components/Comparison/ComparisonView").then(m => ({ default: m.ComparisonView })));
+const HistoryView = lazy(() => import("./components/History/HistoryView").then(m => ({ default: m.HistoryView })));
+
 const BREAKPOINTS_STORAGE_KEY = 'poe-watcher-breakpoints';
 const WIZARD_CONFIG_STORAGE_KEY = 'poe-watcher-wizard-config';
+
+function ViewLoader() {
+  return (
+    <div className="h-full flex items-center justify-center">
+      <div className="text-[--color-text-muted] text-sm">Loading...</div>
+    </div>
+  );
+}
 
 function App() {
   const currentView = useSettingsStore((state) => state.currentView);
@@ -182,11 +192,11 @@ function App() {
       case 'timer':
         return <TimerView />;
       case 'snapshots':
-        return <SnapshotView />;
+        return <Suspense fallback={<ViewLoader />}><SnapshotView /></Suspense>;
       case 'comparison':
-        return <ComparisonView />;
+        return <Suspense fallback={<ViewLoader />}><ComparisonView /></Suspense>;
       case 'history':
-        return <HistoryView />;
+        return <Suspense fallback={<ViewLoader />}><HistoryView /></Suspense>;
       case 'settings':
         return <SettingsView />;
       default:
