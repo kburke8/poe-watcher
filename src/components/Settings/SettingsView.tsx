@@ -280,6 +280,12 @@ export function SettingsView() {
           overlay_accent_color: overlayAccentColor,
           overlay_always_on_top: overlayAlwaysOnTop,
           overlay_locked: overlayLocked,
+          hotkey_toggle_timer: hotkeys.toggleTimer,
+          hotkey_reset_timer: hotkeys.resetTimer,
+          hotkey_manual_snapshot: hotkeys.manualSnapshot,
+          hotkey_toggle_overlay: hotkeys.toggleOverlay,
+          hotkey_toggle_overlay_lock: hotkeys.toggleOverlayLock,
+          hotkey_manual_split: hotkeys.manualSplit,
         },
       });
 
