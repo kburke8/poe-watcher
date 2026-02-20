@@ -512,11 +512,11 @@ function GeneralTab({
               type="text"
               value={accountName}
               onChange={(e) => setAccountName(e.target.value)}
-              placeholder="YourAccountName"
+              placeholder="YourName#1234"
               className="w-full p-3 bg-[--color-surface-elevated] border border-[--color-border] rounded-lg text-[--color-text] placeholder-[--color-text-muted]"
             />
             <p className="text-xs text-[--color-text-muted] mt-2">
-              Required for fetching character data from the PoE API. Your profile must be set to public.
+              Required for fetching character data from the PoE API. Your profile must be set to public. Example: <span className="font-mono text-[--color-text]">ExileRunner#1234</span>
             </p>
           </div>
 
