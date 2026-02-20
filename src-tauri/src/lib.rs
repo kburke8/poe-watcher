@@ -174,6 +174,19 @@ pub fn run() {
             resize_overlay,
             set_overlay_always_on_top,
             reset_overlay_position,
+            // Group mode
+            get_group_members,
+            add_group_member,
+            update_group_member,
+            remove_group_member,
+            set_group_member_active,
+            clear_group_character_names,
+            get_group_snapshots,
+            get_group_snapshots_for_split,
+            get_group_snapshot,
+            resolve_group_member_characters,
+            detect_group_characters,
+            poll_group_member_info,
         ])
         .on_window_event(|window, event| {
             // When the main window is closed, close the overlay and exit

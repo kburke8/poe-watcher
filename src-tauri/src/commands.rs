@@ -2,6 +2,7 @@ use crate::api_client::PoeApiClient;
 use crate::db::{
     NewRun, NewSplit, NewSnapshot, PersonalBest, Run, Settings, Snapshot, Split, GoldSplit,
     RunFilters, RunStats, SplitStat, ReferenceRunData,
+    GroupMember, NewGroupMember, GroupSnapshot, NewGroupSnapshot,
 };
 use crate::log_watcher::{detect_log_path, LogWatcher};
 use crate::HotkeyMap;
@@ -219,8 +220,8 @@ pub async fn add_split(
 
     // Capture snapshot if requested
     if request.capture_snapshot {
-        if let (Some(account_name), Some(character_name), Some(run)) =
-            (request.account_name, request.character_name, run)
+        if let (Some(account_name), Some(character_name), Some(ref run)) =
+            (request.account_name, request.character_name, run.as_ref())
         {
             let handle = app_handle.clone();
             let run_id = run.id;
@@ -243,6 +244,29 @@ pub async fn add_split(
                     character_name,
                 ).await;
             });
+        }
+    }
+
+    // Capture group snapshots if this is a group run with group mode enabled
+    if request.capture_snapshot {
+        if let Some(ref run) = run {
+            if run.is_group_run {
+                if let Ok(settings) = Settings::load() {
+                    if settings.group_mode_enabled {
+                        let handle = app_handle.clone();
+                        let run_id = run.id;
+                        let elapsed_time_ms = split.split_time_ms;
+                        tokio::spawn(async move {
+                            capture_group_snapshots_for_split(
+                                handle,
+                                run_id,
+                                split_id,
+                                elapsed_time_ms,
+                            ).await;
+                        });
+                    }
+                }
+            }
         }
     }
 
@@ -923,4 +947,306 @@ pub async fn reset_overlay_position(app_handle: AppHandle) -> Result<(), String>
     }
     Settings::save_overlay_position(100, 100).map_err(|e| e.to_string())?;
     Ok(())
+}
+
+// ============================================================================
+// Group Mode Commands
+// ============================================================================
+
+#[tauri::command]
+pub async fn get_group_members() -> Result<Vec<GroupMember>, String> {
+    GroupMember::get_all().map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+pub async fn add_group_member(member: NewGroupMember) -> Result<i64, String> {
+    GroupMember::insert(&member).map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+pub async fn update_group_member(
+    id: i64,
+    character_name: Option<String>,
+    display_name: Option<String>,
+) -> Result<(), String> {
+    GroupMember::update(id, character_name.as_deref(), display_name.as_deref())
+        .map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+pub async fn remove_group_member(id: i64) -> Result<(), String> {
+    GroupMember::delete(id).map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+pub async fn set_group_member_active(id: i64, is_active: bool) -> Result<(), String> {
+    GroupMember::set_active(id, is_active).map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+pub async fn clear_group_character_names() -> Result<(), String> {
+    GroupMember::clear_character_names().map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+pub async fn get_group_snapshots(run_id: i64) -> Result<Vec<GroupSnapshot>, String> {
+    GroupSnapshot::get_by_run(run_id).map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+pub async fn get_group_snapshots_for_split(split_id: i64) -> Result<Vec<GroupSnapshot>, String> {
+    GroupSnapshot::get_by_split(split_id).map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+pub async fn get_group_snapshot(snapshot_id: i64) -> Result<Option<GroupSnapshot>, String> {
+    GroupSnapshot::get_by_id(snapshot_id).map_err(|e| e.to_string())
+}
+
+/// Resolve characters for a group member's account
+#[tauri::command]
+pub async fn resolve_group_member_characters(
+    account_name: String,
+) -> Result<Vec<crate::api_client::PoeCharacter>, String> {
+    let client = get_api_client();
+    client
+        .get_characters(&account_name)
+        .await
+        .map_err(|e| e.to_string())
+}
+
+/// Detect group member characters for a league by polling the API
+#[tauri::command]
+pub async fn detect_group_characters(
+    app_handle: AppHandle,
+    league: String,
+) -> Result<(), String> {
+    let client = get_api_client();
+    let members = GroupMember::get_active().map_err(|e| e.to_string())?;
+
+    for member in &members {
+        // Skip members that already have a character name
+        if member.character_name.is_some() {
+            continue;
+        }
+
+        let _ = app_handle.emit("group-member-detection-started", serde_json::json!({
+            "memberId": member.id,
+            "accountName": member.account_name,
+        }));
+
+        match client.get_characters_uncached(&member.account_name).await {
+            Ok(characters) => {
+                // Filter to current league
+                let league_chars: Vec<_> = characters
+                    .iter()
+                    .filter(|c| {
+                        if league.is_empty() {
+                            true
+                        } else {
+                            c.league.eq_ignore_ascii_case(&league)
+                        }
+                    })
+                    .collect();
+
+                // Heuristic: find the active speedrun character
+                let detected = if league_chars.len() == 1 {
+                    // Only one character in the league - that's it
+                    Some(league_chars[0])
+                } else if !league_chars.is_empty() {
+                    // Multiple characters - pick lowest level (most recently created)
+                    let mut low_level: Vec<_> = league_chars
+                        .iter()
+                        .filter(|c| c.level <= 4)
+                        .collect();
+
+                    if low_level.len() == 1 {
+                        Some(*low_level[0])
+                    } else if low_level.is_empty() {
+                        // No low-level characters, pick the lowest level overall
+                        league_chars.iter().min_by_key(|c| c.level).copied()
+                    } else {
+                        // Multiple low-level characters, pick the lowest
+                        low_level.sort_by_key(|c| c.level);
+                        Some(*low_level[0])
+                    }
+                } else {
+                    None
+                };
+
+                if let Some(character) = detected {
+                    let _ = GroupMember::update_character_name(member.id, &character.name);
+                    let _ = app_handle.emit("group-member-character-detected", serde_json::json!({
+                        "memberId": member.id,
+                        "accountName": member.account_name,
+                        "characterName": character.name,
+                        "characterClass": character.class,
+                        "characterLevel": character.level,
+                        "characterLeague": character.league,
+                        "characterExperience": character.experience,
+                    }));
+                } else {
+                    let _ = app_handle.emit("group-member-detection-failed", serde_json::json!({
+                        "memberId": member.id,
+                        "accountName": member.account_name,
+                        "reason": "No matching character found in league",
+                    }));
+                }
+            }
+            Err(e) => {
+                let _ = app_handle.emit("group-member-detection-failed", serde_json::json!({
+                    "memberId": member.id,
+                    "accountName": member.account_name,
+                    "reason": e.to_string(),
+                }));
+            }
+        }
+    }
+
+    Ok(())
+}
+
+/// Poll active group members' character info (level, class) from the API
+#[tauri::command]
+pub async fn poll_group_member_info() -> Result<Vec<serde_json::Value>, String> {
+    let client = get_api_client();
+    let members = GroupMember::get_active().map_err(|e| e.to_string())?;
+    let mut results = Vec::new();
+
+    for member in &members {
+        let char_name = match &member.character_name {
+            Some(name) => name.clone(),
+            None => continue,
+        };
+
+        match client.get_characters(&member.account_name).await {
+            Ok(characters) => {
+                if let Some(ch) = characters.iter().find(|c| c.name == char_name) {
+                    results.push(serde_json::json!({
+                        "memberId": member.id,
+                        "characterClass": ch.class,
+                        "characterLevel": ch.level,
+                        "characterLeague": ch.league,
+                    }));
+                }
+            }
+            Err(_) => {} // Silently skip failed fetches during polling
+        }
+    }
+
+    Ok(results)
+}
+
+/// Async function to capture group snapshots for a split
+async fn capture_group_snapshots_for_split(
+    app_handle: AppHandle,
+    run_id: i64,
+    split_id: i64,
+    elapsed_time_ms: i64,
+) {
+    let members = match GroupMember::get_active() {
+        Ok(m) => m,
+        Err(_) => return,
+    };
+
+    let total = members.len();
+    let client = get_api_client();
+
+    for (index, member) in members.iter().enumerate() {
+        let character_name = match &member.character_name {
+            Some(name) if !name.is_empty() => name.clone(),
+            _ => {
+                let _ = app_handle.emit("group-snapshot-member-skipped", serde_json::json!({
+                    "splitId": split_id,
+                    "memberId": member.id,
+                    "accountName": member.account_name,
+                    "reason": "No character name resolved",
+                }));
+                continue;
+            }
+        };
+
+        let _ = app_handle.emit("group-snapshot-progress", serde_json::json!({
+            "splitId": split_id,
+            "memberIndex": index,
+            "total": total,
+            "accountName": member.account_name,
+            "characterName": character_name,
+        }));
+
+        // Fetch items
+        let items_result = client.get_items(&member.account_name, &character_name).await;
+        let (items_json, character_level) = match items_result {
+            Ok(data) => {
+                let items_json = serde_json::to_string(&data.items).unwrap_or_else(|_| "[]".to_string());
+                (items_json, data.character.level as i32)
+            }
+            Err(e) => {
+                let _ = app_handle.emit("group-snapshot-member-failed", serde_json::json!({
+                    "splitId": split_id,
+                    "memberId": member.id,
+                    "accountName": member.account_name,
+                    "error": e.to_string(),
+                }));
+                continue;
+            }
+        };
+
+        // Fetch passive skills
+        let passives_result = client.get_passive_skills(&member.account_name, &character_name).await;
+        let passive_tree_json = match passives_result {
+            Ok(data) => serde_json::to_string(&data).unwrap_or_else(|_| "{}".to_string()),
+            Err(e) => {
+                let _ = app_handle.emit("group-snapshot-member-failed", serde_json::json!({
+                    "splitId": split_id,
+                    "memberId": member.id,
+                    "accountName": member.account_name,
+                    "error": e.to_string(),
+                }));
+                continue;
+            }
+        };
+
+        // Create group snapshot
+        let snapshot = NewGroupSnapshot {
+            run_id,
+            split_id,
+            group_member_id: member.id,
+            timestamp: chrono::Utc::now().to_rfc3339(),
+            elapsed_time_ms,
+            character_level,
+            character_name: character_name.clone(),
+            account_name: member.account_name.clone(),
+            items_json,
+            skills_json: "[]".to_string(),
+            passive_tree_json,
+            stats_json: "{}".to_string(),
+            pob_code: None,
+        };
+
+        match GroupSnapshot::insert(&snapshot) {
+            Ok(snapshot_id) => {
+                let _ = app_handle.emit("group-snapshot-member-complete", serde_json::json!({
+                    "splitId": split_id,
+                    "memberId": member.id,
+                    "snapshotId": snapshot_id,
+                    "accountName": member.account_name,
+                    "characterLevel": character_level,
+                }));
+            }
+            Err(e) => {
+                let _ = app_handle.emit("group-snapshot-member-failed", serde_json::json!({
+                    "splitId": split_id,
+                    "memberId": member.id,
+                    "accountName": member.account_name,
+                    "error": e.to_string(),
+                }));
+            }
+        }
+    }
+
+    let _ = app_handle.emit("group-snapshot-complete", serde_json::json!({
+        "splitId": split_id,
+        "runId": run_id,
+    }));
 }

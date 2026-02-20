@@ -16,6 +16,7 @@ import type { Breakpoint, WizardConfig } from "./types";
 const SnapshotView = lazy(() => import("./components/Snapshot/SnapshotView").then(m => ({ default: m.SnapshotView })));
 const ComparisonView = lazy(() => import("./components/Comparison/ComparisonView").then(m => ({ default: m.ComparisonView })));
 const HistoryView = lazy(() => import("./components/History/HistoryView").then(m => ({ default: m.HistoryView })));
+const GroupView = lazy(() => import("./components/Group/GroupView").then(m => ({ default: m.GroupView })));
 
 const BREAKPOINTS_STORAGE_KEY = 'poe-watcher-breakpoints';
 const WIZARD_CONFIG_STORAGE_KEY = 'poe-watcher-wizard-config';
@@ -139,6 +140,7 @@ function App() {
           overlay_accent_color: string;
           overlay_always_on_top: boolean;
           overlay_locked: boolean;
+          group_mode_enabled: boolean;
         } | null>('get_settings');
 
         if (settings) {
@@ -159,6 +161,7 @@ function App() {
             overlayAccentColor: settings.overlay_accent_color || 'transparent',
             overlayAlwaysOnTop: settings.overlay_always_on_top ?? true,
             overlayLocked: settings.overlay_locked ?? false,
+            groupModeEnabled: settings.group_mode_enabled ?? false,
           });
 
           // Start log watcher if we have a path
@@ -197,6 +200,8 @@ function App() {
         return <Suspense fallback={<ViewLoader />}><ComparisonView /></Suspense>;
       case 'history':
         return <Suspense fallback={<ViewLoader />}><HistoryView /></Suspense>;
+      case 'group':
+        return <Suspense fallback={<ViewLoader />}><GroupView /></Suspense>;
       case 'settings':
         return <SettingsView />;
       default:

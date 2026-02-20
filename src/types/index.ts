@@ -24,6 +24,8 @@ export interface Run {
   // Reference run support
   isReference?: boolean;
   sourceName?: string | null;
+  // Group mode
+  isGroupRun?: boolean;
 }
 
 export interface Split {
@@ -163,6 +165,8 @@ export interface Settings {
   overlayAccentColor: string;
   overlayAlwaysOnTop: boolean;
   overlayLocked: boolean;
+  // Group mode
+  groupModeEnabled: boolean;
 }
 
 // PoE API types
@@ -254,8 +258,50 @@ export interface SplitTime {
   isBestSegment: boolean;
 }
 
+// Group mode types
+export interface GroupMember {
+  id: number;
+  accountName: string;
+  characterName: string | null;
+  displayName: string | null;
+  isActive: boolean;
+  sortOrder: number;
+  createdAt: string;
+}
+
+export interface NewGroupMember {
+  accountName: string;
+  characterName?: string;
+  displayName?: string;
+}
+
+export interface GroupSnapshot {
+  id: number;
+  runId: number;
+  splitId: number;
+  groupMemberId: number;
+  timestamp: string;
+  elapsedTimeMs: number;
+  characterLevel: number;
+  characterName: string;
+  accountName: string;
+  itemsJson: string;
+  skillsJson: string;
+  passiveTreeJson: string;
+  statsJson: string;
+  pobCode: string | null;
+}
+
+// Transient character info resolved during detection
+export interface MemberCharacterInfo {
+  characterClass: string;
+  characterLevel: number;
+  characterLeague: string;
+  characterExperience: number;
+}
+
 // UI state
-export type ViewMode = 'timer' | 'snapshots' | 'comparison' | 'history' | 'settings';
+export type ViewMode = 'timer' | 'snapshots' | 'comparison' | 'history' | 'settings' | 'group';
 
 // Filtering and analytics
 export interface RunFilters {

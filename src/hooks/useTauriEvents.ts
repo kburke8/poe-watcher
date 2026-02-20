@@ -4,6 +4,7 @@ import { invoke } from '@tauri-apps/api/core';
 import { useRunStore } from '../stores/runStore';
 import { useSettingsStore } from '../stores/settingsStore';
 import { useSnapshotStore } from '../stores/snapshotStore';
+import { useGroupStore } from '../stores/groupStore';
 import { isTownZone, isHideoutZone } from '../config/breakpoints';
 import type { Settings, Snapshot } from '../types';
 
@@ -257,11 +258,26 @@ export function useTauriEvents() {
           enterZone(payload.zone_name, isTown, isHideout);
 
           checkZoneBreakpoint(payload.zone_name);
+
+          // Trigger group character detection on The Coast entry
+          if (payload.zone_name.toLowerCase() === 'the coast') {
+            const { groupModeEnabled } = useSettingsStore.getState();
+            const { currentRun } = useRunStore.getState();
+            if (groupModeEnabled && currentRun?.isGroupRun) {
+              const league = currentRun.league || '';
+              invoke('detect_group_characters', { league }).catch((err) => {
+                console.error('[useTauriEvents] Group character detection failed:', err);
+              });
+            }
+          }
         }
         break;
 
       case 'level_up':
         if (payload.level) {
+          // Track current level
+          useRunStore.getState().setCurrentLevel(payload.level);
+
           // Auto-detect character name from level-up event
           if (payload.character_name) {
             const { currentRun } = useRunStore.getState();
@@ -363,6 +379,54 @@ export function useTauriEvents() {
       addFailedCapture(event.payload.split_id, event.payload.error);
     });
 
+    // Group mode event listeners
+    const unlistenGroupMemberDetected = listen<{
+      memberId: number;
+      accountName: string;
+      characterName: string;
+      characterClass?: string;
+      characterLevel?: number;
+      characterLeague?: string;
+      characterExperience?: number;
+    }>('group-member-character-detected', (event) => {
+      const { handleMemberDetected } = useGroupStore.getState();
+      const p = event.payload;
+      const info = p.characterClass ? {
+        characterClass: p.characterClass,
+        characterLevel: p.characterLevel ?? 1,
+        characterLeague: p.characterLeague ?? '',
+        characterExperience: p.characterExperience ?? 0,
+      } : undefined;
+      handleMemberDetected(p.memberId, p.characterName, info);
+    });
+
+    const unlistenGroupMemberFailed = listen<{
+      memberId: number;
+      accountName: string;
+      reason: string;
+    }>('group-member-detection-failed', (event) => {
+      const { setDetectionStatus, setIsDetecting } = useGroupStore.getState();
+      setDetectionStatus(event.payload.memberId, 'failed');
+      console.warn('[useTauriEvents] Group member detection failed:', event.payload.accountName, event.payload.reason);
+      // Check if all detections are done
+      const { members, detectionStatus } = useGroupStore.getState();
+      const activeMembers = members.filter(m => m.isActive);
+      const allDone = activeMembers.every(m =>
+        m.characterName || detectionStatus[m.id] === 'resolved' || detectionStatus[m.id] === 'failed'
+      );
+      if (allDone) setIsDetecting(false);
+    });
+
+    const unlistenGroupSnapshotComplete = listen<{
+      splitId: number;
+      runId: number;
+    }>('group-snapshot-complete', (event) => {
+      const { currentRun } = useRunStore.getState();
+      if (currentRun && currentRun.id === event.payload.runId) {
+        useGroupStore.getState().loadGroupSnapshots(event.payload.runId);
+      }
+    });
+
     // Cleanup listeners on unmount
     return () => {
       unlistenLogEvent.then((fn) => fn());
@@ -371,6 +435,9 @@ export function useTauriEvents() {
       unlistenSnapshotCapturing.then((fn) => fn());
       unlistenSnapshotComplete.then((fn) => fn());
       unlistenSnapshotFailed.then((fn) => fn());
+      unlistenGroupMemberDetected.then((fn) => fn());
+      unlistenGroupMemberFailed.then((fn) => fn());
+      unlistenGroupSnapshotComplete.then((fn) => fn());
     };
   }, [handleLogEvent, loadSettings, triggerSplit, addPendingCapture, addSnapshot, addFailedCapture]);
 }

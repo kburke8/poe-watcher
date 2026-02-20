@@ -30,6 +30,8 @@ pub struct Run {
     // Reference run support
     pub is_reference: bool,
     pub source_name: Option<String>,
+    // Group mode
+    pub is_group_run: bool,
 }
 
 impl Run {
@@ -52,14 +54,15 @@ impl Run {
             enabled_breakpoints: row.get("enabled_breakpoints")?,
             is_reference: row.get("is_reference")?,
             source_name: row.get("source_name")?,
+            is_group_run: row.get("is_group_run")?,
         })
     }
 
     pub fn insert(run: &NewRun) -> Result<i64> {
         let conn = get_db()?;
         conn.execute(
-            "INSERT INTO runs (character_name, account_name, class, ascendancy, league, category, started_at, breakpoint_preset, enabled_breakpoints)
-             VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9)",
+            "INSERT INTO runs (character_name, account_name, class, ascendancy, league, category, started_at, breakpoint_preset, enabled_breakpoints, is_group_run)
+             VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10)",
             params![
                 run.character_name,
                 run.account_name,
@@ -70,6 +73,7 @@ impl Run {
                 run.started_at,
                 run.breakpoint_preset,
                 run.enabled_breakpoints,
+                run.is_group_run,
             ],
         )?;
         Ok(conn.last_insert_rowid())
@@ -345,6 +349,9 @@ pub struct NewRun {
     pub breakpoint_preset: Option<String>,
     #[serde(default)]
     pub enabled_breakpoints: Option<String>,
+    // Group mode
+    #[serde(default)]
+    pub is_group_run: bool,
 }
 
 // ============================================================================
@@ -739,6 +746,8 @@ pub struct Settings {
     pub hotkey_toggle_overlay: String,
     pub hotkey_toggle_overlay_lock: String,
     pub hotkey_manual_split: String,
+    // Group mode
+    pub group_mode_enabled: bool,
 }
 
 impl Default for Settings {
@@ -768,6 +777,7 @@ impl Default for Settings {
             hotkey_toggle_overlay: "Ctrl+O".to_string(),
             hotkey_toggle_overlay_lock: "Ctrl+Shift+L".to_string(),
             hotkey_manual_split: "Ctrl+Shift+S".to_string(),
+            group_mode_enabled: false,
         }
     }
 }
@@ -781,7 +791,7 @@ impl Settings {
                     overlay_show_breakpoints, overlay_breakpoint_count, overlay_bg_opacity, overlay_accent_color,
                     overlay_always_on_top, overlay_locked,
                     hotkey_toggle_timer, hotkey_reset_timer, hotkey_manual_snapshot, hotkey_toggle_overlay, hotkey_toggle_overlay_lock,
-                    hotkey_manual_split
+                    hotkey_manual_split, group_mode_enabled
              FROM settings WHERE id = 1",
             [],
             |row| {
@@ -810,6 +820,7 @@ impl Settings {
                     hotkey_toggle_overlay: row.get(21)?,
                     hotkey_toggle_overlay_lock: row.get(22)?,
                     hotkey_manual_split: row.get(23)?,
+                    group_mode_enabled: row.get(24)?,
                 })
             },
         );
@@ -828,8 +839,8 @@ impl Settings {
                                    overlay_show_breakpoints, overlay_breakpoint_count, overlay_bg_opacity, overlay_accent_color,
                                    overlay_always_on_top, overlay_locked,
                                    hotkey_toggle_timer, hotkey_reset_timer, hotkey_manual_snapshot, hotkey_toggle_overlay, hotkey_toggle_overlay_lock,
-                                   hotkey_manual_split)
-             VALUES (1, ?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14, ?15, ?16, ?17, ?18, ?19, ?20, ?21, ?22, ?23, ?24)
+                                   hotkey_manual_split, group_mode_enabled)
+             VALUES (1, ?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14, ?15, ?16, ?17, ?18, ?19, ?20, ?21, ?22, ?23, ?24, ?25)
              ON CONFLICT(id) DO UPDATE SET
                 poe_log_path = excluded.poe_log_path,
                 account_name = excluded.account_name,
@@ -854,7 +865,8 @@ impl Settings {
                 hotkey_manual_snapshot = excluded.hotkey_manual_snapshot,
                 hotkey_toggle_overlay = excluded.hotkey_toggle_overlay,
                 hotkey_toggle_overlay_lock = excluded.hotkey_toggle_overlay_lock,
-                hotkey_manual_split = excluded.hotkey_manual_split",
+                hotkey_manual_split = excluded.hotkey_manual_split,
+                group_mode_enabled = excluded.group_mode_enabled",
             params![
                 settings.poe_log_path,
                 settings.account_name,
@@ -880,6 +892,7 @@ impl Settings {
                 settings.hotkey_toggle_overlay,
                 settings.hotkey_toggle_overlay_lock,
                 settings.hotkey_manual_split,
+                settings.group_mode_enabled,
             ],
         )?;
         Ok(())
@@ -906,4 +919,252 @@ impl Settings {
             Err(_) => Ok((None, None)),
         }
     }
+}
+
+// ============================================================================
+// Group Member
+// ============================================================================
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct GroupMember {
+    pub id: i64,
+    pub account_name: String,
+    pub character_name: Option<String>,
+    pub display_name: Option<String>,
+    pub is_active: bool,
+    pub sort_order: i64,
+    pub created_at: String,
+}
+
+impl GroupMember {
+    pub fn from_row(row: &Row) -> rusqlite::Result<Self> {
+        Ok(GroupMember {
+            id: row.get("id")?,
+            account_name: row.get("account_name")?,
+            character_name: row.get("character_name")?,
+            display_name: row.get("display_name")?,
+            is_active: row.get("is_active")?,
+            sort_order: row.get("sort_order")?,
+            created_at: row.get("created_at")?,
+        })
+    }
+
+    pub fn insert(member: &NewGroupMember) -> Result<i64> {
+        let conn = get_db()?;
+        // Enforce max 5 members
+        let count: i64 = conn.query_row(
+            "SELECT COUNT(*) FROM group_members",
+            [],
+            |row| row.get(0),
+        )?;
+        if count >= 5 {
+            return Err(anyhow::anyhow!("Maximum of 5 group members allowed"));
+        }
+        conn.execute(
+            "INSERT INTO group_members (account_name, character_name, display_name, sort_order)
+             VALUES (?1, ?2, ?3, ?4)",
+            params![
+                member.account_name,
+                member.character_name,
+                member.display_name,
+                count, // auto sort_order at end
+            ],
+        )?;
+        Ok(conn.last_insert_rowid())
+    }
+
+    pub fn get_all() -> Result<Vec<GroupMember>> {
+        let conn = get_db()?;
+        let mut stmt = conn.prepare("SELECT * FROM group_members ORDER BY sort_order, id")?;
+        let members = stmt
+            .query_map([], GroupMember::from_row)?
+            .filter_map(|r| r.ok())
+            .collect();
+        Ok(members)
+    }
+
+    pub fn get_active() -> Result<Vec<GroupMember>> {
+        let conn = get_db()?;
+        let mut stmt = conn.prepare("SELECT * FROM group_members WHERE is_active = 1 ORDER BY sort_order, id")?;
+        let members = stmt
+            .query_map([], GroupMember::from_row)?
+            .filter_map(|r| r.ok())
+            .collect();
+        Ok(members)
+    }
+
+    pub fn get_by_id(id: i64) -> Result<Option<GroupMember>> {
+        let conn = get_db()?;
+        let mut stmt = conn.prepare("SELECT * FROM group_members WHERE id = ?1")?;
+        let member = stmt.query_row([id], GroupMember::from_row).ok();
+        Ok(member)
+    }
+
+    pub fn update(id: i64, character_name: Option<&str>, display_name: Option<&str>) -> Result<()> {
+        let conn = get_db()?;
+        conn.execute(
+            "UPDATE group_members SET character_name = ?1, display_name = ?2 WHERE id = ?3",
+            params![character_name, display_name, id],
+        )?;
+        Ok(())
+    }
+
+    pub fn update_character_name(id: i64, character_name: &str) -> Result<()> {
+        let conn = get_db()?;
+        conn.execute(
+            "UPDATE group_members SET character_name = ?1 WHERE id = ?2",
+            params![character_name, id],
+        )?;
+        Ok(())
+    }
+
+    pub fn clear_character_names() -> Result<()> {
+        let conn = get_db()?;
+        conn.execute("UPDATE group_members SET character_name = NULL", [])?;
+        Ok(())
+    }
+
+    pub fn set_active(id: i64, is_active: bool) -> Result<()> {
+        let conn = get_db()?;
+        conn.execute(
+            "UPDATE group_members SET is_active = ?1 WHERE id = ?2",
+            params![is_active, id],
+        )?;
+        Ok(())
+    }
+
+    pub fn delete(id: i64) -> Result<()> {
+        let conn = get_db()?;
+        conn.execute("DELETE FROM group_members WHERE id = ?1", params![id])?;
+        Ok(())
+    }
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct NewGroupMember {
+    pub account_name: String,
+    #[serde(default)]
+    pub character_name: Option<String>,
+    #[serde(default)]
+    pub display_name: Option<String>,
+}
+
+// ============================================================================
+// Group Snapshot
+// ============================================================================
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct GroupSnapshot {
+    pub id: i64,
+    pub run_id: i64,
+    pub split_id: i64,
+    pub group_member_id: i64,
+    pub timestamp: String,
+    pub elapsed_time_ms: i64,
+    pub character_level: i32,
+    pub character_name: String,
+    pub account_name: String,
+    pub items_json: String,
+    pub skills_json: String,
+    pub passive_tree_json: String,
+    pub stats_json: String,
+    pub pob_code: Option<String>,
+}
+
+impl GroupSnapshot {
+    pub fn from_row(row: &Row) -> rusqlite::Result<Self> {
+        Ok(GroupSnapshot {
+            id: row.get("id")?,
+            run_id: row.get("run_id")?,
+            split_id: row.get("split_id")?,
+            group_member_id: row.get("group_member_id")?,
+            timestamp: row.get("timestamp")?,
+            elapsed_time_ms: row.get("elapsed_time_ms")?,
+            character_level: row.get("character_level")?,
+            character_name: row.get("character_name")?,
+            account_name: row.get("account_name")?,
+            items_json: row.get("items_json")?,
+            skills_json: row.get("skills_json")?,
+            passive_tree_json: row.get("passive_tree_json")?,
+            stats_json: row.get("stats_json")?,
+            pob_code: row.get("pob_code")?,
+        })
+    }
+
+    pub fn insert(snapshot: &NewGroupSnapshot) -> Result<i64> {
+        let conn = get_db()?;
+        conn.execute(
+            "INSERT INTO group_snapshots (run_id, split_id, group_member_id, timestamp, elapsed_time_ms, character_level, character_name, account_name, items_json, skills_json, passive_tree_json, stats_json, pob_code)
+             VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13)",
+            params![
+                snapshot.run_id,
+                snapshot.split_id,
+                snapshot.group_member_id,
+                snapshot.timestamp,
+                snapshot.elapsed_time_ms,
+                snapshot.character_level,
+                snapshot.character_name,
+                snapshot.account_name,
+                snapshot.items_json,
+                snapshot.skills_json,
+                snapshot.passive_tree_json,
+                snapshot.stats_json,
+                snapshot.pob_code,
+            ],
+        )?;
+        Ok(conn.last_insert_rowid())
+    }
+
+    pub fn get_by_run(run_id: i64) -> Result<Vec<GroupSnapshot>> {
+        let conn = get_db()?;
+        let mut stmt = conn.prepare("SELECT * FROM group_snapshots WHERE run_id = ?1 ORDER BY elapsed_time_ms")?;
+        let snapshots = stmt
+            .query_map([run_id], GroupSnapshot::from_row)?
+            .filter_map(|r| r.ok())
+            .collect();
+        Ok(snapshots)
+    }
+
+    pub fn get_by_split(split_id: i64) -> Result<Vec<GroupSnapshot>> {
+        let conn = get_db()?;
+        let mut stmt = conn.prepare("SELECT * FROM group_snapshots WHERE split_id = ?1 ORDER BY account_name")?;
+        let snapshots = stmt
+            .query_map([split_id], GroupSnapshot::from_row)?
+            .filter_map(|r| r.ok())
+            .collect();
+        Ok(snapshots)
+    }
+
+    pub fn get_by_id(id: i64) -> Result<Option<GroupSnapshot>> {
+        let conn = get_db()?;
+        let mut stmt = conn.prepare("SELECT * FROM group_snapshots WHERE id = ?1")?;
+        let snapshot = stmt.query_row([id], GroupSnapshot::from_row).ok();
+        Ok(snapshot)
+    }
+
+    pub fn delete_by_run(run_id: i64) -> Result<()> {
+        let conn = get_db()?;
+        conn.execute("DELETE FROM group_snapshots WHERE run_id = ?1", params![run_id])?;
+        Ok(())
+    }
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct NewGroupSnapshot {
+    pub run_id: i64,
+    pub split_id: i64,
+    pub group_member_id: i64,
+    pub timestamp: String,
+    pub elapsed_time_ms: i64,
+    pub character_level: i32,
+    pub character_name: String,
+    pub account_name: String,
+    pub items_json: String,
+    pub skills_json: String,
+    pub passive_tree_json: String,
+    pub stats_json: String,
+    pub pob_code: Option<String>,
 }

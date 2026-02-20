@@ -1,6 +1,6 @@
 import pako from 'pako';
 import { invoke } from '@tauri-apps/api/core';
-import type { PoeItem, Snapshot, Run, Split } from '../types';
+import type { PoeItem, Snapshot, Run, Split, GroupSnapshot } from '../types';
 import { defaultBreakpoints } from '../config/breakpoints';
 
 // ============================================================================
@@ -1223,4 +1223,74 @@ export async function shareAllOnPobbIn(snapshots: Snapshot[], run: Run, splits?:
   const code = encodeMultiPobCode(buildData);
   const result = await invoke<{ url: string }>('upload_to_pobbin', { pobCode: code });
   return result.url;
+}
+
+// ============================================================================
+// Group Snapshot Export Functions
+// ============================================================================
+
+/**
+ * Convert a GroupSnapshot into a Snapshot-compatible shape for reuse with existing export
+ */
+function groupSnapshotToSnapshot(gs: GroupSnapshot): Snapshot {
+  return {
+    id: gs.id,
+    runId: gs.runId,
+    splitId: gs.splitId,
+    timestamp: gs.timestamp,
+    elapsedTimeMs: gs.elapsedTimeMs,
+    characterLevel: gs.characterLevel,
+    itemsJson: gs.itemsJson,
+    skillsJson: gs.skillsJson,
+    passiveTreeJson: gs.passiveTreeJson,
+    statsJson: gs.statsJson,
+    pobCode: gs.pobCode,
+  };
+}
+
+/**
+ * Create a synthetic Run from group snapshot data for PoB export
+ */
+function groupSnapshotToRun(gs: GroupSnapshot): Run {
+  // Try to derive class from items data
+  let charClass = 'Unknown';
+  try {
+    const items: PoeItem[] = JSON.parse(gs.itemsJson || '[]');
+    // Look for class-specific items or just default to Scion
+    if (items.length > 0) {
+      charClass = 'Scion'; // Default; real class comes from API data
+    }
+  } catch { /* ignore */ }
+
+  return {
+    id: gs.runId,
+    characterName: gs.characterName,
+    accountName: gs.accountName,
+    class: charClass,
+    category: '',
+    startedAt: gs.timestamp,
+    endedAt: null,
+    totalTimeMs: null,
+    isCompleted: false,
+    isPersonalBest: false,
+    status: 'in_progress',
+  };
+}
+
+/**
+ * Export a group member's snapshot to PoB clipboard
+ */
+export async function exportGroupMemberToPob(gs: GroupSnapshot): Promise<void> {
+  const snapshot = groupSnapshotToSnapshot(gs);
+  const run = groupSnapshotToRun(gs);
+  await exportToPob(snapshot, run);
+}
+
+/**
+ * Share a group member's snapshot on pobb.in
+ */
+export async function shareGroupMemberOnPobbIn(gs: GroupSnapshot): Promise<string> {
+  const snapshot = groupSnapshotToSnapshot(gs);
+  const run = groupSnapshotToRun(gs);
+  return shareOnPobbIn(snapshot, run);
 }

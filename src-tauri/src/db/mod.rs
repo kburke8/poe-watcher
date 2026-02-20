@@ -11,6 +11,7 @@ pub use schema::{
     Split, NewSplit, SplitStat,
     Snapshot, NewSnapshot,
     PersonalBest, GoldSplit, Settings,
+    GroupMember, NewGroupMember, GroupSnapshot, NewGroupSnapshot,
 };
 
 static DB: OnceCell<Mutex<Connection>> = OnceCell::new();
@@ -90,4 +91,5 @@ const MIGRATIONS: &[(&str, &str)] = &[
     ("009_add_death_count", include_str!("migrations/009_add_death_count.sql")),
     ("010_add_run_status", include_str!("migrations/010_add_run_status.sql")),
     ("011_change_overlay_lock_hotkey", include_str!("migrations/011_change_overlay_lock_hotkey.sql")),
+    ("012_add_group_mode", include_str!("migrations/012_add_group_mode.sql")),
 ];

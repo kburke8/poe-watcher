@@ -69,6 +69,8 @@ interface SettingsState extends Settings {
   loadHotkeys: () => Promise<void>;
   setHotkeys: (hotkeys: HotkeySettings) => void;
   resetHotkeys: () => Promise<void>;
+  // Group mode
+  setGroupModeEnabled: (enabled: boolean) => void;
 }
 
 export const useSettingsStore = create<SettingsState>((set, get) => ({
@@ -97,6 +99,8 @@ export const useSettingsStore = create<SettingsState>((set, get) => ({
   overlayAccentColor: 'transparent',
   overlayAlwaysOnTop: true,
   overlayLocked: false,
+  // Group mode
+  groupModeEnabled: false,
   // Runtime-only
   overlayOpen: false,
   // Hotkey settings
@@ -267,4 +271,6 @@ export const useSettingsStore = create<SettingsState>((set, get) => ({
       throw error;
     }
   },
+  // Group mode
+  setGroupModeEnabled: (enabled) => set({ groupModeEnabled: enabled }),
 }));

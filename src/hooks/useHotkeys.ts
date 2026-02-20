@@ -59,6 +59,8 @@ export function useHotkeys() {
             const presetName = useSettingsStore.getState().getCurrentPresetName();
             const enabledBreakpoints = useSettingsStore.getState().getEnabledBreakpointNames();
 
+            const { groupModeEnabled } = useSettingsStore.getState();
+
             const dbRunId = await invoke<number>('create_run', {
               run: {
                 characterName: run.characterName || run.character || testCharacterName || 'Unknown',
@@ -70,6 +72,7 @@ export function useHotkeys() {
                 startedAt: run.startedAt || new Date().toISOString(),
                 breakpointPreset: presetName,
                 enabledBreakpoints: JSON.stringify(enabledBreakpoints),
+                isGroupRun: groupModeEnabled,
               },
             });
             setRunId(dbRunId);

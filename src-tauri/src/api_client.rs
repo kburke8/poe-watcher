@@ -153,6 +153,35 @@ impl PoeApiClient {
         Ok(serde_json::from_str(&text)?)
     }
 
+    /// Get characters for an account, bypassing cache (for group detection polling)
+    pub async fn get_characters_uncached(&self, account_name: &str) -> Result<Vec<PoeCharacter>> {
+        let url = format!(
+            "{}/character-window/get-characters?accountName={}",
+            POE_API_BASE,
+            urlencoding::encode(account_name)
+        );
+
+        self.wait_for_rate_limit().await;
+
+        let response = self.client.get(&url).send().await?;
+
+        if response.status() == 403 {
+            return Err(anyhow::anyhow!(
+                "Profile is private. Please set your PoE profile to public in account settings."
+            ));
+        }
+
+        if response.status() == 429 {
+            return Err(anyhow::anyhow!("Rate limited. Please try again later."));
+        }
+
+        let text = response.text().await?;
+        // Update cache with fresh data
+        self.cache_response(&url, text.clone(), Duration::from_secs(60)).await;
+
+        Ok(serde_json::from_str(&text)?)
+    }
+
     /// Get items for a character (public API)
     pub async fn get_items(
         &self,

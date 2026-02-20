@@ -286,6 +286,7 @@ export function SettingsView() {
           hotkey_toggle_overlay: hotkeys.toggleOverlay,
           hotkey_toggle_overlay_lock: hotkeys.toggleOverlayLock,
           hotkey_manual_split: hotkeys.manualSplit,
+          group_mode_enabled: useSettingsStore.getState().groupModeEnabled,
         },
       });
 
@@ -425,6 +426,28 @@ export function SettingsView() {
   );
 }
 
+/* ---------- Group Mode Section ---------- */
+
+function GroupModeSection() {
+  const groupModeEnabled = useSettingsStore((s) => s.groupModeEnabled);
+  const setGroupModeEnabled = useSettingsStore((s) => s.setGroupModeEnabled);
+
+  return (
+    <section>
+      <h2 className="text-lg font-semibold text-[--color-text] mb-4">Group Mode</h2>
+      <div className="card-inset rounded-lg p-4">
+        <div className="flex items-center justify-between">
+          <div>
+            <div className="text-[--color-text]">Enable Group Mode</div>
+            <div className="text-xs text-[--color-text-muted]">Track up to 5 party members during group speedruns. Configure members in the Group tab.</div>
+          </div>
+          <Toggle checked={groupModeEnabled} onChange={setGroupModeEnabled} />
+        </div>
+      </div>
+    </section>
+  );
+}
+
 /* ---------- General Tab ---------- */
 
 interface GeneralTabProps {
@@ -540,6 +563,9 @@ function GeneralTab({
           )}
         </div>
       </section>
+
+      {/* Group Mode */}
+      <GroupModeSection />
 
       {/* Updates */}
       <section>

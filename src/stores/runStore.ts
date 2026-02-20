@@ -7,6 +7,7 @@ import { getWizardCategory } from '../config/wizardRoutes';
 interface RunState {
   // Current run
   currentRun: Run | null;
+  currentLevel: number;
   splits: Split[];
 
   // Timer state
@@ -38,6 +39,7 @@ interface RunState {
   enterZone: (zoneName: string, isTown: boolean, isHideout?: boolean) => void;
   incrementDeathCount: () => void;
   setRunId: (id: number) => void;
+  setCurrentLevel: (level: number) => void;
 
   // Data loading
   setRuns: (runs: Run[]) => void;
@@ -75,6 +77,7 @@ const initialTimerState: TimerState = {
 export const useRunStore = create<RunState>((set, get) => ({
   // Initial state
   currentRun: null,
+  currentLevel: 1,
   splits: [],
   timer: initialTimerState,
   runs: [],
@@ -153,6 +156,7 @@ export const useRunStore = create<RunState>((set, get) => ({
   resetRun: () => {
     set({
       currentRun: null,
+      currentLevel: 1,
       splits: [],
       timer: initialTimerState,
     });
@@ -197,7 +201,7 @@ export const useRunStore = create<RunState>((set, get) => ({
   startTimer: () => {
     const { currentRun } = get();
     // Get test character name and wizard config from settings store
-    const { testCharacterName, wizardConfig } = useSettingsStore.getState();
+    const { testCharacterName, wizardConfig, groupModeEnabled } = useSettingsStore.getState();
 
     // Create a default run if none exists
     const now = Date.now();
@@ -216,6 +220,7 @@ export const useRunStore = create<RunState>((set, get) => ({
         status: 'in_progress',
         endedAt: null,
         totalTimeMs: null,
+        isGroupRun: groupModeEnabled,
       };
       set((state) => ({
         currentRun: run,
@@ -333,6 +338,8 @@ export const useRunStore = create<RunState>((set, get) => ({
       currentRun: state.currentRun ? { ...state.currentRun, id } : null,
     }));
   },
+
+  setCurrentLevel: (level) => set({ currentLevel: level }),
 
   // Data loading
   setRuns: (runs) => set({ runs }),

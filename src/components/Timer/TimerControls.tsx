@@ -3,6 +3,7 @@ import { emit } from '@tauri-apps/api/event';
 import { Play, Pause, SplitSquareHorizontal, Camera, Flag, RotateCcw } from 'lucide-react';
 import { useRunStore } from '../../stores/runStore';
 import { useSettingsStore } from '../../stores/settingsStore';
+import { useGroupStore } from '../../stores/groupStore';
 import { Button } from '../Shared/Button';
 
 export function TimerControls() {
@@ -24,6 +25,8 @@ export function TimerControls() {
         const presetName = useSettingsStore.getState().getCurrentPresetName();
         const enabledBreakpoints = useSettingsStore.getState().getEnabledBreakpointNames();
 
+        const { groupModeEnabled } = useSettingsStore.getState();
+
         const dbRunId = await invoke<number>('create_run', {
           run: {
             characterName: run.characterName || run.character || testCharacterName || 'Unknown',
@@ -35,6 +38,7 @@ export function TimerControls() {
             startedAt: run.startedAt || new Date().toISOString(),
             breakpointPreset: presetName,
             enabledBreakpoints: JSON.stringify(enabledBreakpoints),
+            isGroupRun: groupModeEnabled,
           },
         });
         setRunId(dbRunId);
@@ -63,6 +67,12 @@ export function TimerControls() {
         console.error('[TimerControls] Failed to abandon run:', error);
       }
     }
+    // Clear group member character names so they get re-detected next run
+    const { groupModeEnabled } = useSettingsStore.getState();
+    if (groupModeEnabled) {
+      useGroupStore.getState().clearCharacterNames();
+    }
+
     resetRun();
   };
 
