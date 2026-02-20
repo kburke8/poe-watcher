@@ -16,6 +16,7 @@ interface SettingsState extends Settings {
   // UI state
   currentView: ViewMode;
   pendingSnapshotRunId: number | null;
+  pendingSettingsTab: string | null;
   // Runtime-only state (not persisted)
   overlayOpen: boolean;
   // Hotkey settings
@@ -33,6 +34,8 @@ interface SettingsState extends Settings {
   toggleSnapshotCapture: (name: string) => void;
   setCurrentView: (view: ViewMode) => void;
   navigateToSnapshot: (runId: number) => void;
+  navigateToSettingsTab: (tab: string) => void;
+  clearPendingSettingsTab: () => void;
   loadSettings: (settings: Partial<Settings>) => void;
   // Breakpoint management
   moveBreakpoint: (name: string, direction: 'up' | 'down') => void;
@@ -81,6 +84,7 @@ export const useSettingsStore = create<SettingsState>((set, get) => ({
   wizardConfig: undefined,
   currentView: 'timer',
   pendingSnapshotRunId: null,
+  pendingSettingsTab: null,
   // Overlay config defaults
   overlayScale: 'medium',
   overlayFontSize: 'medium',
@@ -121,6 +125,8 @@ export const useSettingsStore = create<SettingsState>((set, get) => ({
 
   setCurrentView: (view) => set({ currentView: view, pendingSnapshotRunId: null }),
   navigateToSnapshot: (runId) => set({ currentView: 'snapshots', pendingSnapshotRunId: runId }),
+  navigateToSettingsTab: (tab) => set({ currentView: 'settings', pendingSettingsTab: tab }),
+  clearPendingSettingsTab: () => set({ pendingSettingsTab: null }),
 
   loadSettings: (settings) => set((state) => ({
     ...state,

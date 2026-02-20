@@ -76,7 +76,7 @@ export function RunFilter({
     filters.category ||
     filters.league ||
     filters.breakpointPreset ||
-    filters.isCompleted !== undefined;
+    filters.status !== undefined;
 
   return (
     <div className="flex flex-wrap items-center gap-3 p-3 card-inset rounded-lg">
@@ -153,17 +153,18 @@ export function RunFilter({
         </div>
       )}
 
-      {/* Completed filter */}
+      {/* Status filter */}
       <div className="flex flex-col gap-1">
         <label className="text-xs text-[--color-text-muted]">Status</label>
         <CustomSelect
-          value={filters.isCompleted === undefined ? '' : filters.isCompleted ? 'true' : 'false'}
-          onChange={(v) => onFiltersChange({ isCompleted: v === '' ? undefined : v === 'true' })}
+          value={filters.status || ''}
+          onChange={(v) => onFiltersChange({ status: (v || undefined) as RunFilters['status'] })}
           className="min-w-[100px]"
           options={[
             { value: '', label: 'All Runs' },
-            { value: 'true', label: 'Completed' },
-            { value: 'false', label: 'In Progress' },
+            { value: 'completed', label: 'Completed' },
+            { value: 'abandoned', label: 'Abandoned' },
+            { value: 'in_progress', label: 'In Progress' },
           ]}
         />
       </div>

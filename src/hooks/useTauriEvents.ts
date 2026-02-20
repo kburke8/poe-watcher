@@ -267,8 +267,10 @@ export function useTauriEvents() {
             const { currentRun } = useRunStore.getState();
             const { testCharacterName } = useSettingsStore.getState();
             const currentChar = currentRun?.characterName || currentRun?.character;
-            // Update if no character, unknown, or still using the test/placeholder name
-            const shouldUpdate = !currentChar || currentChar === 'Unknown' || currentChar === testCharacterName;
+            // Update if no character, unknown, still using the test/placeholder name,
+            // or this is a level 2 event (supports muling: mule hits level 2 first,
+            // then the real character's level 2 overwrites it)
+            const shouldUpdate = !currentChar || currentChar === 'Unknown' || currentChar === testCharacterName || payload.level <= 2;
             if (currentRun && shouldUpdate) {
               const newCharName = payload.character_name;
               const newClass = payload.character_class || currentRun.class;

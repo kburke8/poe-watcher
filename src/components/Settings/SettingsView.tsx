@@ -1,4 +1,4 @@
-import { useState, useMemo, useCallback, type ReactNode } from 'react';
+import { useState, useEffect, useMemo, useCallback, type ReactNode } from 'react';
 import { invoke } from '@tauri-apps/api/core';
 import { open } from '@tauri-apps/plugin-dialog';
 import { MapPin, ArrowUp, Skull, Landmark, Trophy, Star, ChevronUp, ChevronDown, Save } from 'lucide-react';
@@ -92,12 +92,24 @@ export function SettingsView() {
     // Hotkeys
     hotkeys,
     setHotkeys,
+    // Navigation
+    pendingSettingsTab,
+    clearPendingSettingsTab,
   } = useSettingsStore();
-
   const { checking, available, version, error: updateError, checkForUpdate, downloadAndInstall, downloading, progress } = useUpdateChecker(false);
 
-  // Tab state
-  const [activeTab, setActiveTab] = useState<SettingsTab>('general');
+  // Tab state - use pending tab from store if set
+  const [activeTab, setActiveTab] = useState<SettingsTab>(
+    (pendingSettingsTab as SettingsTab) || 'general'
+  );
+
+  // Clear pending tab after consuming it
+  useEffect(() => {
+    if (pendingSettingsTab) {
+      setActiveTab(pendingSettingsTab as SettingsTab);
+      clearPendingSettingsTab();
+    }
+  }, [pendingSettingsTab, clearPendingSettingsTab]);
 
   // Filter state for breakpoints
   const [actFilter, setActFilter] = useState<number | 'all' | 'level'>('all');

@@ -1,4 +1,4 @@
-import { ListChecks } from 'lucide-react';
+import { ListChecks, Settings } from 'lucide-react';
 import { useRunStore } from '../../stores/runStore';
 import { useSettingsStore } from '../../stores/settingsStore';
 import { getWizardCategory } from '../../config/wizardRoutes';
@@ -7,7 +7,7 @@ import { SplitRow } from './SplitRow';
 
 export function SplitList() {
   const { timer, currentRun, personalBests } = useRunStore();
-  const { breakpoints, wizardConfig } = useSettingsStore();
+  const { breakpoints, wizardConfig, navigateToSettingsTab } = useSettingsStore();
 
   const enabledBreakpoints = breakpoints.filter((bp) => bp.isEnabled);
   const completedSplits = timer.splits;
@@ -19,11 +19,20 @@ export function SplitList() {
 
   return (
     <div className="card-inset rounded-lg h-full flex flex-col">
-      <div className="p-4 section-header rounded-t-lg">
-        <h2 className="text-lg font-semibold text-[--color-text]">Splits</h2>
-        <p className="text-xs text-[--color-text-muted] mt-1">
-          {completedSplits.length} / {enabledBreakpoints.length}
-        </p>
+      <div className="p-4 section-header rounded-t-lg flex items-start justify-between">
+        <div>
+          <h2 className="text-lg font-semibold text-[--color-text]">Splits</h2>
+          <p className="text-xs text-[--color-text-muted] mt-1">
+            {completedSplits.length} / {enabledBreakpoints.length}
+          </p>
+        </div>
+        <button
+          onClick={() => navigateToSettingsTab('breakpoints')}
+          className="p-1.5 rounded-md text-[--color-text-muted] hover:text-[--color-text] hover:bg-[--color-surface-elevated] transition-colors"
+          title="Edit breakpoints"
+        >
+          <Settings className="w-4 h-4" strokeWidth={1.75} />
+        </button>
       </div>
 
       <div className="flex-1 overflow-auto">

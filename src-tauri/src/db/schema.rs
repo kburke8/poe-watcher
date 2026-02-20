@@ -23,6 +23,7 @@ pub struct Run {
     pub total_time_ms: Option<i64>,
     pub is_completed: bool,
     pub is_personal_best: bool,
+    pub status: String,
     // Breakpoint tracking
     pub breakpoint_preset: Option<String>,
     pub enabled_breakpoints: Option<String>,
@@ -46,6 +47,7 @@ impl Run {
             total_time_ms: row.get("total_time_ms")?,
             is_completed: row.get("is_completed")?,
             is_personal_best: row.get("is_personal_best")?,
+            status: row.get("status")?,
             breakpoint_preset: row.get("breakpoint_preset")?,
             enabled_breakpoints: row.get("enabled_breakpoints")?,
             is_reference: row.get("is_reference")?,
@@ -76,7 +78,16 @@ impl Run {
     pub fn complete(id: i64, total_time_ms: i64) -> Result<()> {
         let conn = get_db()?;
         conn.execute(
-            "UPDATE runs SET is_completed = 1, ended_at = datetime('now'), total_time_ms = ?1 WHERE id = ?2",
+            "UPDATE runs SET is_completed = 1, status = 'completed', ended_at = datetime('now'), total_time_ms = ?1 WHERE id = ?2",
+            params![total_time_ms, id],
+        )?;
+        Ok(())
+    }
+
+    pub fn abandon(id: i64, total_time_ms: i64) -> Result<()> {
+        let conn = get_db()?;
+        conn.execute(
+            "UPDATE runs SET status = 'abandoned', ended_at = datetime('now'), total_time_ms = ?1 WHERE id = ?2",
             params![total_time_ms, id],
         )?;
         Ok(())
@@ -180,9 +191,9 @@ impl Run {
             params_vec.push(Box::new(preset.clone()));
         }
 
-        if let Some(completed) = filters.is_completed {
-            sql.push_str(" AND is_completed = ?");
-            params_vec.push(Box::new(completed as i32));
+        if let Some(ref status) = filters.status {
+            sql.push_str(" AND status = ?");
+            params_vec.push(Box::new(status.clone()));
         }
 
         if let Some(reference) = filters.include_reference {
@@ -210,8 +221,9 @@ impl Run {
         let runs = Run::get_filtered(filters)?;
 
         let total_runs = runs.len() as i64;
-        let completed_runs: Vec<&Run> = runs.iter().filter(|r| r.is_completed).collect();
+        let completed_runs: Vec<&Run> = runs.iter().filter(|r| r.status == "completed").collect();
         let completed_count = completed_runs.len() as i64;
+        let abandoned_count = runs.iter().filter(|r| r.status == "abandoned").count() as i64;
 
         let completed_times: Vec<i64> = completed_runs
             .iter()
@@ -229,6 +241,7 @@ impl Run {
         Ok(RunStats {
             total_runs,
             completed_runs: completed_count,
+            abandoned_runs: abandoned_count,
             average_time_ms,
             best_time_ms,
         })
@@ -238,8 +251,8 @@ impl Run {
     pub fn insert_reference(data: &ReferenceRunData) -> Result<i64> {
         let conn = get_db()?;
         conn.execute(
-            "INSERT INTO runs (character_name, account_name, class, ascendancy, league, category, started_at, breakpoint_preset, enabled_breakpoints, is_reference, source_name, is_completed, total_time_ms)
-             VALUES (?1, ?2, ?3, ?4, ?5, ?6, datetime('now'), ?7, ?8, 1, ?9, 1, ?10)",
+            "INSERT INTO runs (character_name, account_name, class, ascendancy, league, category, started_at, breakpoint_preset, enabled_breakpoints, is_reference, source_name, is_completed, total_time_ms, status)
+             VALUES (?1, ?2, ?3, ?4, ?5, ?6, datetime('now'), ?7, ?8, 1, ?9, 1, ?10, 'completed')",
             params![
                 data.character_name.clone().unwrap_or_default(),
                 "",
@@ -266,7 +279,7 @@ pub struct RunFilters {
     pub category: Option<String>,
     pub league: Option<String>,
     pub breakpoint_preset: Option<String>,
-    pub is_completed: Option<bool>,
+    pub status: Option<String>,
     pub include_reference: Option<bool>,
 }
 
@@ -276,6 +289,7 @@ pub struct RunFilters {
 pub struct RunStats {
     pub total_runs: i64,
     pub completed_runs: i64,
+    pub abandoned_runs: i64,
     pub average_time_ms: Option<i64>,
     pub best_time_ms: Option<i64>,
 }

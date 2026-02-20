@@ -22,7 +22,7 @@ export function AnalyticsTab() {
   // Prepare time trend data (runs over time)
   const trendData = useMemo(() => {
     const completedRuns = filteredRuns
-      .filter((r) => r.isCompleted && r.totalTimeMs)
+      .filter((r) => r.status === 'completed' && r.totalTimeMs)
       .sort((a, b) => new Date(a.startedAt).getTime() - new Date(b.startedAt).getTime());
 
     return completedRuns.map((run) => ({
@@ -61,7 +61,7 @@ export function AnalyticsTab() {
   return (
     <div className="h-full overflow-auto space-y-6">
       {/* Stats Cards */}
-      <div className="grid grid-cols-4 gap-4">
+      <div className="grid grid-cols-5 gap-4">
         <div className="p-4 card-inset rounded-lg">
           <div className="text-xs text-[--color-text-muted] mb-1">Total Runs</div>
           <div className="text-2xl font-bold text-[--color-text]">
@@ -77,6 +77,12 @@ export function AnalyticsTab() {
                 ({Math.round((runStats.completedRuns / runStats.totalRuns) * 100)}%)
               </span>
             )}
+          </div>
+        </div>
+        <div className="p-4 card-inset rounded-lg">
+          <div className="text-xs text-[--color-text-muted] mb-1">Abandoned</div>
+          <div className="text-2xl font-bold text-[--color-timer-behind]">
+            {runStats?.abandonedRuns ?? 0}
           </div>
         </div>
         <div className="p-4 card-inset rounded-lg">

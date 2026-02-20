@@ -6,7 +6,7 @@ import { useSettingsStore } from '../../stores/settingsStore';
 import { Button } from '../Shared/Button';
 
 export function TimerControls() {
-  const { timer, currentRun, startTimer, stopTimer, resetRun, endRun, setRunId } = useRunStore();
+  const { timer, currentRun, startTimer, stopTimer, resetRun, abandonRun, setRunId } = useRunStore();
   const { accountName, testCharacterName, hotkeys } = useSettingsStore();
 
   const handleStart = async () => {
@@ -48,7 +48,21 @@ export function TimerControls() {
     stopTimer();
   };
 
-  const handleReset = () => {
+  const handleReset = async () => {
+    // Abandon the run in the database if it exists and isn't already completed
+    const state = useRunStore.getState();
+    const run = state.currentRun;
+    if (run?.id && run.status !== 'completed') {
+      const { timer: t } = state;
+      const totalTimeMs = t.isRunning && t.startTime
+        ? Date.now() - t.startTime
+        : t.elapsedMs;
+      try {
+        await invoke('abandon_run', { runId: run.id, totalTimeMs });
+      } catch (error) {
+        console.error('[TimerControls] Failed to abandon run:', error);
+      }
+    }
     resetRun();
   };
 
@@ -58,7 +72,7 @@ export function TimerControls() {
     const { timer: t } = state;
 
     // Skip if run was already auto-completed (e.g. last split triggered auto-end)
-    if (run?.isCompleted) {
+    if (run?.status === 'completed') {
       resetRun();
       return;
     }
@@ -76,7 +90,7 @@ export function TimerControls() {
       const hasValidCapture = acct && charName && charName !== 'Unknown';
 
       if (hasValidCapture) {
-        const splitName = t.currentZone || 'End Run';
+        const splitName = t.currentZone || 'End Early';
         const segmentTimeMs = t.splits.length > 0
           ? totalTimeMs - t.splits[t.splits.length - 1].splitTimeMs
           : totalTimeMs;
@@ -105,21 +119,18 @@ export function TimerControls() {
         }
       }
 
-      // Complete the run in the database
+      // Abandon the run in the database (not a natural completion)
       try {
-        await invoke<boolean>('complete_run', {
+        await invoke('abandon_run', {
           runId: run.id,
           totalTimeMs,
         });
       } catch (error) {
-        console.error('[TimerControls] Failed to complete run in database:', error);
+        console.error('[TimerControls] Failed to abandon run in database:', error);
       }
     }
 
-    endRun();
-
-    // Reload PB/gold splits so next run shows updated comparisons
-    useRunStore.getState().loadPbAndGoldSplits();
+    abandonRun();
   };
 
   const handleManualSplit = () => {
@@ -238,10 +249,10 @@ export function TimerControls() {
         size="lg"
         icon={Flag}
         onClick={handleEnd}
-        disabled={!currentRun || currentRun.isCompleted}
-        style={currentRun && !currentRun.isCompleted ? { background: 'linear-gradient(180deg, #22b09a 0%, #147868 100%)', borderColor: '#2ac0a8', color: 'white', boxShadow: '0 0 10px rgba(27, 162, 155, 0.25), inset 0 1px 0 rgba(255,255,255,0.1)' } : undefined}
+        disabled={!currentRun || currentRun.status === 'completed'}
+        style={currentRun && currentRun.status !== 'completed' ? { background: 'linear-gradient(180deg, #22b09a 0%, #147868 100%)', borderColor: '#2ac0a8', color: 'white', boxShadow: '0 0 10px rgba(27, 162, 155, 0.25), inset 0 1px 0 rgba(255,255,255,0.1)' } : undefined}
       >
-        End Run
+        End Early
       </Button>
 
       <Button

@@ -159,12 +159,20 @@ export function RunsTab() {
                     </div>
                   </td>
                   <td className="p-3 text-right timer-display text-[--color-text]">
-                    {run.totalTimeMs ? formatTime(run.totalTimeMs) : '--:--'}
+                    {run.status === 'completed' && run.totalTimeMs
+                      ? formatTime(run.totalTimeMs)
+                      : run.status === 'abandoned' && run.totalTimeMs
+                      ? <span className="text-[--color-text-muted]">~{formatTime(run.totalTimeMs)}</span>
+                      : '--:--'}
                   </td>
                   <td className="p-3 text-center">
-                    {run.isCompleted ? (
+                    {run.status === 'completed' ? (
                       <span className="px-2 py-1 text-xs bg-[--color-timer-ahead]/20 text-[--color-timer-ahead] rounded">
                         Completed
+                      </span>
+                    ) : run.status === 'abandoned' ? (
+                      <span className="px-2 py-1 text-xs bg-[--color-timer-behind]/20 text-[--color-timer-behind] rounded">
+                        Abandoned
                       </span>
                     ) : (
                       <span className="px-2 py-1 text-xs bg-[--color-poe-gold]/20 text-[--color-poe-gold] rounded">

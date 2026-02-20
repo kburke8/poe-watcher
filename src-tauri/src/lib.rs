@@ -129,6 +129,7 @@ pub fn run() {
             create_run,
             update_run_character,
             complete_run,
+            abandon_run,
             get_runs,
             get_run,
             delete_run,

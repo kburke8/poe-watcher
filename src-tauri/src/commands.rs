@@ -129,6 +129,11 @@ pub async fn complete_run(run_id: i64, total_time_ms: i64) -> Result<bool, Strin
 }
 
 #[tauri::command]
+pub async fn abandon_run(run_id: i64, total_time_ms: i64) -> Result<(), String> {
+    Run::abandon(run_id, total_time_ms).map_err(|e| e.to_string())
+}
+
+#[tauri::command]
 pub async fn get_runs() -> Result<Vec<Run>, String> {
     Run::get_all().map_err(|e| e.to_string())
 }

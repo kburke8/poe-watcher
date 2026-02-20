@@ -1,5 +1,7 @@
 // Core types for POE Watcher
 
+export type RunStatus = 'completed' | 'abandoned' | 'in_progress';
+
 export interface Run {
   id: number;
   character?: string;
@@ -15,6 +17,7 @@ export interface Run {
   townTimeMs?: number;
   isCompleted: boolean;
   isPersonalBest: boolean;
+  status: RunStatus;
   // Breakpoint tracking
   breakpointPreset?: string | null;
   enabledBreakpoints?: string[] | null;
@@ -261,13 +264,14 @@ export interface RunFilters {
   category?: string;
   league?: string;
   breakpointPreset?: string;
-  isCompleted?: boolean;
+  status?: RunStatus;
   includeReference?: boolean;
 }
 
 export interface RunStats {
   totalRuns: number;
   completedRuns: number;
+  abandonedRuns: number;
   averageTimeMs: number | null;
   bestTimeMs: number | null;
 }

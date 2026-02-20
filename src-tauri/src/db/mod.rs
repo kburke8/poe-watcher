@@ -88,4 +88,5 @@ const MIGRATIONS: &[(&str, &str)] = &[
     ("007_add_manual_split_hotkey", include_str!("migrations/007_add_manual_split_hotkey.sql")),
     ("008_add_class_to_gold_splits", include_str!("migrations/008_add_class_to_gold_splits.sql")),
     ("009_add_death_count", include_str!("migrations/009_add_death_count.sql")),
+    ("010_add_run_status", include_str!("migrations/010_add_run_status.sql")),
 ];

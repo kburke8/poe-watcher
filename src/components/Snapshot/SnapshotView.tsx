@@ -95,7 +95,7 @@ export function SnapshotView() {
     try {
       // Delete all runs (except active current run)
       for (const run of runs) {
-        if (!currentRun || run.id !== currentRun.id || currentRun.isCompleted) {
+        if (!currentRun || run.id !== currentRun.id || currentRun.status === 'completed') {
           await invoke('delete_run', { runId: run.id });
         }
       }
@@ -141,7 +141,7 @@ export function SnapshotView() {
             ) : (
               <div className="divide-y divide-[--color-border]">
                 {/* Current run first if active */}
-                {currentRun && !currentRun.isCompleted && (
+                {currentRun && currentRun.status !== 'completed' && (
                   <RunListItem
                     run={currentRun}
                     isSelected={selectedRunId === currentRun.id}

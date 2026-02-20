@@ -197,9 +197,16 @@ function App() {
   return (
     <div className="flex h-screen bg-[--color-poe-darker] noise-bg">
       <Sidebar />
-      <main className="flex-1 overflow-auto" style={{ borderTop: '2px solid var(--color-poe-gold)', boxShadow: 'inset 0 2px 12px rgba(175, 96, 37, 0.08)' }}>
-        {renderView()}
-      </main>
+      <div className="flex-1 flex flex-col min-w-0">
+        <main className="flex-1 overflow-auto" style={{ borderTop: '2px solid var(--color-poe-gold)', boxShadow: 'inset 0 2px 12px rgba(175, 96, 37, 0.08)' }}>
+          {renderView()}
+        </main>
+        <footer className="flex-shrink-0 px-3 py-1 text-center border-t border-[--color-border]/50">
+          <span className="text-[10px] text-[--color-text-muted]/40" title="Not affiliated with or endorsed by Grinding Gear Games">
+            Not affiliated with or endorsed by Grinding Gear Games
+          </span>
+        </footer>
+      </div>
     </div>
   );
 }

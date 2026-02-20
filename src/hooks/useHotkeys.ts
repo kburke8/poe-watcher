@@ -82,7 +82,19 @@ export function useHotkeys() {
   }, [timer.isRunning, timer.elapsedMs, startTimer, stopTimer, setRunId, accountName, testCharacterName]);
 
   // Reset timer
-  const resetTimer = useCallback(() => {
+  const resetTimer = useCallback(async () => {
+    // Abandon the run in the database if it exists and isn't already completed
+    const { currentRun, timer: t } = useRunStore.getState();
+    if (currentRun?.id && currentRun.status !== 'completed') {
+      const totalTimeMs = t.isRunning && t.startTime
+        ? Date.now() - t.startTime
+        : t.elapsedMs;
+      try {
+        await invoke('abandon_run', { runId: currentRun.id, totalTimeMs });
+      } catch (error) {
+        console.error('[useHotkeys] Failed to abandon run:', error);
+      }
+    }
     resetRun();
     // Disable fast polling on reset
     invoke('set_log_poll_fast', { enabled: false }).catch(() => {});

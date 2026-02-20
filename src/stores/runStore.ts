@@ -24,8 +24,9 @@ interface RunState {
   splitStats: SplitStat[];
 
   // Actions
-  startRun: (run: Omit<Run, 'id' | 'isCompleted' | 'isPersonalBest' | 'endedAt' | 'totalTimeMs'>) => void;
+  startRun: (run: Omit<Run, 'id' | 'isCompleted' | 'isPersonalBest' | 'status' | 'endedAt' | 'totalTimeMs'>) => void;
   endRun: () => void;
+  abandonRun: () => void;
   resetRun: () => void;
   addSplit: (split: Omit<Split, 'id' | 'runId'>) => void;
 
@@ -93,6 +94,7 @@ export const useRunStore = create<RunState>((set, get) => ({
       id: Date.now(), // Temporary ID, will be replaced by DB
       isCompleted: false,
       isPersonalBest: false,
+      status: 'in_progress',
       endedAt: null,
       totalTimeMs: null,
     };
@@ -114,6 +116,7 @@ export const useRunStore = create<RunState>((set, get) => ({
     const endedRun: Run = {
       ...currentRun,
       isCompleted: true,
+      status: 'completed',
       endedAt: new Date().toISOString(),
       totalTimeMs: timer.elapsedMs,
     };
@@ -121,6 +124,28 @@ export const useRunStore = create<RunState>((set, get) => ({
     set((state) => ({
       currentRun: endedRun,
       runs: [...state.runs, endedRun],
+      timer: { ...state.timer, isRunning: false },
+    }));
+  },
+
+  abandonRun: () => {
+    const { currentRun, timer } = get();
+    if (!currentRun) return;
+
+    const totalTimeMs = timer.isRunning && timer.startTime
+      ? Date.now() - timer.startTime
+      : timer.elapsedMs;
+
+    const abandonedRun: Run = {
+      ...currentRun,
+      status: 'abandoned',
+      endedAt: new Date().toISOString(),
+      totalTimeMs,
+    };
+
+    set((state) => ({
+      currentRun: abandonedRun,
+      runs: [...state.runs, abandonedRun],
       timer: { ...state.timer, isRunning: false },
     }));
   },
@@ -188,6 +213,7 @@ export const useRunStore = create<RunState>((set, get) => ({
         startedAt: new Date().toISOString(),
         isCompleted: false,
         isPersonalBest: false,
+        status: 'in_progress',
         endedAt: null,
         totalTimeMs: null,
       };
