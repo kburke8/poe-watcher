@@ -20,6 +20,8 @@ export function AddComparisonModal({ isOpen, onClose, onSuccess }: AddComparison
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
+  const timeInputRefs = useRef<Record<string, HTMLInputElement | null>>({});
+
   const enabledBreakpoints = useMemo(() => {
     return breakpoints.filter((bp) => bp.isEnabled);
   }, [breakpoints]);
@@ -61,8 +63,37 @@ export function AddComparisonModal({ isOpen, onClose, onSuccess }: AddComparison
     }
   };
 
-  const handleSplitTimeChange = (breakpointName: string, value: string) => {
-    setSplitTimes(prev => ({ ...prev, [breakpointName]: value }));
+  const focusNextTimeInput = (currentBpName: string) => {
+    const enabledList = enabledBreakpoints.filter(bp => enabledSplits.has(bp.name));
+    const currentIndex = enabledList.findIndex(bp => bp.name === currentBpName);
+    if (currentIndex >= 0 && currentIndex < enabledList.length - 1) {
+      const nextBpName = enabledList[currentIndex + 1].name;
+      timeInputRefs.current[nextBpName]?.focus();
+    }
+  };
+
+  const handleTimeKeyDown = (e: React.KeyboardEvent<HTMLInputElement>, bpName: string) => {
+    if (e.key >= '0' && e.key <= '9') {
+      e.preventDefault();
+      const current = splitTimes[bpName] || '';
+      if (current.length < 6) {
+        setSplitTimes(prev => ({ ...prev, [bpName]: current + e.key }));
+      }
+    } else if (e.key === 'Backspace') {
+      e.preventDefault();
+      const current = splitTimes[bpName] || '';
+      if (current.length > 0) {
+        setSplitTimes(prev => ({ ...prev, [bpName]: current.slice(0, -1) }));
+      }
+    } else if (e.key === 'Delete') {
+      e.preventDefault();
+      setSplitTimes(prev => ({ ...prev, [bpName]: '' }));
+    } else if (e.key === 'Enter') {
+      e.preventDefault();
+      focusNextTimeInput(bpName);
+    } else if (!['Tab', 'Shift', 'Control', 'Alt', 'Meta', 'Escape'].includes(e.key)) {
+      e.preventDefault();
+    }
   };
 
   const totalTimeMs = useMemo(() => {
@@ -71,7 +102,7 @@ export function AddComparisonModal({ isOpen, onClose, onSuccess }: AddComparison
     for (let i = enabledBps.length - 1; i >= 0; i--) {
       const time = splitTimes[enabledBps[i].name];
       if (time) {
-        return parseTimeInput(time);
+        return parseDigitsToMs(time);
       }
     }
     return 0;
@@ -89,9 +120,9 @@ export function AddComparisonModal({ isOpen, onClose, onSuccess }: AddComparison
     const splits: ReferenceSplitData[] = [];
     for (const bp of enabledBreakpoints) {
       if (!enabledSplits.has(bp.name)) continue;
-      const timeStr = splitTimes[bp.name];
-      if (timeStr) {
-        const timeMs = parseTimeInput(timeStr);
+      const digits = splitTimes[bp.name];
+      if (digits) {
+        const timeMs = parseDigitsToMs(digits);
         if (timeMs > 0) {
           splits.push({
             breakpointName: bp.name,
@@ -149,7 +180,7 @@ export function AddComparisonModal({ isOpen, onClose, onSuccess }: AddComparison
 
   return (
     <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
-      <div className="bg-[--color-surface] rounded-lg w-full max-w-lg max-h-[85vh] overflow-hidden flex flex-col">
+      <div className="bg-[#1c1916] border border-[--color-border] rounded-lg w-full max-w-lg max-h-[85vh] overflow-hidden flex flex-col shadow-2xl">
         {/* Header */}
         <div className="p-4 border-b border-[--color-border]">
           <h2 className="text-lg font-semibold text-[--color-text]">Add Comparison Run</h2>
@@ -173,7 +204,7 @@ export function AddComparisonModal({ isOpen, onClose, onSuccess }: AddComparison
               type="text"
               value={name}
               onChange={(e) => setName(e.target.value)}
-              placeholder="e.g., Havoc WR, My Goal Time"
+              placeholder="e.g., Goal Time, PB Target"
               className="w-full px-3 py-2 bg-[--color-surface-elevated] border border-[--color-border] rounded-lg text-[--color-text] text-sm"
               autoFocus
             />
@@ -183,7 +214,7 @@ export function AddComparisonModal({ isOpen, onClose, onSuccess }: AddComparison
           <div>
             <div className="flex items-center justify-between mb-2">
               <label className="text-sm text-[--color-text-muted]">
-                Split Times <span className="text-[--color-text-muted]/60">(MM:SS or HH:MM:SS)</span>
+                Split Times
               </label>
               <button
                 onClick={toggleAll}
@@ -213,12 +244,13 @@ export function AddComparisonModal({ isOpen, onClose, onSuccess }: AddComparison
                       {bp.name}
                     </span>
                     <input
+                      ref={(el) => { timeInputRefs.current[bp.name] = el; }}
                       type="text"
-                      value={splitTimes[bp.name] || ''}
-                      onChange={(e) => handleSplitTimeChange(bp.name, e.target.value)}
-                      placeholder="MM:SS"
+                      value={formatDigitsDisplay(splitTimes[bp.name] || '')}
+                      onChange={() => {}}
+                      onKeyDown={(e) => handleTimeKeyDown(e, bp.name)}
                       disabled={!isSelected}
-                      className="w-20 px-2 py-0.5 bg-[--color-surface-elevated] border border-[--color-border] rounded text-[--color-text] text-sm timer-display text-center disabled:opacity-30"
+                      className={`w-[5.5rem] px-2 py-0.5 bg-[--color-surface-elevated] border border-[--color-border] rounded text-sm timer-display text-center disabled:opacity-30 ${splitTimes[bp.name] ? 'text-[--color-text]' : 'text-[--color-text-muted]/40'}`}
                     />
                   </div>
                 );
@@ -272,19 +304,21 @@ export function AddComparisonModal({ isOpen, onClose, onSuccess }: AddComparison
   );
 }
 
-function parseTimeInput(input: string): number {
-  const parts = input.trim().split(':').map(Number);
-  if (parts.some(isNaN)) return 0;
+function parseDigitsToMs(digits: string): number {
+  if (!digits) return 0;
+  const padded = digits.padStart(6, '0');
+  const hours = parseInt(padded.slice(0, 2));
+  const minutes = parseInt(padded.slice(2, 4));
+  const seconds = parseInt(padded.slice(4, 6));
+  return (hours * 3600 + minutes * 60 + seconds) * 1000;
+}
 
-  if (parts.length === 2) {
-    const [minutes, seconds] = parts;
-    return (minutes * 60 + seconds) * 1000;
-  } else if (parts.length === 3) {
-    const [hours, minutes, seconds] = parts;
-    return (hours * 3600 + minutes * 60 + seconds) * 1000;
-  }
-
-  return 0;
+function formatDigitsDisplay(digits: string): string {
+  const padded = (digits || '').padStart(6, '0');
+  const h = parseInt(padded.slice(0, 2));
+  const m = padded.slice(2, 4);
+  const s = padded.slice(4, 6);
+  return `${h}:${m}:${s}`;
 }
 
 function formatTime(ms: number): string {
