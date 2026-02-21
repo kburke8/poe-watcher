@@ -20,13 +20,14 @@ export function ComparisonView() {
   const [rightRunId, setRightRunId] = useState<number | null>(null);
   const [leftSplits, setLeftSplits] = useState<Split[]>([]);
   const [rightSplits, setRightSplits] = useState<Split[]>([]);
-  const [filters, setFilters] = useState<RunFilters>({});
+  const [filters, setFilters] = useState<RunFilters>({ includeReference: true });
   const [filteredRuns, setFilteredRuns] = useState<Run[]>([]);
   const [showSegmentTime, setShowSegmentTime] = useState(false);
   const [compatibleOnly, setCompatibleOnly] = useState(false);
 
   const leftRun = filteredRuns.find((r) => r.id === leftRunId) || runs.find((r) => r.id === leftRunId);
   const rightRun = filteredRuns.find((r) => r.id === rightRunId) || runs.find((r) => r.id === rightRunId);
+  const hasRefRun = leftRun?.isReference || rightRun?.isReference;
 
   // Load filtered runs
   useEffect(() => {
@@ -131,12 +132,19 @@ export function ComparisonView() {
     };
   }, [comparisonData]);
 
+  const getRunLabel = (run: Run) => {
+    if (run.isReference) {
+      return `${run.sourceName || 'Reference'} - ${formatTime(run.totalTimeMs ?? 0)} [REF]`;
+    }
+    return `${run.characterName || run.character} - ${run.class}${run.ascendancy ? ` (${run.ascendancy})` : ''} - ${formatTime(run.totalTimeMs ?? 0)}`;
+  };
+
   const handleFiltersChange = (newFilters: Partial<RunFilters>) => {
     setFilters((prev) => ({ ...prev, ...newFilters }));
   };
 
   const handleClearFilters = () => {
-    setFilters({});
+    setFilters({ includeReference: true });
   };
 
   return (
@@ -172,7 +180,7 @@ export function ComparisonView() {
               { value: '', label: 'Select a run...' },
               ...displayRuns.map((run) => ({
                 value: String(run.id),
-                label: `${run.characterName || run.character} - ${run.class}${run.ascendancy ? ` (${run.ascendancy})` : ''} - ${formatTime(run.totalTimeMs ?? 0)}${run.isReference ? ' [REF]' : ''}`,
+                label: getRunLabel(run),
               })),
             ]}
           />
@@ -188,7 +196,7 @@ export function ComparisonView() {
               { value: '', label: 'Select a run...' },
               ...displayRuns.map((run) => ({
                 value: String(run.id),
-                label: `${run.characterName || run.character} - ${run.class}${run.ascendancy ? ` (${run.ascendancy})` : ''} - ${formatTime(run.totalTimeMs ?? 0)}${run.isReference ? ' [REF]' : ''}`,
+                label: getRunLabel(run),
               })),
             ]}
           />
@@ -327,7 +335,9 @@ export function ComparisonView() {
                             {rightTime !== undefined ? formatTime(rightTime) : '--:--'}
                           </td>
                           <td className="p-3 text-right text-xs">
-                            {townDelta !== null && townDelta !== 0 ? (
+                            {hasRefRun ? (
+                              <span className="text-[--color-text-muted]">N/A</span>
+                            ) : townDelta !== null && townDelta !== 0 ? (
                               <span
                                 className={
                                   townDelta < 0
@@ -342,14 +352,14 @@ export function ComparisonView() {
                             )}
                           </td>
                           <td className="p-3 text-center text-xs">
-                            {(leftDeaths !== null || rightDeaths !== null) ? (
+                            {(leftDeaths !== null || rightDeaths !== null || hasRefRun) ? (
                               <span className="flex justify-center gap-1">
-                                <span className={leftDeaths && leftDeaths > 0 ? 'text-red-400' : 'text-[--color-text-muted]'}>
-                                  {leftDeaths ?? '-'}
+                                <span className={!leftRun?.isReference && leftDeaths && leftDeaths > 0 ? 'text-red-400' : 'text-[--color-text-muted]'}>
+                                  {leftRun?.isReference ? 'N/A' : (leftDeaths ?? '-')}
                                 </span>
                                 <span className="text-[--color-text-muted]">/</span>
-                                <span className={rightDeaths && rightDeaths > 0 ? 'text-red-400' : 'text-[--color-text-muted]'}>
-                                  {rightDeaths ?? '-'}
+                                <span className={!rightRun?.isReference && rightDeaths && rightDeaths > 0 ? 'text-red-400' : 'text-[--color-text-muted]'}>
+                                  {rightRun?.isReference ? 'N/A' : (rightDeaths ?? '-')}
                                 </span>
                               </span>
                             ) : (
@@ -384,19 +394,21 @@ export function ComparisonView() {
                       <td className="p-3 text-right timer-display text-[--color-text] font-semibold">
                         {formatTime(rightRun.totalTimeMs ?? 0)}
                       </td>
-                      <td className="p-3"></td>
+                      <td className="p-3 text-right text-xs">
+                        {hasRefRun && <span className="text-[--color-text-muted]">N/A</span>}
+                      </td>
                       <td className="p-3 text-center text-xs">
-                        {(leftSplits.length > 0 || rightSplits.length > 0) && (
+                        {(leftSplits.length > 0 || rightSplits.length > 0 || hasRefRun) ? (
                           <span className="flex justify-center gap-1">
-                            <span className={(leftSplits[leftSplits.length - 1]?.deathCount ?? 0) > 0 ? 'text-red-400' : 'text-[--color-text-muted]'}>
-                              {leftSplits[leftSplits.length - 1]?.deathCount ?? 0}
+                            <span className={!leftRun?.isReference && (leftSplits[leftSplits.length - 1]?.deathCount ?? 0) > 0 ? 'text-red-400' : 'text-[--color-text-muted]'}>
+                              {leftRun?.isReference ? 'N/A' : (leftSplits[leftSplits.length - 1]?.deathCount ?? 0)}
                             </span>
                             <span className="text-[--color-text-muted]">/</span>
-                            <span className={(rightSplits[rightSplits.length - 1]?.deathCount ?? 0) > 0 ? 'text-red-400' : 'text-[--color-text-muted]'}>
-                              {rightSplits[rightSplits.length - 1]?.deathCount ?? 0}
+                            <span className={!rightRun?.isReference && (rightSplits[rightSplits.length - 1]?.deathCount ?? 0) > 0 ? 'text-red-400' : 'text-[--color-text-muted]'}>
+                              {rightRun?.isReference ? 'N/A' : (rightSplits[rightSplits.length - 1]?.deathCount ?? 0)}
                             </span>
                           </span>
-                        )}
+                        ) : null}
                       </td>
                     </tr>
                   </tfoot>
@@ -432,7 +444,7 @@ export function ComparisonView() {
                       Reference: {leftRun.sourceName}
                     </div>
                   )}
-                  {leftSplits.length > 0 && (
+                  {leftSplits.length > 0 && !leftRun.isReference && (
                     <div className="flex gap-4 mt-2 pt-2 border-t border-[--color-border] text-xs">
                       <span className="text-yellow-400/70">Town: <span className="timer-display text-[--color-text]">{formatTime(leftSplits[leftSplits.length - 1].townTimeMs ?? 0)}</span></span>
                       <span className="text-blue-400/70">Hideout: <span className="timer-display text-[--color-text]">{formatTime(leftSplits[leftSplits.length - 1].hideoutTimeMs ?? 0)}</span></span>
@@ -465,7 +477,7 @@ export function ComparisonView() {
                       Reference: {rightRun.sourceName}
                     </div>
                   )}
-                  {rightSplits.length > 0 && (
+                  {rightSplits.length > 0 && !rightRun.isReference && (
                     <div className="flex gap-4 mt-2 pt-2 border-t border-[--color-border] text-xs">
                       <span className="text-yellow-400/70">Town: <span className="timer-display text-[--color-text]">{formatTime(rightSplits[rightSplits.length - 1].townTimeMs ?? 0)}</span></span>
                       <span className="text-blue-400/70">Hideout: <span className="timer-display text-[--color-text]">{formatTime(rightSplits[rightSplits.length - 1].hideoutTimeMs ?? 0)}</span></span>
