@@ -20,6 +20,7 @@ const GroupView = lazy(() => import("./components/Group/GroupView").then(m => ({
 
 const BREAKPOINTS_STORAGE_KEY = 'poe-watcher-breakpoints';
 const WIZARD_CONFIG_STORAGE_KEY = 'poe-watcher-wizard-config';
+const ACTIVE_COMPARISON_STORAGE_KEY = 'poe-watcher-active-comparison';
 
 function ViewLoader() {
   return (
@@ -69,6 +70,27 @@ function App() {
       console.error('[App] Failed to save breakpoints:', e);
     }
   }, [breakpoints]);
+
+  // Auto-save active comparison to localStorage and load splits when it changes
+  const activeComparisonRunId = useSettingsStore((state) => state.activeComparisonRunId);
+  const activeComparisonLabel = useSettingsStore((state) => state.activeComparisonLabel);
+
+  useEffect(() => {
+    try {
+      if (activeComparisonRunId != null) {
+        localStorage.setItem(
+          ACTIVE_COMPARISON_STORAGE_KEY,
+          JSON.stringify({ runId: activeComparisonRunId, label: activeComparisonLabel })
+        );
+        useRunStore.getState().loadComparisonSplits(activeComparisonRunId);
+      } else {
+        localStorage.removeItem(ACTIVE_COMPARISON_STORAGE_KEY);
+        useRunStore.getState().clearComparisonSplits();
+      }
+    } catch (e) {
+      console.error('[App] Failed to save active comparison:', e);
+    }
+  }, [activeComparisonRunId, activeComparisonLabel]);
 
   // Load settings and start log watcher on mount
   useEffect(() => {
@@ -120,6 +142,20 @@ function App() {
           }
         } catch (e) {
           console.error('[App] Failed to load wizard config:', e);
+        }
+
+        // Load active comparison from localStorage
+        try {
+          const savedComparison = localStorage.getItem(ACTIVE_COMPARISON_STORAGE_KEY);
+          if (savedComparison) {
+            const parsed = JSON.parse(savedComparison);
+            if (parsed && typeof parsed.runId === 'number') {
+              useSettingsStore.getState().setActiveComparison(parsed.runId, parsed.label ?? null);
+              await useRunStore.getState().loadComparisonSplits(parsed.runId);
+            }
+          }
+        } catch (e) {
+          console.error('[App] Failed to load active comparison:', e);
         }
 
         // Load saved settings from backend

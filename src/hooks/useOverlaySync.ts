@@ -67,6 +67,7 @@ function buildOverlayState(
   config: OverlayConfig,
   personalBests: Map<string, number>,
   goldSplits: Map<string, number>,
+  comparisonSplits: Map<string, number>,
   currentRun: { category: string; class: string } | null,
   hotkeyLabels: HotkeyLabels,
   fallbackCategory: string | null,
@@ -76,55 +77,63 @@ function buildOverlayState(
   const hitCount = timer.currentSplit;
   const category = currentRun?.category ?? fallbackCategory;
   const cls = currentRun?.class ?? 'Unknown';
+  const hasComparison = comparisonSplits.size > 0;
+
   if (import.meta.env.DEV) {
-    console.log('[OverlaySync] category:', category, '| class:', cls, '| PB entries:', personalBests.size, '| gold entries:', goldSplits.size);
+    console.log('[OverlaySync] category:', category, '| class:', cls, '| PB entries:', personalBests.size, '| gold entries:', goldSplits.size, '| comparison entries:', comparisonSplits.size);
     if (personalBests.size > 0) {
       console.log('[OverlaySync] PB keys:', [...personalBests.keys()]);
     }
   }
+
+  // Helper to get reference time for a breakpoint (comparison > PB)
+  const getRefTime = (bpName: string): number | null => {
+    const compTime = hasComparison ? (comparisonSplits.get(bpName) ?? null) : null;
+    const pbTime = category ? (personalBests.get(`${category}-${cls}-${bpName}`) ?? null) : null;
+    return compTime ?? pbTime;
+  };
+
   const upcomingBreakpoints = enabledBreakpoints
     .slice(hitCount)
     .map((bp: Breakpoint, idx: number) => {
-      const pbTimeMs = category ? (personalBests.get(`${category}-${cls}-${bp.name}`) ?? null) : null;
-      // Compute PB segment time: this BP's PB - previous BP's PB
+      const refTimeMs = getRefTime(bp.name);
+      // Compute segment time: this BP's ref - previous BP's ref
       let pbSegmentTimeMs: number | null = null;
-      if (pbTimeMs != null) {
-        // Previous BP is either the last hit split or the previous upcoming
+      if (refTimeMs != null) {
         const prevBpIndex = hitCount + idx - 1;
         if (prevBpIndex >= 0 && prevBpIndex < enabledBreakpoints.length) {
-          const prevPbTime = category
-            ? (personalBests.get(`${category}-${cls}-${enabledBreakpoints[prevBpIndex].name}`) ?? null)
-            : null;
-          if (prevPbTime != null) {
-            pbSegmentTimeMs = pbTimeMs - prevPbTime;
+          const prevRefTime = getRefTime(enabledBreakpoints[prevBpIndex].name);
+          if (prevRefTime != null) {
+            pbSegmentTimeMs = refTimeMs - prevRefTime;
           }
         } else {
-          // First breakpoint - segment = full PB time
-          pbSegmentTimeMs = pbTimeMs;
+          // First breakpoint - segment = full ref time
+          pbSegmentTimeMs = refTimeMs;
         }
       }
-      return { name: bp.name, pbTimeMs, pbSegmentTimeMs };
+      return { name: bp.name, pbTimeMs: refTimeMs, pbSegmentTimeMs };
     });
 
-  // Look up PB and gold segment times for the last split
+  // Look up reference and gold segment times for the last split
   let pbSegmentTimeMs: number | null = null;
   let goldSegmentTimeMs: number | null = null;
-  if (lastTimerSplit && category) {
-    const pbSplitTime = personalBests.get(`${category}-${cls}-${lastTimerSplit.name}`);
+  if (lastTimerSplit) {
+    const refSplitTime = getRefTime(lastTimerSplit.name);
     const prevSplit = timer.splits.length >= 2 ? timer.splits[timer.splits.length - 2] : null;
-    // PB segment = PB cumulative at this split - PB cumulative at previous split
-    if (pbSplitTime !== undefined && prevSplit) {
-      const prevPbTime = personalBests.get(`${category}-${cls}-${prevSplit.name}`);
-      if (prevPbTime !== undefined) {
-        pbSegmentTimeMs = pbSplitTime - prevPbTime;
+    if (refSplitTime != null && prevSplit) {
+      const prevRefTime = getRefTime(prevSplit.name);
+      if (prevRefTime != null) {
+        pbSegmentTimeMs = refSplitTime - prevRefTime;
       }
-    } else if (pbSplitTime !== undefined) {
-      // First split - PB segment = PB cumulative
-      pbSegmentTimeMs = pbSplitTime;
+    } else if (refSplitTime != null) {
+      // First split - segment = cumulative
+      pbSegmentTimeMs = refSplitTime;
     }
-    const goldTime = goldSplits.get(`${category}-${cls}-${lastTimerSplit.name}`);
-    if (goldTime !== undefined) {
-      goldSegmentTimeMs = goldTime;
+    if (category) {
+      const goldTime = goldSplits.get(`${category}-${cls}-${lastTimerSplit.name}`);
+      if (goldTime !== undefined) {
+        goldSegmentTimeMs = goldTime;
+      }
     }
   }
 
@@ -175,6 +184,7 @@ export function useOverlaySync() {
   const timer = useRunStore((state: { timer: TimerState }) => state.timer);
   const personalBests = useRunStore((state) => state.personalBests);
   const goldSplits = useRunStore((state) => state.goldSplits);
+  const comparisonSplits = useRunStore((state) => state.comparisonSplits);
   const currentRun = useRunStore((state) => state.currentRun);
   const breakpoints = useSettingsStore((state: { breakpoints: Breakpoint[] }) => state.breakpoints);
   const wizardConfig = useSettingsStore((state) => state.wizardConfig);
@@ -220,10 +230,10 @@ export function useOverlaySync() {
   const syncNow = useCallback(() => {
     const runInfo = currentRun ? { category: currentRun.category, class: currentRun.class } : null;
     const fallbackCategory = wizardConfig ? getWizardCategory(wizardConfig) : null;
-    const state = buildOverlayState(timer, breakpoints, config, personalBests, goldSplits, runInfo, hotkeyLabels, fallbackCategory);
+    const state = buildOverlayState(timer, breakpoints, config, personalBests, goldSplits, comparisonSplits, runInfo, hotkeyLabels, fallbackCategory);
     sendToOverlay(state);
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [timer, breakpoints, overlayOpacity, overlayScale, overlayFontSize, overlayShowTimer, overlayShowZone, overlayShowLastSplit, overlayShowBreakpoints, overlayBreakpointCount, overlayBgOpacity, overlayAccentColor, overlayAlwaysOnTop, overlayLocked, personalBests, goldSplits, currentRun, hotkeys, wizardConfig]);
+  }, [timer, breakpoints, overlayOpacity, overlayScale, overlayFontSize, overlayShowTimer, overlayShowZone, overlayShowLastSplit, overlayShowBreakpoints, overlayBreakpointCount, overlayBgOpacity, overlayAccentColor, overlayAlwaysOnTop, overlayLocked, personalBests, goldSplits, comparisonSplits, currentRun, hotkeys, wizardConfig]);
 
   // Emit immediately on meaningful state changes (zone, splits, start/stop, config, etc.)
   useEffect(() => {
@@ -248,13 +258,14 @@ export function useOverlaySync() {
       locked: overlayLocked,
       pbCount: personalBests.size,
       goldCount: goldSplits.size,
+      comparisonCount: comparisonSplits.size,
     });
 
     if (nonTimeKey !== prevNonTimeRef.current) {
       prevNonTimeRef.current = nonTimeKey;
       syncNow();
     }
-  }, [timer, overlayOpacity, overlayScale, overlayFontSize, overlayShowTimer, overlayShowZone, overlayShowLastSplit, overlayShowBreakpoints, overlayBreakpointCount, overlayBgOpacity, overlayAccentColor, overlayAlwaysOnTop, overlayLocked, personalBests, goldSplits, syncNow]);
+  }, [timer, overlayOpacity, overlayScale, overlayFontSize, overlayShowTimer, overlayShowZone, overlayShowLastSplit, overlayShowBreakpoints, overlayBreakpointCount, overlayBgOpacity, overlayAccentColor, overlayAlwaysOnTop, overlayLocked, personalBests, goldSplits, comparisonSplits, syncNow]);
 
   // Listen for overlay-ready signal and immediately sync
   useEffect(() => {

@@ -4,10 +4,12 @@ import { useSettingsStore } from '../../stores/settingsStore';
 import { getWizardCategory } from '../../config/wizardRoutes';
 import { EmptyState } from '../Shared/EmptyState';
 import { SplitRow } from './SplitRow';
+import { ComparisonSelector } from './ComparisonSelector';
 
 export function SplitList() {
-  const { timer, currentRun, personalBests } = useRunStore();
-  const { breakpoints, wizardConfig, navigateToSettingsTab } = useSettingsStore();
+  const { timer, currentRun, personalBests, comparisonSplits } = useRunStore();
+  const { breakpoints, wizardConfig, navigateToSettingsTab,
+          activeComparisonRunId, activeComparisonLabel } = useSettingsStore();
 
   const enabledBreakpoints = breakpoints.filter((bp) => bp.isEnabled);
   const completedSplits = timer.splits;
@@ -16,6 +18,8 @@ export function SplitList() {
   const category = currentRun?.category
     ?? (wizardConfig ? getWizardCategory(wizardConfig) : null);
   const cls = currentRun?.class ?? 'Unknown';
+
+  const hasComparison = activeComparisonRunId != null && comparisonSplits.size > 0;
 
   return (
     <div className="card-inset rounded-lg h-full flex flex-col">
@@ -35,6 +39,8 @@ export function SplitList() {
         </button>
       </div>
 
+      <ComparisonSelector />
+
       <div className="flex-1 overflow-auto">
         {enabledBreakpoints.length === 0 ? (
           <EmptyState
@@ -50,7 +56,12 @@ export function SplitList() {
               <span className="flex-1 text-xs text-[--color-text-muted] uppercase tracking-wide">Split</span>
               <div className="flex items-center gap-3">
                 <span className="text-xs text-[--color-text-muted] uppercase tracking-wide min-w-[50px] text-right">Seg</span>
-                <span className="text-xs text-[--color-text-muted] uppercase tracking-wide min-w-[55px] text-right">+/-</span>
+                <span
+                  className="text-xs text-[--color-text-muted] uppercase tracking-wide min-w-[55px] text-right"
+                  title={hasComparison ? `Delta vs ${activeComparisonLabel}` : 'Delta vs PB'}
+                >
+                  {hasComparison ? 'vs Cmp' : '+/-'}
+                </span>
                 <span className="text-xs text-[--color-text-muted] uppercase tracking-wide min-w-[50px] text-right">Time</span>
               </div>
             </div>
@@ -59,8 +70,10 @@ export function SplitList() {
               const isNext = index === completedSplits.length;
               const isCompleted = index < completedSplits.length;
 
-              // Look up PB split time for this breakpoint
+              // Use comparison splits if active, otherwise fall back to PB
+              const compTime = hasComparison ? (comparisonSplits.get(bp.name) ?? null) : null;
               const pbTime = category ? (personalBests.get(`${category}-${cls}-${bp.name}`) ?? null) : null;
+              const referenceTime = compTime ?? pbTime;
 
               return (
                 <SplitRow
@@ -73,7 +86,7 @@ export function SplitList() {
                   isBestSegment={split?.isBestSegment ?? false}
                   isNext={isNext}
                   isCompleted={isCompleted}
-                  pbTime={pbTime}
+                  pbTime={referenceTime}
                 />
               );
             })}

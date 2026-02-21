@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { invoke } from '@tauri-apps/api/core';
-import { Search } from 'lucide-react';
+import { Search, Crosshair } from 'lucide-react';
 import { useRunStore } from '../../stores/runStore';
 import { useSettingsStore } from '../../stores/settingsStore';
 import { exportRunToJson } from '../../utils/jsonExport';
@@ -14,7 +14,7 @@ type SortDirection = 'asc' | 'desc';
 
 export function RunsTab() {
   const { filteredRuns, loadFilteredRuns } = useRunStore();
-  const { navigateToSnapshot } = useSettingsStore();
+  const { navigateToSnapshot, activeComparisonRunId, setActiveComparison } = useSettingsStore();
   const [sortField, setSortField] = useState<SortField>('startedAt');
   const [sortDirection, setSortDirection] = useState<SortDirection>('desc');
 
@@ -60,6 +60,17 @@ export function RunsTab() {
 
   const handleViewSnapshots = (run: Run) => {
     navigateToSnapshot(run.id);
+  };
+
+  const handleSetComparison = (run: Run) => {
+    if (activeComparisonRunId === run.id) {
+      setActiveComparison(null, null);
+    } else {
+      const label = run.isReference && run.sourceName
+        ? run.sourceName
+        : `${run.characterName || run.character || 'Run'} (${formatTime(run.totalTimeMs ?? 0)})`;
+      setActiveComparison(run.id, label);
+    }
   };
 
   const SortIcon = ({ field }: { field: SortField }) => {
@@ -182,6 +193,17 @@ export function RunsTab() {
                   </td>
                   <td className="p-3 text-right">
                     <div className="flex justify-end gap-2">
+                      {(run.status === 'completed' || run.isReference) && (
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => handleSetComparison(run)}
+                          title={activeComparisonRunId === run.id ? 'Remove as comparison' : 'Set as comparison'}
+                          className={activeComparisonRunId === run.id ? 'text-[--color-poe-gold] bg-[--color-poe-gold]/10' : ''}
+                        >
+                          <Crosshair className="w-3.5 h-3.5" strokeWidth={2} />
+                        </Button>
+                      )}
                       <Button
                         variant="ghost"
                         size="sm"
