@@ -20,6 +20,7 @@ interface ZoneEntry {
   verbosity: VerbosityLevel;
   captureSnapshot: boolean;
   penalty?: number;         // For kitava triggers
+  defaultDisabled?: boolean; // Zone is included in list but disabled by default
 }
 
 // ── Zone data per act ──────────────────────────────────────────────
@@ -27,19 +28,19 @@ interface ZoneEntry {
 const act1Zones: ZoneEntry[] = [
   // No Twilight Strand — you start in it, can't split on it
   { name: 'The Coast', zoneName: 'The Coast', act: 1, bpType: 'zone', triggerType: 'zone', verbosity: 'key_zones', captureSnapshot: false },
-  { name: 'The Tidal Island', zoneName: 'The Tidal Island', act: 1, bpType: 'zone', triggerType: 'zone', verbosity: 'every_zone', captureSnapshot: false },
   { name: 'The Mud Flats', zoneName: 'The Mud Flats', act: 1, bpType: 'zone', triggerType: 'zone', verbosity: 'every_zone', captureSnapshot: false },
-  { name: 'The Fetid Pool', zoneName: 'The Fetid Pool', act: 1, bpType: 'zone', triggerType: 'zone', verbosity: 'every_zone', captureSnapshot: false },
   { name: 'The Submerged Passage', zoneName: 'The Submerged Passage', act: 1, bpType: 'zone', triggerType: 'zone', verbosity: 'every_zone', captureSnapshot: false },
-  { name: 'The Flooded Depths', zoneName: 'The Flooded Depths', act: 1, bpType: 'zone', triggerType: 'zone', verbosity: 'every_zone', captureSnapshot: false },
+  { name: 'The Tidal Island', zoneName: 'The Tidal Island', act: 1, bpType: 'zone', triggerType: 'zone', verbosity: 'every_zone', captureSnapshot: false },
+  { name: 'The Fetid Pool', zoneName: 'The Fetid Pool', act: 1, bpType: 'zone', triggerType: 'zone', verbosity: 'every_zone', captureSnapshot: false, defaultDisabled: true },
   { name: 'The Ledge', zoneName: 'The Ledge', act: 1, bpType: 'zone', triggerType: 'zone', verbosity: 'every_zone', captureSnapshot: false },
   { name: 'The Climb', zoneName: 'The Climb', act: 1, bpType: 'zone', triggerType: 'zone', verbosity: 'every_zone', captureSnapshot: false },
   { name: 'The Lower Prison', zoneName: 'The Lower Prison', act: 1, bpType: 'zone', triggerType: 'zone', verbosity: 'every_zone', captureSnapshot: false },
+  { name: 'The Flooded Depths', zoneName: 'The Flooded Depths', act: 1, bpType: 'zone', triggerType: 'zone', verbosity: 'every_zone', captureSnapshot: false },
   { name: 'The Upper Prison', zoneName: 'The Upper Prison', act: 1, bpType: 'zone', triggerType: 'zone', verbosity: 'every_zone', captureSnapshot: false },
   { name: 'Prisoners Gate', zoneName: "Prisoner's Gate", act: 1, bpType: 'boss', triggerType: 'zone', verbosity: 'bosses_only', captureSnapshot: false },  // Brutus kill
   { name: 'The Ship Graveyard', zoneName: 'The Ship Graveyard', act: 1, bpType: 'zone', triggerType: 'zone', verbosity: 'every_zone', captureSnapshot: false },
-  { name: 'The Ship Graveyard Cave', zoneName: 'The Ship Graveyard Cave', act: 1, bpType: 'zone', triggerType: 'zone', verbosity: 'every_zone', captureSnapshot: false },
   { name: 'The Cavern of Wrath', zoneName: 'The Cavern of Wrath', act: 1, bpType: 'zone', triggerType: 'zone', verbosity: 'every_zone', captureSnapshot: false },
+  { name: 'The Ship Graveyard Cave', zoneName: 'The Ship Graveyard Cave', act: 1, bpType: 'zone', triggerType: 'zone', verbosity: 'every_zone', captureSnapshot: false },
   { name: 'The Cavern of Anger', zoneName: 'The Cavern of Anger', act: 1, bpType: 'zone', triggerType: 'zone', verbosity: 'key_zones', captureSnapshot: false },  // Merveil end-of-act (redundant with Southern Forest)
 ];
 
@@ -374,7 +375,7 @@ function zoneToBreakpoint(zone: ZoneEntry): Breakpoint {
     name: zone.name,
     type: zone.bpType,
     trigger: { type: 'zone', zoneName: zone.zoneName, act: zone.act },
-    isEnabled: true,
+    isEnabled: !zone.defaultDisabled,
     captureSnapshot: zone.captureSnapshot,
   };
 }
