@@ -310,7 +310,7 @@ function SnapshotDetail({
     if (!selectedSnapshot) return;
     setExportStatus('loading');
     try {
-      await exportToPob(selectedSnapshot, run);
+      await exportToPob(selectedSnapshot, run, splits);
       setExportStatus('success');
       setTimeout(() => setExportStatus('idle'), 2000);
     } catch (error) {
@@ -324,7 +324,7 @@ function SnapshotDetail({
     if (!selectedSnapshot) return;
     setShareStatus('loading');
     try {
-      const url = await shareOnPobbIn(selectedSnapshot, run);
+      const url = await shareOnPobbIn(selectedSnapshot, run, splits);
       setShareUrl(url);
       setShareStatus('success');
       // Open in browser

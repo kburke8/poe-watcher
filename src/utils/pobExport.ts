@@ -2,6 +2,7 @@ import pako from 'pako';
 import { invoke } from '@tauri-apps/api/core';
 import type { PoeItem, Snapshot, Run, Split, GroupSnapshot } from '../types';
 import { defaultBreakpoints } from '../config/breakpoints';
+import gemsData from '../config/gems_minimal.json';
 
 // ============================================================================
 // PoB Config Auto-Population Helpers
@@ -155,12 +156,62 @@ function generateConfigInputs(
 
 interface BuildData {
   items: PoeItem[];
-  passives: { hashes: number[]; hashesEx: number[] };
+  passives: { hashes: number[]; hashesEx: number[]; masteryEffects?: Record<string, number> };
   character: {
     level: number;
     class: string;
     ascendancy?: string;
   };
+  notes?: string;
+}
+
+/**
+ * Generate notes for PoB export with run stats
+ */
+function generateNotes(run: Run, splits?: Split[]): string {
+  const lines: string[] = [];
+
+  if (run.category) {
+    lines.push(`Category: ${run.category}`);
+  }
+
+  const charName = run.characterName || run.character;
+  if (charName) {
+    const { class: className, ascendancy } = deriveClassAndAscendancy(run.class, run.ascendancy || undefined);
+    const classStr = ascendancy && ascendancy !== 'None'
+      ? `${className} / ${ascendancy}`
+      : className;
+    lines.push(`Character: ${charName} (${classStr})`);
+  }
+
+  // Build the time/town/deaths line
+  const timeParts: string[] = [];
+  if (run.totalTimeMs) {
+    timeParts.push(`Time: ${formatTimeForLabel(run.totalTimeMs)}`);
+  }
+
+  // Get town time and deaths from last split if available, else fall back to run
+  const lastSplit = splits && splits.length > 0 ? splits[splits.length - 1] : null;
+  const townTimeMs = lastSplit?.townTimeMs ?? run.townTimeMs;
+  if (townTimeMs) {
+    timeParts.push(`Town: ${formatTimeForLabel(townTimeMs)}`);
+  }
+  if (lastSplit && lastSplit.deathCount > 0) {
+    timeParts.push(`Deaths: ${lastSplit.deathCount}`);
+  }
+
+  if (timeParts.length > 0) {
+    lines.push(timeParts.join(' | '));
+  }
+
+  if (run.isPersonalBest) {
+    lines.push('Personal Best!');
+  }
+
+  lines.push('');
+  lines.push('Exported from PoE Watcher');
+
+  return lines.join('\n');
 }
 
 /**
@@ -242,6 +293,7 @@ function generatePobXml(data: BuildData): string {
 
   // Generate tree - use comma-separated node IDs
   const treeNodes = passives.hashes.join(',');
+  const masteryStr = formatMasteryEffects(passives.masteryEffects);
 
   // Derive class from ascendancy if class is unknown
   const { class: className, ascendancy: ascendClassName } = deriveClassAndAscendancy(character.class, character.ascendancy);
@@ -269,12 +321,12 @@ ${allSlots}
 ${skillsXml || '\t\t<SkillSet id="1"/>'}
 	</Skills>
 	<Tree activeSpec="1">
-		<Spec title="Default" classId="${classId}" ascendClassId="${getAscendancyId(character.ascendancy)}" treeVersion="3_27"${treeNodes ? ` nodes="${treeNodes}"` : ''}>
+		<Spec title="Default" classId="${classId}" ascendClassId="${getAscendancyId(character.ascendancy)}" treeVersion="3_27"${treeNodes ? ` nodes="${treeNodes}"` : ''}${masteryStr ? ` masteryEffects="${masteryStr}"` : ''}>
 			<URL>https://www.pathofexile.com/passive-skill-tree/3.27.0/AAAA</URL>
 			<Sockets></Sockets>
 		</Spec>
 	</Tree>
-	<Notes>Exported from PoE Watcher speedrun tracker</Notes>
+	<Notes>${escapeXml(data.notes || 'Exported from PoE Watcher')}</Notes>
 </PathOfBuilding>`;
 }
 
@@ -526,109 +578,108 @@ function generateSkillsXml(items: PoeItem[]): { xml: string; mainSocketGroup: nu
   return { xml: '', mainSocketGroup: 1 };
 }
 
+// ============================================================================
+// Gem ID Lookup — data-driven from RePoE gems_minimal.json
+// ============================================================================
+
+/** Lazy-built lookup: display_name → base_item.id (metadata path) */
+let _gemIdByName: Map<string, string> | null = null;
+
+function getGemDataMap(): Map<string, string> {
+  if (!_gemIdByName) {
+    _gemIdByName = new Map();
+    for (const gem of gemsData as Array<{ display_name: string; base_item?: { id: string } }>) {
+      // Skip Battle Royale variants — they share display names but have wrong metadata paths
+      if (gem.display_name && gem.base_item?.id && !gem.base_item.id.includes('Royale')) {
+        _gemIdByName.set(gem.display_name, gem.base_item.id);
+      }
+    }
+  }
+  return _gemIdByName;
+}
+
 /**
- * Known gem name → PoB ID mappings for gems whose internal IDs
- * differ from a simple PascalCase derivation of the display name.
- * Checked FIRST before falling back to auto-generated IDs.
+ * PoB skillId overrides — only needed when PoB's internal skillId
+ * differs from simple PascalCase derivation of the display name.
+ * The gemId (metadata path) is looked up from gems_minimal.json.
  */
-const GEM_ID_MAPPINGS: Record<string, { skillId: string; gemId: string }> = {
-  // ── Marks / Curses (internal names differ from display names) ──────────
-  "Assassin's Mark": { skillId: 'AssassinsMark', gemId: 'Metadata/Items/Gems/SkillGemCriticalWeakness' },
-  "Sniper's Mark": { skillId: 'SnipersMarkRegular', gemId: 'Metadata/Items/Gems/SkillGemProjectileWeakness' },
-  "Poacher's Mark": { skillId: 'PoachersMark', gemId: 'Metadata/Items/Gems/SkillGemPoachersMark' },
-  "Warlord's Mark": { skillId: 'WarlordsMark', gemId: 'Metadata/Items/Gems/SkillGemWarlordsMark' },
+const SKILL_ID_OVERRIDES: Record<string, string> = {
+  // Marks / Curses
+  "Assassin's Mark": 'AssassinsMark',
+  "Sniper's Mark": 'SnipersMarkRegular',
 
-  // ── Auras / Heralds ───────────────────────────────────────────────────
-  "Herald of Ice": { skillId: 'HeraldOfIce', gemId: 'Metadata/Items/Gems/SkillGemHeraldOfIce' },
-  "Herald of Ash": { skillId: 'HeraldOfAsh', gemId: 'Metadata/Items/Gems/SkillGemHeraldOfAsh' },
-  "Herald of Thunder": { skillId: 'HeraldOfThunder', gemId: 'Metadata/Items/Gems/SkillGemHeraldOfThunder' },
-  "Herald of Purity": { skillId: 'HeraldOfPurity', gemId: 'Metadata/Items/Gems/SkillGemHeraldOfPurity' },
-  "Herald of Agony": { skillId: 'HeraldOfAgony', gemId: 'Metadata/Items/Gems/SkillGemHeraldOfAgony' },
-  "Purity of Fire": { skillId: 'PurityOfFire', gemId: 'Metadata/Items/Gems/SkillGemFireResistAura' },
-  "Purity of Ice": { skillId: 'PurityOfIce', gemId: 'Metadata/Items/Gems/SkillGemColdResistAura' },
-  "Purity of Lightning": { skillId: 'PurityOfLightning', gemId: 'Metadata/Items/Gems/SkillGemLightningResistAura' },
-  "Purity of Elements": { skillId: 'PurityOfElements', gemId: 'Metadata/Items/Gems/SkillGemPurityOfElements' },
-  "Precision": { skillId: 'Precision', gemId: 'Metadata/Items/Gems/SkillGemPrecision' },
-  "Wrath": { skillId: 'Wrath', gemId: 'Metadata/Items/Gems/SkillGemWrath' },
+  // Buffs / Guard / Utility
+  "Blood and Sand": 'BloodSandStance',
+  "Steelskin": 'QuickGuard',
 
-  // ── Buffs / Guard / Utility ───────────────────────────────────────────
-  "Blood Rage": { skillId: 'BloodRage', gemId: 'Metadata/Items/Gems/SkillGemNewBloodRage' },
-  "Blood and Sand": { skillId: 'BloodSandStance', gemId: 'Metadata/Items/Gems/SkillGemBloodSandArmour' },
-  "Flesh and Stone": { skillId: 'FleshAndStone', gemId: 'Metadata/Items/Gems/SkillGemBloodSandArmour2' },
-  "Steelskin": { skillId: 'QuickGuard', gemId: 'Metadata/Items/Gems/SkillGemSteelskin' },
-  "Immortal Call": { skillId: 'ImmortalCall', gemId: 'Metadata/Items/Gems/SkillGemImmortalCall' },
-  "Molten Shell": { skillId: 'MoltenShell', gemId: 'Metadata/Items/Gems/SkillGemMoltenShell' },
+  // Support gems where PoB skillId differs from PascalCase derivation
+  "Momentum Support": 'SupportMomentum',
+  "Automation Support": 'Automation',
+  "Empower Support": 'SupportEmpower',
+  "Enhance Support": 'SupportEnhance',
+  "Enlighten Support": 'SupportEnlighten',
+  "Elemental Damage with Attacks Support": 'SupportWeaponElementalDamage',
+  "Volley Support": 'SupportVolley',
+  "Fist of War Support": 'SupportFistofWar',
+  "Infused Channelling Support": 'SupportStormBarrier',
+  "Less Duration Support": 'SupportReducedDuration',
+  "Endurance Charge on Melee Stun Support": 'EnduranceChargeOnMeleeStun',
+  "Spectral Throw": 'SpectralThrow',
 
-  // ── Movement ──────────────────────────────────────────────────────────
-  "Leap Slam": { skillId: 'LeapSlam', gemId: 'Metadata/Items/Gems/SkillGemLeapSlam' },
-  "Frostblink": { skillId: 'Frostblink', gemId: 'Metadata/Items/Gems/SkillGemFrostblink' },
-  "Flame Dash": { skillId: 'FlameDash', gemId: 'Metadata/Items/Gems/SkillGemFlameDash' },
-  "Shield Charge": { skillId: 'ShieldCharge', gemId: 'Metadata/Items/Gems/SkillGemShieldCharge' },
-  "Whirling Blades": { skillId: 'WhirlingBlades', gemId: 'Metadata/Items/Gems/SkillGemWhirlingBlades' },
-
-  // ── Attack skills ─────────────────────────────────────────────────────
-  "Rain of Arrows": { skillId: 'RainOfArrows', gemId: 'Metadata/Items/Gems/SkillGemRainOfArrows' },
-  "Vaal Rain of Arrows": { skillId: 'RainOfArrows', gemId: 'Metadata/Items/Gems/SkillGemVaalRainOfArrows' },
-  "Artillery Ballista": { skillId: 'ArtilleryBallista', gemId: 'Metadata/Items/Gems/SkillGemArtilleryBallista' },
-
-  // ── Support gems (internal names differ from display names) ───────────
-  "Lifetap Support": { skillId: 'SupportLifetap', gemId: 'Metadata/Items/Gems/SupportGemLifetap' },
-  "Mark On Hit Support": { skillId: 'SupportMarkOnHit', gemId: 'Metadata/Items/Gems/SupportGemMarkOnHit' },
-  "Faster Attacks Support": { skillId: 'SupportFasterAttacks', gemId: 'Metadata/Items/Gems/SupportGemFasterAttack' },
-  "Momentum Support": { skillId: 'SupportMomentum', gemId: 'Metadata/Items/Gems/SupportGemOnslaught' },
-  "Automation Support": { skillId: 'Automation', gemId: 'Metadata/Items/Gems/SkillGemAutomation' },
-  "Empower Support": { skillId: 'SupportEmpower', gemId: 'Metadata/Items/Gems/SupportGemAdditionalLevel' },
-  "Enhance Support": { skillId: 'SupportEnhance', gemId: 'Metadata/Items/Gems/SupportGemAdditionalQuality' },
-  "Enlighten Support": { skillId: 'SupportEnlighten', gemId: 'Metadata/Items/Gems/SupportGemReducedManaCost' },
-  "Trinity Support": { skillId: 'SupportTrinity', gemId: 'Metadata/Items/Gems/SupportGemTrinity' },
-  "Added Cold Damage Support": { skillId: 'SupportAddedColdDamage', gemId: 'Metadata/Items/Gems/SupportGemAddedColdDamage' },
-  "Added Fire Damage Support": { skillId: 'SupportAddedFireDamage', gemId: 'Metadata/Items/Gems/SupportGemAddedFireDamage' },
-  "Added Lightning Damage Support": { skillId: 'SupportAddedLightningDamage', gemId: 'Metadata/Items/Gems/SupportGemAddedLightningDamage' },
-  "Elemental Damage with Attacks Support": { skillId: 'SupportWeaponElementalDamage', gemId: 'Metadata/Items/Gems/SupportGemWeaponElementalDamage' },
-  "Multistrike Support": { skillId: 'SupportMultistrike', gemId: 'Metadata/Items/Gems/SupportGemMultistrike' },
-  "Volatility Support": { skillId: 'SupportVolatility', gemId: 'Metadata/Items/Gems/SupportGemVolatility' },
-  "Mirage Archer Support": { skillId: 'SupportMirageArcher', gemId: 'Metadata/Items/Gems/SupportGemMirageArcher' },
-  "Cast when Damage Taken Support": { skillId: 'SupportCastOnDamageTaken', gemId: 'Metadata/Items/Gems/SupportGemCastOnDamageTaken' },
-  "Cast on Critical Strike Support": { skillId: 'SupportCastOnCrit', gemId: 'Metadata/Items/Gems/SupportGemCastOnCrit' },
-  "Increased Critical Damage Support": { skillId: 'SupportIncreasedCriticalDamage', gemId: 'Metadata/Items/Gems/SupportGemIncreasedCriticalDamage' },
-  "Increased Critical Strikes Support": { skillId: 'SupportIncreasedCriticalStrikes', gemId: 'Metadata/Items/Gems/SupportGemIncreasedCriticalStrikes' },
-
-  // ── Transfigured gems ─────────────────────────────────────────────────
-  "Smite of Divine Judgement": { skillId: 'Smite', gemId: 'Metadata/Items/Gems/SkillGemSmite' },
+  // Transfigured gems — map to base skill
+  "Smite of Divine Judgement": 'Smite',
 };
 
 /**
- * Get gem IDs from gem name for pobb.in compatibility.
- * Uses a known-mapping table first, then falls back to PascalCase derivation.
+ * Get gem IDs from gem name for PoB/pobb.in compatibility.
+ *
+ * 1. gemId (metadata path): looked up from gems_minimal.json (983 gems)
+ * 2. skillId: checked against manual overrides, then PascalCase derivation
  */
 function getGemIds(gemName: string): { skillId: string; gemId: string } {
-  // 1. Check explicit mappings first
-  if (GEM_ID_MAPPINGS[gemName]) {
-    return GEM_ID_MAPPINGS[gemName];
-  }
-
-  // 2. Fall back to PascalCase derivation
   const isSupport = gemName.includes('Support');
 
-  // Convert to PascalCase: capitalize first letter of every word (including "of", "on", etc.)
-  const cleanName = gemName
-    .replace(/ Support$/, '')
-    .replace(/'/g, '')
-    .split(/\s+/)
-    .map(word => word.charAt(0).toUpperCase() + word.slice(1))
-    .join('');
+  // 1. gemId from data file (authoritative)
+  const dataMap = getGemDataMap();
+  const dataGemId = dataMap.get(gemName);
 
-  if (isSupport) {
-    return {
-      skillId: `Support${cleanName}`,
-      gemId: `Metadata/Items/Gems/SupportGem${cleanName}`,
-    };
+  // 2. skillId: check overrides first, then derive via PascalCase
+  let skillId = SKILL_ID_OVERRIDES[gemName];
+  if (!skillId) {
+    const cleanName = gemName
+      .replace(/ Support$/, '')
+      .replace(/'/g, '')
+      .split(/\s+/)
+      .map(word => word.charAt(0).toUpperCase() + word.slice(1))
+      .join('');
+    skillId = isSupport ? `Support${cleanName}` : cleanName;
   }
 
-  return {
-    skillId: cleanName,
-    gemId: `Metadata/Items/Gems/SkillGem${cleanName}`,
-  };
+  // 3. gemId: prefer data file, fall back to derivation
+  let gemId = dataGemId;
+  if (!gemId) {
+    const cleanName = gemName
+      .replace(/ Support$/, '')
+      .replace(/'/g, '')
+      .split(/\s+/)
+      .map(word => word.charAt(0).toUpperCase() + word.slice(1))
+      .join('');
+    gemId = isSupport
+      ? `Metadata/Items/Gems/SupportGem${cleanName}`
+      : `Metadata/Items/Gems/SkillGem${cleanName}`;
+  }
+
+  return { skillId, gemId };
+}
+
+/**
+ * Format mastery effects for PoB XML: {nodeId,effectId},{nodeId,effectId},...
+ */
+function formatMasteryEffects(effects?: Record<string, number>): string {
+  if (!effects) return '';
+  return Object.entries(effects)
+    .map(([nodeId, effectId]) => `{${nodeId},${effectId}}`)
+    .join(',');
 }
 
 function escapeXml(str: string): string {
@@ -760,9 +811,9 @@ export function encodePobCode(data: BuildData): string {
 /**
  * Create build data from a snapshot
  */
-export function createBuildData(snapshot: Snapshot, run: Run): BuildData {
+export function createBuildData(snapshot: Snapshot, run: Run, splits?: Split[]): BuildData {
   let items: PoeItem[] = [];
-  let passives = { hashes: [] as number[], hashesEx: [] as number[] };
+  let passives: BuildData['passives'] = { hashes: [], hashesEx: [], masteryEffects: {} };
 
   try {
     items = JSON.parse(snapshot.itemsJson || '[]');
@@ -775,12 +826,13 @@ export function createBuildData(snapshot: Snapshot, run: Run): BuildData {
     passives = {
       hashes: passiveData.hashes || [],
       hashesEx: passiveData.hashes_ex || passiveData.hashesEx || [],
+      masteryEffects: passiveData.mastery_effects || passiveData.masteryEffects || {},
     };
   } catch (e) {
     console.error('[PoB Export] Failed to parse passives JSON:', e);
   }
 
-  const buildData = {
+  const buildData: BuildData = {
     items,
     passives,
     character: {
@@ -788,6 +840,7 @@ export function createBuildData(snapshot: Snapshot, run: Run): BuildData {
       class: run.class,
       ascendancy: run.ascendancy || undefined,
     },
+    notes: generateNotes(run, splits),
   };
 
   return buildData;
@@ -796,8 +849,8 @@ export function createBuildData(snapshot: Snapshot, run: Run): BuildData {
 /**
  * Copy PoB code to clipboard
  */
-export async function exportToPob(snapshot: Snapshot, run: Run): Promise<void> {
-  const buildData = createBuildData(snapshot, run);
+export async function exportToPob(snapshot: Snapshot, run: Run, splits?: Split[]): Promise<void> {
+  const buildData = createBuildData(snapshot, run, splits);
   const code = encodePobCode(buildData);
   await navigator.clipboard.writeText(code);
 }
@@ -806,8 +859,8 @@ export async function exportToPob(snapshot: Snapshot, run: Run): Promise<void> {
  * Upload to pobb.in and return the share URL
  * Note: pobb.in may not have a public API - this uses the Tauri backend to avoid CORS
  */
-export async function shareOnPobbIn(snapshot: Snapshot, run: Run): Promise<string> {
-  const buildData = createBuildData(snapshot, run);
+export async function shareOnPobbIn(snapshot: Snapshot, run: Run, splits?: Split[]): Promise<string> {
+  const buildData = createBuildData(snapshot, run, splits);
   const code = encodePobCode(buildData);
 
   // Use Tauri command to bypass CORS
@@ -823,7 +876,7 @@ interface MultiBuildData {
   snapshots: Array<{
     snapshot: Snapshot;
     items: PoeItem[];
-    passives: { hashes: number[]; hashesEx: number[] };
+    passives: { hashes: number[]; hashesEx: number[]; masteryEffects?: Record<string, number> };
     label: string; // e.g., "Act 5 - Level 42"
     zoneName?: string; // Zone name for config inference
   }>;
@@ -832,6 +885,7 @@ interface MultiBuildData {
     class: string;
     ascendancy?: string;
   };
+  notes?: string;
 }
 
 /**
@@ -937,7 +991,8 @@ function generateMultiSnapshotPobXml(data: MultiBuildData): string {
   for (let setIdx = 0; setIdx < snapshots.length; setIdx++) {
     const { passives, label } = snapshots[setIdx];
     const treeNodes = passives.hashes.join(',');
-    specsXml.push(`\t\t<Spec title="${escapeXml(label)}" classId="${classId}" ascendClassId="${ascendId}" treeVersion="3_27"${treeNodes ? ` nodes="${treeNodes}"` : ''}>
+    const masteryStr = formatMasteryEffects(passives.masteryEffects);
+    specsXml.push(`\t\t<Spec title="${escapeXml(label)}" classId="${classId}" ascendClassId="${ascendId}" treeVersion="3_27"${treeNodes ? ` nodes="${treeNodes}"` : ''}${masteryStr ? ` masteryEffects="${masteryStr}"` : ''}>
 \t\t\t<URL>https://www.pathofexile.com/passive-skill-tree/3.27.0/AAAA</URL>
 \t\t\t<Sockets></Sockets>
 \t\t</Spec>`);
@@ -985,7 +1040,7 @@ ${specsXml.join('\n')}
 	<Config activeConfigSet="${defaultSet}">
 ${configSetsXml.join('\n')}
 	</Config>
-	<Notes>Exported from PoE Watcher speedrun tracker - ${snapshots.length} snapshots</Notes>
+	<Notes>${escapeXml(data.notes || 'Exported from PoE Watcher')}</Notes>
 </PathOfBuilding>`;
 }
 
@@ -1070,7 +1125,7 @@ export function createMultiBuildData(snapshots: Snapshot[], run: Run, splits?: S
 
   const snapshotData = snapshots.map((snapshot) => {
     let items: PoeItem[] = [];
-    let passives = { hashes: [] as number[], hashesEx: [] as number[] };
+    let passives: MultiBuildData['snapshots'][0]['passives'] = { hashes: [], hashesEx: [], masteryEffects: {} };
 
     try {
       items = JSON.parse(snapshot.itemsJson || '[]');
@@ -1083,6 +1138,7 @@ export function createMultiBuildData(snapshots: Snapshot[], run: Run, splits?: S
       passives = {
         hashes: passiveData.hashes || [],
         hashesEx: passiveData.hashes_ex || passiveData.hashesEx || [],
+        masteryEffects: passiveData.mastery_effects || passiveData.masteryEffects || {},
       };
     } catch (e) {
       console.error('[PoB Multi-Export] Failed to parse passives:', e);
@@ -1108,6 +1164,7 @@ export function createMultiBuildData(snapshots: Snapshot[], run: Run, splits?: S
       class: run.class,
       ascendancy: ascendancy,
     },
+    notes: generateNotes(run, splits),
   };
 }
 
