@@ -18,6 +18,9 @@ interface RunState {
   personalBests: Map<string, number>;
   goldSplits: Map<string, number>;
 
+  // Comparison run splits (keyed by breakpointName -> splitTimeMs)
+  comparisonSplits: Map<string, number>;
+
   // Filtering state
   filters: RunFilters;
   filteredRuns: Run[];
@@ -47,6 +50,8 @@ interface RunState {
   setPersonalBests: (pbs: Map<string, number>) => void;
   setGoldSplits: (golds: Map<string, number>) => void;
   loadPbAndGoldSplits: () => Promise<void>;
+  loadComparisonSplits: (runId: number) => Promise<void>;
+  clearComparisonSplits: () => void;
 
   // Filtering actions
   setFilters: (filters: Partial<RunFilters>) => void;
@@ -83,6 +88,7 @@ export const useRunStore = create<RunState>((set, get) => ({
   runs: [],
   personalBests: new Map(),
   goldSplits: new Map(),
+  comparisonSplits: new Map(),
 
   // Filtering state
   filters: {},
@@ -163,13 +169,16 @@ export const useRunStore = create<RunState>((set, get) => ({
   },
 
   addSplit: (splitData) => {
-    const { currentRun, goldSplits, personalBests } = get();
+    const { currentRun, goldSplits, personalBests, comparisonSplits } = get();
     if (!currentRun) return;
 
+    // Use comparison splits if active, otherwise fall back to PB
+    const compTime = comparisonSplits.get(splitData.breakpointName);
     const pbTime = personalBests.get(`${currentRun.category}-${currentRun.class}-${splitData.breakpointName}`);
+    const referenceTime = compTime ?? pbTime;
     const goldTime = goldSplits.get(`${currentRun.category}-${currentRun.class}-${splitData.breakpointName}`);
 
-    const deltaMs = pbTime ? splitData.splitTimeMs - pbTime : null;
+    const deltaMs = referenceTime ? splitData.splitTimeMs - referenceTime : null;
     const isBestSegment = goldTime ? splitData.segmentTimeMs < goldTime : true;
 
     const split: Split = {
@@ -346,6 +355,20 @@ export const useRunStore = create<RunState>((set, get) => ({
   setSplits: (splits) => set({ splits }),
   setPersonalBests: (pbs) => set({ personalBests: pbs }),
   setGoldSplits: (golds) => set({ goldSplits: golds }),
+  loadComparisonSplits: async (runId: number) => {
+    try {
+      const splits = await invoke<Split[]>('get_splits', { runId });
+      const map = new Map<string, number>();
+      for (const s of splits) {
+        map.set(s.breakpointName, s.splitTimeMs);
+      }
+      set({ comparisonSplits: map });
+    } catch (error) {
+      console.error('[RunStore] Failed to load comparison splits:', error);
+      set({ comparisonSplits: new Map() });
+    }
+  },
+  clearComparisonSplits: () => set({ comparisonSplits: new Map() }),
 
   loadPbAndGoldSplits: async () => {
     try {

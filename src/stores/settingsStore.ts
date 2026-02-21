@@ -21,6 +21,9 @@ interface SettingsState extends Settings {
   overlayOpen: boolean;
   // Hotkey settings
   hotkeys: HotkeySettings;
+  // Active comparison run
+  activeComparisonRunId: number | null;
+  activeComparisonLabel: string | null;
   // Actions
   setLogPath: (path: string) => void;
   setAccountName: (name: string) => void;
@@ -71,6 +74,8 @@ interface SettingsState extends Settings {
   resetHotkeys: () => Promise<void>;
   // Group mode
   setGroupModeEnabled: (enabled: boolean) => void;
+  // Comparison
+  setActiveComparison: (runId: number | null, label?: string | null) => void;
 }
 
 export const useSettingsStore = create<SettingsState>((set, get) => ({
@@ -105,6 +110,9 @@ export const useSettingsStore = create<SettingsState>((set, get) => ({
   overlayOpen: false,
   // Hotkey settings
   hotkeys: { ...DEFAULT_HOTKEYS },
+  // Active comparison
+  activeComparisonRunId: null,
+  activeComparisonLabel: null,
   // Actions
   setLogPath: (path) => set({ poeLogPath: path }),
   setAccountName: (name) => set({ accountName: name }),
@@ -273,4 +281,9 @@ export const useSettingsStore = create<SettingsState>((set, get) => ({
   },
   // Group mode
   setGroupModeEnabled: (enabled) => set({ groupModeEnabled: enabled }),
+  // Comparison
+  setActiveComparison: (runId, label = null) => set({
+    activeComparisonRunId: runId,
+    activeComparisonLabel: label,
+  }),
 }));
