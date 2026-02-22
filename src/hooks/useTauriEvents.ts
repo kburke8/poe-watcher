@@ -5,6 +5,7 @@ import { useRunStore } from '../stores/runStore';
 import { useSettingsStore } from '../stores/settingsStore';
 import { useSnapshotStore } from '../stores/snapshotStore';
 import { useGroupStore } from '../stores/groupStore';
+import { usePracticeStore } from '../stores/practiceStore';
 import { isTownZone, isHideoutZone } from '../config/breakpoints';
 import type { Settings, Snapshot } from '../types';
 
@@ -257,6 +258,12 @@ export function useTauriEvents() {
           const isHideout = isHideoutZone(payload.zone_name);
           enterZone(payload.zone_name, isTown, isHideout);
 
+          // Forward zone events to practice mode
+          const practiceState = usePracticeStore.getState();
+          if (practiceState.isActive) {
+            practiceState.handleZoneEnter(payload.zone_name);
+          }
+
           checkZoneBreakpoint(payload.zone_name);
 
           // Trigger group character detection on The Coast entry
@@ -328,6 +335,13 @@ export function useTauriEvents() {
         if (timer.isRunning) {
           const { incrementDeathCount } = useRunStore.getState();
           incrementDeathCount();
+        }
+        // Also track deaths in practice mode
+        {
+          const practice = usePracticeStore.getState();
+          if (practice.isActive && practice.timer.isRunning) {
+            practice.incrementDeathCount();
+          }
         }
         break;
 
