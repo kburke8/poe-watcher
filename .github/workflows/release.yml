@@ -177,7 +177,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
         with:
-          ref: "v${{ needs.version.outputs.new_version }}"
+          ref: master
 
       - name: Setup Node.js
         uses: actions/setup-node@v4
