@@ -41,6 +41,11 @@ pub enum LogEvent {
         timestamp: String,
         penalty: i32,
     },
+    NpcDialog {
+        timestamp: String,
+        npc_name: String,
+        dialog_text: String,
+    },
 }
 
 /// Log watcher state
@@ -189,6 +194,9 @@ impl LogWatcher {
             LogEvent::KitavaAffliction { timestamp, penalty } => {
                 format!("kitava:{}:{}", timestamp, penalty)
             }
+            LogEvent::NpcDialog { timestamp, npc_name, .. } => {
+                format!("npc_dialog:{}:{}", timestamp, npc_name)
+            }
         }
     }
 
@@ -235,6 +243,13 @@ impl LogWatcher {
             // Pattern: Got Instance Details
             static ref INSTANCE_DETAILS: Regex = Regex::new(
                 r"(\d{4}/\d{2}/\d{2} \d{2}:\d{2}:\d{2}).*\] :? ?Got Instance Details"
+            ).unwrap();
+
+            // Pattern: NPC dialog lines (Merveil, Piety)
+            // Match lines like: 2024/01/15 12:34:56 12345678 abc [INFO Client 1234] Merveil: You dare approach me?
+            // Skip player chat lines containing ] # or ] @ or ] $
+            static ref NPC_DIALOG: Regex = Regex::new(
+                r"(\d{4}/\d{2}/\d{2} \d{2}:\d{2}:\d{2}).*\] (Brutus, the Warden|Merveil|Piety): (.+)"
             ).unwrap();
 
             // Pattern: Connecting to instance server
@@ -289,6 +304,17 @@ impl LogWatcher {
                 timestamp: caps[1].to_string(),
                 penalty: caps[2].parse().unwrap_or(30),
             });
+        }
+
+        // Try to match NPC dialog (skip player chat lines)
+        if !line.contains("] #") && !line.contains("] @") && !line.contains("] $") {
+            if let Some(caps) = NPC_DIALOG.captures(line) {
+                return Some(LogEvent::NpcDialog {
+                    timestamp: caps[1].to_string(),
+                    npc_name: caps[2].to_string(),
+                    dialog_text: caps[3].to_string(),
+                });
+            }
         }
 
         // Try to match login
@@ -378,5 +404,56 @@ mod tests {
         let line = "2024/01/15 12:34:56 12345678 abc [INFO Client 1234] : TestChar has been slain.";
         let event = LogWatcher::parse_line(line);
         assert!(matches!(event, Some(LogEvent::Death { character_name, .. }) if character_name == "TestChar"));
+    }
+
+    #[test]
+    fn test_parse_merveil_dialog() {
+        let line = "2024/01/15 12:34:56 12345678 abc [INFO Client 1234] Merveil: You dare approach me, exile?";
+        let event = LogWatcher::parse_line(line);
+        assert!(matches!(
+            event,
+            Some(LogEvent::NpcDialog { npc_name, dialog_text, .. })
+            if npc_name == "Merveil" && dialog_text == "You dare approach me, exile?"
+        ));
+    }
+
+    #[test]
+    fn test_parse_piety_dialog() {
+        let line = "2024/01/15 12:34:56 12345678 abc [INFO Client 1234] Piety: You are too late, exile!";
+        let event = LogWatcher::parse_line(line);
+        assert!(matches!(
+            event,
+            Some(LogEvent::NpcDialog { npc_name, dialog_text, .. })
+            if npc_name == "Piety" && dialog_text == "You are too late, exile!"
+        ));
+    }
+
+    #[test]
+    fn test_parse_brutus_dialog() {
+        let line = "2024/01/15 12:34:56 12345678 abc [INFO Client 1234] Brutus, the Warden: You will know my misery. Come and share it with me.";
+        let event = LogWatcher::parse_line(line);
+        assert!(matches!(
+            event,
+            Some(LogEvent::NpcDialog { npc_name, .. })
+            if npc_name == "Brutus, the Warden"
+        ));
+    }
+
+    #[test]
+    fn test_npc_dialog_ignores_player_chat() {
+        // Player chat with # (global)
+        let line = "2024/01/15 12:34:56 12345678 abc [INFO Client 1234] # Merveil: fake message";
+        let event = LogWatcher::parse_line(line);
+        assert!(event.is_none());
+
+        // Player chat with @ (whisper)
+        let line = "2024/01/15 12:34:56 12345678 abc [INFO Client 1234] @ Piety: fake message";
+        let event = LogWatcher::parse_line(line);
+        assert!(event.is_none());
+
+        // Player chat with $ (trade)
+        let line = "2024/01/15 12:34:56 12345678 abc [INFO Client 1234] $ Merveil: selling stuff";
+        let event = LogWatcher::parse_line(line);
+        assert!(event.is_none());
     }
 }

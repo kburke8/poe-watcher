@@ -180,15 +180,23 @@ pub async fn create_reference_run(data: ReferenceRunData) -> Result<i64, String>
             split_time_ms: split_data.split_time_ms,
             delta_ms: None,
             segment_time_ms: segment_time,
-            town_time_ms: 0,
+            town_time_ms: split_data.town_time_ms,
             hideout_time_ms: 0,
             death_count: 0,
+            boss_fight_ms: split_data.boss_fight_ms,
         };
         Split::insert(&new_split).map_err(|e| e.to_string())?;
         prev_time = split_data.split_time_ms;
     }
 
     Ok(run_id)
+}
+
+#[tauri::command]
+pub async fn update_reference_run(run_id: i64, data: ReferenceRunData) -> Result<(), String> {
+    Run::update_reference(run_id, &data).map_err(|e| e.to_string())?;
+    Split::replace_for_run(run_id, &data.splits).map_err(|e| e.to_string())?;
+    Ok(())
 }
 
 // ============================================================================
@@ -673,6 +681,7 @@ pub async fn export_run_json(run_id: i64, file_path: String) -> Result<(), Strin
                 "deltaMs": s.delta_ms,
                 "townTimeMs": s.town_time_ms,
                 "hideoutTimeMs": s.hideout_time_ms,
+                "bossFightMs": s.boss_fight_ms,
             })
         })
         .collect();

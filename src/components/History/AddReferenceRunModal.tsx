@@ -1,13 +1,17 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import { invoke } from '@tauri-apps/api/core';
 import { useSettingsStore } from '../../stores/settingsStore';
 import { CustomSelect } from '../Shared/CustomSelect';
-import type { ReferenceRunData, ReferenceSplitData } from '../../types';
+import { SplitTimeEditor, msToDigits, msToShortDigits, parseDigitsToMs, parseShortDigitsToMs, formatTime } from '../Shared/SplitTimeEditor';
+import type { Run, Split, ReferenceRunData, ReferenceSplitData } from '../../types';
 
 interface AddReferenceRunModalProps {
   isOpen: boolean;
   onClose: () => void;
   onSuccess: () => void;
+  editRunId?: number;
+  editRun?: Run;
+  editSplits?: Split[];
 }
 
 // PoE class/ascendancy mapping
@@ -23,11 +27,11 @@ const classAscendancies: Record<string, string[]> = {
 
 const categories = ['any%', 'all-skills', 'all-waypoints', 'glitchless'];
 
-export function AddReferenceRunModal({ isOpen, onClose, onSuccess }: AddReferenceRunModalProps) {
+export function AddReferenceRunModal({ isOpen, onClose, onSuccess, editRunId, editRun, editSplits }: AddReferenceRunModalProps) {
   const { breakpoints, getCurrentPresetName, getEnabledBreakpointNames } = useSettingsStore();
+  const isEditing = !!editRun;
 
   const [sourceName, setSourceName] = useState('');
-  const [characterName, setCharacterName] = useState('');
   const [selectedClass, setSelectedClass] = useState('');
   const [ascendancy, setAscendancy] = useState('');
   const [category, setCategory] = useState('any%');
@@ -35,34 +39,53 @@ export function AddReferenceRunModal({ isOpen, onClose, onSuccess }: AddReferenc
   const [useCurrentPreset, setUseCurrentPreset] = useState(true);
   const [customPreset, setCustomPreset] = useState('');
   const [splitTimes, setSplitTimes] = useState<Record<string, string>>({});
+  const [bossTimes, setBossTimes] = useState<Record<string, string>>({});
+  const [townTimes, setTownTimes] = useState<Record<string, string>>({});
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  // Get enabled breakpoints for the split time inputs
+  // Pre-populate fields when editing
+  useEffect(() => {
+    if (isOpen && editRun && editSplits) {
+      setSourceName(editRun.sourceName || '');
+      setSelectedClass(editRun.class || '');
+      setAscendancy(editRun.ascendancy || '');
+      setCategory(editRun.category || 'any%');
+      setLeague(editRun.league || 'Standard');
+
+      const times: Record<string, string> = {};
+      const bosses: Record<string, string> = {};
+      const towns: Record<string, string> = {};
+      for (const split of editSplits) {
+        times[split.breakpointName] = msToDigits(split.splitTimeMs);
+        if (split.bossFightMs > 0) {
+          bosses[split.breakpointName] = msToShortDigits(split.bossFightMs);
+        }
+        if (split.townTimeMs > 0) {
+          towns[split.breakpointName] = msToShortDigits(split.townTimeMs);
+        }
+      }
+      setSplitTimes(times);
+      setBossTimes(bosses);
+      setTownTimes(towns);
+    }
+  }, [isOpen, editRun, editSplits]);
+
   const enabledBreakpoints = useMemo(() => {
     return breakpoints.filter((bp) => bp.isEnabled);
   }, [breakpoints]);
 
-  // Calculate total time from last split
   const totalTimeMs = useMemo(() => {
-    const lastSplit = enabledBreakpoints[enabledBreakpoints.length - 1];
-    if (lastSplit && splitTimes[lastSplit.name]) {
-      return parseTimeInput(splitTimes[lastSplit.name]);
+    for (let i = enabledBreakpoints.length - 1; i >= 0; i--) {
+      const time = splitTimes[enabledBreakpoints[i].name];
+      if (time) return parseDigitsToMs(time);
     }
     return 0;
   }, [enabledBreakpoints, splitTimes]);
 
-  const handleSplitTimeChange = (breakpointName: string, value: string) => {
-    setSplitTimes((prev) => ({
-      ...prev,
-      [breakpointName]: value,
-    }));
-  };
-
   const handleSubmit = async () => {
     setError(null);
 
-    // Validation
     if (!sourceName.trim()) {
       setError('Source name is required');
       return;
@@ -72,17 +95,20 @@ export function AddReferenceRunModal({ isOpen, onClose, onSuccess }: AddReferenc
       return;
     }
 
-    // Build splits array
     const splits: ReferenceSplitData[] = [];
     for (const bp of enabledBreakpoints) {
-      const timeStr = splitTimes[bp.name];
-      if (timeStr) {
-        const timeMs = parseTimeInput(timeStr);
+      const digits = splitTimes[bp.name];
+      if (digits) {
+        const timeMs = parseDigitsToMs(digits);
         if (timeMs > 0) {
+          const bossDigits = bossTimes[bp.name];
+          const townDigits = townTimes[bp.name];
           splits.push({
             breakpointName: bp.name,
             breakpointType: bp.type,
             splitTimeMs: timeMs,
+            bossFightMs: bossDigits ? parseShortDigitsToMs(bossDigits) : 0,
+            townTimeMs: townDigits ? parseShortDigitsToMs(townDigits) : 0,
           });
         }
       }
@@ -93,12 +119,10 @@ export function AddReferenceRunModal({ isOpen, onClose, onSuccess }: AddReferenc
       return;
     }
 
-    // Calculate total time from last split
     const finalTotalTimeMs = splits[splits.length - 1].splitTimeMs;
 
     const data: ReferenceRunData = {
       sourceName: sourceName.trim(),
-      characterName: characterName.trim() || undefined,
       class: selectedClass,
       ascendancy: ascendancy || undefined,
       category,
@@ -113,19 +137,23 @@ export function AddReferenceRunModal({ isOpen, onClose, onSuccess }: AddReferenc
 
     setIsSubmitting(true);
     try {
-      await invoke('create_reference_run', { data });
+      if (isEditing && editRunId) {
+        await invoke('update_reference_run', { runId: editRunId, data });
+      } else {
+        await invoke('create_reference_run', { data });
+      }
       onSuccess();
       onClose();
-      // Reset form
       setSourceName('');
-      setCharacterName('');
       setSelectedClass('');
       setAscendancy('');
       setCategory('any%');
       setLeague('Standard');
       setSplitTimes({});
+      setBossTimes({});
+      setTownTimes({});
     } catch (err) {
-      setError(`Failed to create reference run: ${err}`);
+      setError(`Failed to ${isEditing ? 'update' : 'create'} reference run: ${err}`);
     } finally {
       setIsSubmitting(false);
     }
@@ -133,20 +161,21 @@ export function AddReferenceRunModal({ isOpen, onClose, onSuccess }: AddReferenc
 
   if (!isOpen) return null;
 
+  const selectedCount = enabledBreakpoints.filter(bp => splitTimes[bp.name]).length;
+
   return (
     <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
-      <div className="bg-[--color-surface] rounded-lg w-full max-w-2xl max-h-[90vh] overflow-hidden flex flex-col">
+      <div className="bg-[#1c1916] border border-[--color-border] rounded-lg w-full max-w-2xl max-h-[90vh] overflow-hidden flex flex-col shadow-2xl">
         {/* Header */}
         <div className="p-4 border-b border-[--color-border]">
-          <h2 className="text-lg font-semibold text-[--color-text]">Add Reference Run</h2>
+          <h2 className="text-lg font-semibold text-[--color-text]">{isEditing ? 'Edit Reference Run' : 'Add Reference Run'}</h2>
           <p className="text-sm text-[--color-text-muted]">
-            Enter split times from an external source (world record, friend's PB, etc.)
+            {isEditing ? 'Modify split times and metadata for this reference run' : 'Enter split times from an external source (world record, friend\'s PB, etc.)'}
           </p>
         </div>
 
         {/* Content */}
         <div className="flex-1 overflow-auto p-4 space-y-4">
-          {/* Error message */}
           {error && (
             <div className="p-3 bg-[--color-timer-behind]/20 text-[--color-timer-behind] rounded-lg text-sm">
               {error}
@@ -155,29 +184,13 @@ export function AddReferenceRunModal({ isOpen, onClose, onSuccess }: AddReferenc
 
           {/* Source name */}
           <div>
-            <label className="block text-sm text-[--color-text-muted] mb-1">
-              Source Name *
-            </label>
+            <label className="block text-sm text-[--color-text-muted] mb-1">Source Name *</label>
             <input
               type="text"
               value={sourceName}
               onChange={(e) => setSourceName(e.target.value)}
-              placeholder="e.g., Havoc WR, Darkee PB"
-              className="w-full px-3 py-2 bg-[--color-surface-elevated] border border-[--color-border] rounded-lg text-[--color-text]"
-            />
-          </div>
-
-          {/* Character name (optional) */}
-          <div>
-            <label className="block text-sm text-[--color-text-muted] mb-1">
-              Character Name (optional)
-            </label>
-            <input
-              type="text"
-              value={characterName}
-              onChange={(e) => setCharacterName(e.target.value)}
-              placeholder="e.g., HavocSpeedrun"
-              className="w-full px-3 py-2 bg-[--color-surface-elevated] border border-[--color-border] rounded-lg text-[--color-text]"
+              placeholder="e.g., World Record, Goal Time"
+              className="w-full px-3 py-2 bg-[--color-surface-elevated] border border-[--color-border] rounded-lg text-[--color-text] text-sm"
             />
           </div>
 
@@ -224,7 +237,7 @@ export function AddReferenceRunModal({ isOpen, onClose, onSuccess }: AddReferenc
                 type="text"
                 value={league}
                 onChange={(e) => setLeague(e.target.value)}
-                className="w-full px-3 py-2 bg-[--color-surface-elevated] border border-[--color-border] rounded-lg text-[--color-text]"
+                className="w-full px-3 py-2 bg-[--color-surface-elevated] border border-[--color-border] rounded-lg text-[--color-text] text-sm"
               />
             </div>
           </div>
@@ -248,38 +261,28 @@ export function AddReferenceRunModal({ isOpen, onClose, onSuccess }: AddReferenc
                 value={customPreset}
                 onChange={(e) => setCustomPreset(e.target.value)}
                 placeholder="Custom preset name"
-                className="w-full px-3 py-2 bg-[--color-surface-elevated] border border-[--color-border] rounded-lg text-[--color-text]"
+                className="w-full px-3 py-2 bg-[--color-surface-elevated] border border-[--color-border] rounded-lg text-[--color-text] text-sm"
               />
             )}
           </div>
 
           {/* Split times */}
-          <div>
-            <label className="block text-sm text-[--color-text-muted] mb-2">
-              Split Times (format: MM:SS or HH:MM:SS)
-            </label>
-            <div className="space-y-2 max-h-[300px] overflow-auto">
-              {enabledBreakpoints.map((bp) => (
-                <div key={bp.name} className="flex items-center gap-3">
-                  <span className="text-sm text-[--color-text] w-48 truncate" title={bp.name}>
-                    {bp.name}
-                  </span>
-                  <input
-                    type="text"
-                    value={splitTimes[bp.name] || ''}
-                    onChange={(e) => handleSplitTimeChange(bp.name, e.target.value)}
-                    placeholder="MM:SS"
-                    className="w-24 px-2 py-1 bg-[--color-surface-elevated] border border-[--color-border] rounded text-[--color-text] text-sm timer-display text-center"
-                  />
-                </div>
-              ))}
-            </div>
-          </div>
+          <SplitTimeEditor
+            breakpoints={enabledBreakpoints}
+            splitTimes={splitTimes}
+            setSplitTimes={setSplitTimes}
+            bossTimes={bossTimes}
+            setBossTimes={setBossTimes}
+            townTimes={townTimes}
+            setTownTimes={setTownTimes}
+          />
 
           {/* Total time preview */}
           {totalTimeMs > 0 && (
-            <div className="p-3 bg-[--color-surface-elevated] rounded-lg">
-              <span className="text-sm text-[--color-text-muted]">Total Time: </span>
+            <div className="p-3 bg-[--color-surface-elevated] rounded-lg flex items-center justify-between">
+              <span className="text-sm text-[--color-text-muted]">
+                {selectedCount} split{selectedCount !== 1 ? 's' : ''} entered
+              </span>
               <span className="timer-display text-[--color-poe-gold]">
                 {formatTime(totalTimeMs)}
               </span>
@@ -292,49 +295,19 @@ export function AddReferenceRunModal({ isOpen, onClose, onSuccess }: AddReferenc
           <button
             onClick={onClose}
             disabled={isSubmitting}
-            className="px-4 py-2 text-[--color-text-muted] hover:text-[--color-text] disabled:opacity-50"
+            className="px-4 py-2 text-[--color-text-muted] hover:text-[--color-text] disabled:opacity-50 text-sm"
           >
             Cancel
           </button>
           <button
             onClick={handleSubmit}
             disabled={isSubmitting}
-            className="px-4 py-2 bg-[--color-poe-gold] text-[--color-poe-darker] font-semibold rounded-lg hover:bg-[--color-poe-gold-light] disabled:opacity-50"
+            className="px-4 py-2 bg-[--color-poe-gold] text-[--color-poe-darker] font-semibold rounded-lg hover:bg-[--color-poe-gold-light] disabled:opacity-50 text-sm"
           >
-            {isSubmitting ? 'Creating...' : 'Create Reference Run'}
+            {isSubmitting ? (isEditing ? 'Saving...' : 'Creating...') : (isEditing ? 'Save' : 'Create Reference Run')}
           </button>
         </div>
       </div>
     </div>
   );
-}
-
-function parseTimeInput(input: string): number {
-  // Parse MM:SS or HH:MM:SS format to milliseconds
-  const parts = input.trim().split(':').map(Number);
-  if (parts.some(isNaN)) return 0;
-
-  if (parts.length === 2) {
-    // MM:SS
-    const [minutes, seconds] = parts;
-    return (minutes * 60 + seconds) * 1000;
-  } else if (parts.length === 3) {
-    // HH:MM:SS
-    const [hours, minutes, seconds] = parts;
-    return (hours * 3600 + minutes * 60 + seconds) * 1000;
-  }
-
-  return 0;
-}
-
-function formatTime(ms: number): string {
-  const totalSeconds = Math.floor(ms / 1000);
-  const hours = Math.floor(totalSeconds / 3600);
-  const minutes = Math.floor((totalSeconds % 3600) / 60);
-  const seconds = totalSeconds % 60;
-
-  if (hours > 0) {
-    return `${hours}:${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
-  }
-  return `${minutes}:${seconds.toString().padStart(2, '0')}`;
 }

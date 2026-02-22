@@ -80,6 +80,9 @@ describe('runStore - comparison splits', () => {
         hideoutEnteredAt: null,
         currentZone: null,
         deathCount: 0,
+        townVisits: [],
+        activeBossEncounter: null,
+        bossEncounters: [],
       },
     });
   });
@@ -91,9 +94,9 @@ describe('runStore - comparison splits', () => {
 
   it('loads comparison splits from a run', async () => {
     const mockSplits: Split[] = [
-      { id: 1, runId: 10, breakpointType: 'zone', breakpointName: 'The Coast', splitTimeMs: 60_000, deltaMs: null, segmentTimeMs: 60_000, townTimeMs: 0, hideoutTimeMs: 0, deathCount: 0 },
-      { id: 2, runId: 10, breakpointType: 'boss', breakpointName: 'Brutus', splitTimeMs: 120_000, deltaMs: null, segmentTimeMs: 60_000, townTimeMs: 0, hideoutTimeMs: 0, deathCount: 0 },
-      { id: 3, runId: 10, breakpointType: 'act', breakpointName: 'Act 2', splitTimeMs: 300_000, deltaMs: null, segmentTimeMs: 180_000, townTimeMs: 0, hideoutTimeMs: 0, deathCount: 0 },
+      { id: 1, runId: 10, breakpointType: 'zone', breakpointName: 'The Coast', splitTimeMs: 60_000, deltaMs: null, segmentTimeMs: 60_000, townTimeMs: 0, hideoutTimeMs: 0, deathCount: 0, bossFightMs: 0 },
+      { id: 2, runId: 10, breakpointType: 'boss', breakpointName: 'Brutus', splitTimeMs: 120_000, deltaMs: null, segmentTimeMs: 60_000, townTimeMs: 0, hideoutTimeMs: 0, deathCount: 0, bossFightMs: 0 },
+      { id: 3, runId: 10, breakpointType: 'act', breakpointName: 'Act 2', splitTimeMs: 300_000, deltaMs: null, segmentTimeMs: 180_000, townTimeMs: 0, hideoutTimeMs: 0, deathCount: 0, bossFightMs: 0 },
     ];
 
     mockInvoke.mockResolvedValueOnce(mockSplits);
@@ -163,6 +166,9 @@ describe('runStore - addSplit with comparison precedence', () => {
         hideoutEnteredAt: null,
         currentZone: 'The Coast',
         deathCount: 0,
+        townVisits: [],
+        activeBossEncounter: null,
+        bossEncounters: [],
       },
       personalBests: new Map([
         ['Act 10 Any%-Witch-The Coast', 50_000],
@@ -183,6 +189,7 @@ describe('runStore - addSplit with comparison precedence', () => {
       townTimeMs: 0,
       hideoutTimeMs: 0,
       deathCount: 0,
+      bossFightMs: 0,
     });
 
     const state = useRunStore.getState();
@@ -207,6 +214,7 @@ describe('runStore - addSplit with comparison precedence', () => {
       townTimeMs: 0,
       hideoutTimeMs: 0,
       deathCount: 0,
+      bossFightMs: 0,
     });
 
     const state = useRunStore.getState();
@@ -231,6 +239,7 @@ describe('runStore - addSplit with comparison precedence', () => {
       townTimeMs: 0,
       hideoutTimeMs: 0,
       deathCount: 0,
+      bossFightMs: 0,
     });
 
     const state = useRunStore.getState();
@@ -253,6 +262,7 @@ describe('runStore - addSplit with comparison precedence', () => {
       townTimeMs: 0,
       hideoutTimeMs: 0,
       deathCount: 0,
+      bossFightMs: 0,
     });
 
     const state = useRunStore.getState();
@@ -275,6 +285,7 @@ describe('runStore - addSplit with comparison precedence', () => {
       townTimeMs: 0,
       hideoutTimeMs: 0,
       deathCount: 0,
+      bossFightMs: 0,
     });
 
     const state = useRunStore.getState();

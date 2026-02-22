@@ -92,4 +92,5 @@ const MIGRATIONS: &[(&str, &str)] = &[
     ("010_add_run_status", include_str!("migrations/010_add_run_status.sql")),
     ("011_change_overlay_lock_hotkey", include_str!("migrations/011_change_overlay_lock_hotkey.sql")),
     ("012_add_group_mode", include_str!("migrations/012_add_group_mode.sql")),
+    ("013_add_boss_fight_ms", include_str!("migrations/013_add_boss_fight_ms.sql")),
 ];

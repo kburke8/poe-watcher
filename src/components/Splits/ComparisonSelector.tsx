@@ -1,15 +1,17 @@
 import { useState, useEffect, useCallback } from 'react';
 import { invoke } from '@tauri-apps/api/core';
-import { Plus, X } from 'lucide-react';
+import { Plus, X, Pencil } from 'lucide-react';
 import { useSettingsStore } from '../../stores/settingsStore';
 import { CustomSelect } from '../Shared/CustomSelect';
 import { AddComparisonModal } from './AddComparisonModal';
-import type { Run, RunFilters } from '../../types';
+import type { Run, Split, RunFilters } from '../../types';
 
 export function ComparisonSelector() {
   const { activeComparisonRunId, setActiveComparison } = useSettingsStore();
   const [availableRuns, setAvailableRuns] = useState<Run[]>([]);
   const [showAddModal, setShowAddModal] = useState(false);
+  const [editingRun, setEditingRun] = useState<Run | null>(null);
+  const [editingSplits, setEditingSplits] = useState<Split[]>([]);
 
   const loadRuns = useCallback(async () => {
     try {
@@ -51,6 +53,20 @@ export function ComparisonSelector() {
     loadRuns();
   };
 
+  const activeRun = availableRuns.find(r => r.id === activeComparisonRunId);
+  const canEdit = activeRun?.isReference;
+
+  const handleEdit = async () => {
+    if (!activeRun) return;
+    try {
+      const splits = await invoke<Split[]>('get_splits', { runId: activeRun.id });
+      setEditingSplits(splits);
+      setEditingRun(activeRun);
+    } catch (error) {
+      console.error('[ComparisonSelector] Failed to load splits for editing:', error);
+    }
+  };
+
   const options = [
     { value: '', label: 'Personal Best' },
     ...availableRuns.map(run => ({
@@ -71,6 +87,15 @@ export function ComparisonSelector() {
             placeholder="Personal Best"
           />
         </div>
+        {activeComparisonRunId != null && canEdit && (
+          <button
+            onClick={handleEdit}
+            className="mt-4 p-1 rounded text-[--color-text-muted] hover:text-[--color-poe-gold] hover:bg-[--color-surface-elevated] transition-colors"
+            title="Edit comparison run"
+          >
+            <Pencil className="w-3.5 h-3.5" strokeWidth={2} />
+          </button>
+        )}
         {activeComparisonRunId != null && (
           <button
             onClick={handleClear}
@@ -94,6 +119,17 @@ export function ComparisonSelector() {
         onClose={() => setShowAddModal(false)}
         onSuccess={handleModalSuccess}
       />
+
+      {editingRun && (
+        <AddComparisonModal
+          isOpen={!!editingRun}
+          onClose={() => { setEditingRun(null); setEditingSplits([]); }}
+          onSuccess={() => { setEditingRun(null); setEditingSplits([]); loadRuns(); }}
+          editRunId={editingRun.id}
+          editRun={editingRun}
+          editSplits={editingSplits}
+        />
+      )}
     </>
   );
 }

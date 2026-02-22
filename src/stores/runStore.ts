@@ -40,6 +40,7 @@ interface RunState {
   pauseTimer: () => void;
   updateElapsed: (ms: number) => void;
   enterZone: (zoneName: string, isTown: boolean, isHideout?: boolean) => void;
+  startBossEncounter: (bossName: string) => void;
   incrementDeathCount: () => void;
   setRunId: (id: number) => void;
   setCurrentLevel: (level: number) => void;
@@ -77,6 +78,10 @@ const initialTimerState: TimerState = {
   currentZone: null,
   // Death tracking
   deathCount: 0,
+  // Town visit & boss encounter tracking
+  townVisits: [],
+  activeBossEncounter: null,
+  bossEncounters: [],
 };
 
 export const useRunStore = create<RunState>((set, get) => ({
@@ -281,6 +286,16 @@ export const useRunStore = create<RunState>((set, get) => ({
       newHideoutTimeMs += now - timer.hideoutEnteredAt;
     }
 
+    // Finalize open town visit on pause
+    let newTownVisits = timer.townVisits;
+    if (timer.inTown) {
+      newTownVisits = timer.townVisits.map((v) =>
+        v.exitedAt === null
+          ? { ...v, exitedAt: now, durationMs: now - v.enteredAt }
+          : v
+      );
+    }
+
     set({
       timer: {
         ...timer,
@@ -290,6 +305,7 @@ export const useRunStore = create<RunState>((set, get) => ({
         // Clear timestamps so time doesn't accumulate while paused
         townEnteredAt: null,
         hideoutEnteredAt: null,
+        townVisits: newTownVisits,
       },
     });
   },
@@ -322,6 +338,50 @@ export const useRunStore = create<RunState>((set, get) => ({
     // Only start tracking town/hideout time if the timer is running
     const trackingActive = timer.isRunning;
 
+    // Town visit tracking: finalize open visit when leaving town
+    let newTownVisits = timer.townVisits;
+    if (timer.inTown && !isTown && trackingActive) {
+      newTownVisits = timer.townVisits.map((v) =>
+        v.exitedAt === null
+          ? { ...v, exitedAt: now, durationMs: now - v.enteredAt }
+          : v
+      );
+    }
+
+    // Start a new town visit when entering a town
+    if (isTown && !timer.inTown && trackingActive) {
+      const newVisit = {
+        zoneName,
+        enteredAt: now,
+        exitedAt: null,
+        durationMs: 0,
+        afterSplitIndex: timer.splits.length - 1,
+      };
+      newTownVisits = [...newTownVisits, newVisit];
+    }
+
+    // Boss encounter finalization
+    let newActiveBoss = timer.activeBossEncounter;
+    let newBossEncounters = timer.bossEncounters;
+    if (newActiveBoss && !isTown && !isHideout) {
+      if (zoneName === newActiveBoss.zoneName) {
+        // Returning to the boss zone from town — continue the fight
+      } else {
+        // Entering a different non-town zone — fight is over
+        // Subtract town time that occurred during the encounter
+        const townDuringFight = newTownVisits
+          .filter((v) => v.enteredAt >= newActiveBoss!.startedAt && v.exitedAt !== null)
+          .reduce((sum, v) => sum + v.durationMs, 0);
+        const fightDuration = (now - newActiveBoss.startedAt) - townDuringFight;
+
+        newBossEncounters = [
+          ...timer.bossEncounters,
+          { ...newActiveBoss, endedAt: now, durationMs: fightDuration },
+        ];
+        newActiveBoss = null;
+      }
+    }
+
     set((state) => ({
       timer: {
         ...state.timer,
@@ -332,7 +392,32 @@ export const useRunStore = create<RunState>((set, get) => ({
         hideoutEnteredAt: isHideout && trackingActive ? now : null,
         townTimeMs: newTownTimeMs,
         hideoutTimeMs: newHideoutTimeMs,
+        townVisits: newTownVisits,
+        activeBossEncounter: newActiveBoss,
+        bossEncounters: newBossEncounters,
       },
+    }));
+  },
+
+  startBossEncounter: (bossName: string) => {
+    const { timer } = get();
+    if (!timer.isRunning) return;
+    // Guard: don't start duplicate active encounter for the same boss
+    if (timer.activeBossEncounter?.bossName === bossName) return;
+    // Guard: don't start if this boss was already encountered this run
+    if (timer.bossEncounters.some((e) => e.bossName === bossName)) return;
+
+    const encounter = {
+      bossName,
+      zoneName: timer.currentZone ?? '',
+      startedAt: Date.now(),
+      endedAt: null,
+      durationMs: null,
+      afterSplitIndex: timer.splits.length - 1,
+    };
+
+    set((state) => ({
+      timer: { ...state.timer, activeBossEncounter: encounter },
     }));
   },
 

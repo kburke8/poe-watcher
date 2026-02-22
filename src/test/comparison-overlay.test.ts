@@ -121,6 +121,9 @@ const baseTimer: TimerState = {
   hideoutEnteredAt: null,
   currentZone: null,
   deathCount: 0,
+  townVisits: [],
+  activeBossEncounter: null,
+  bossEncounters: [],
 };
 
 describe('buildOverlayState - comparison integration', () => {

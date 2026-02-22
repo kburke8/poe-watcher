@@ -7,6 +7,7 @@ import { useSnapshotStore } from '../stores/snapshotStore';
 import { useGroupStore } from '../stores/groupStore';
 import { usePracticeStore } from '../stores/practiceStore';
 import { isTownZone, isHideoutZone } from '../config/breakpoints';
+import { getBossFromDialog } from '../config/bossDialogs';
 import type { Settings, Snapshot } from '../types';
 
 interface LogEventPayload {
@@ -17,6 +18,8 @@ interface LogEventPayload {
   character_class?: string;
   level?: number;
   penalty?: number;
+  npc_name?: string;
+  dialog_text?: string;
 }
 
 interface SettingsPayload {
@@ -114,6 +117,27 @@ export function useTauriEvents() {
     // Get cumulative death count
     const deathCount = timer.deathCount;
 
+    // Calculate boss fight time for this segment
+    const prevSplitIndex = timer.splits.length - 1;
+    let bossFightMs = 0;
+
+    // Sum completed boss encounters that belong to this segment
+    for (const encounter of timer.bossEncounters) {
+      if (encounter.afterSplitIndex === prevSplitIndex && encounter.durationMs != null) {
+        bossFightMs += encounter.durationMs;
+      }
+    }
+
+    // Include active boss encounter if it belongs to this segment
+    if (timer.activeBossEncounter && timer.activeBossEncounter.afterSplitIndex === prevSplitIndex) {
+      const now = Date.now();
+      // Subtract town time during this active fight
+      const townDuringFight = timer.townVisits
+        .filter(v => v.enteredAt >= timer.activeBossEncounter!.startedAt && v.exitedAt !== null)
+        .reduce((sum, v) => sum + v.durationMs, 0);
+      bossFightMs += (now - timer.activeBossEncounter.startedAt) - townDuringFight;
+    }
+
     // Add split to local state
     addSplit({
       breakpointType: breakpointType as 'zone' | 'level' | 'boss' | 'act' | 'lab' | 'custom',
@@ -124,6 +148,7 @@ export function useTauriEvents() {
       townTimeMs,
       hideoutTimeMs,
       deathCount,
+      bossFightMs,
     });
 
     // Check if next breakpoint needs fast polling
@@ -146,6 +171,7 @@ export function useTauriEvents() {
               townTimeMs: townTimeMs,
               hideoutTimeMs: hideoutTimeMs,
               deathCount: deathCount,
+              bossFightMs: bossFightMs,
             },
             capture_snapshot: shouldCaptureSnapshot,
             account_name: accountName || null,
@@ -341,6 +367,16 @@ export function useTauriEvents() {
           const practice = usePracticeStore.getState();
           if (practice.isActive && practice.timer.isRunning) {
             practice.incrementDeathCount();
+          }
+        }
+        break;
+
+      case 'npc_dialog':
+        if (payload.npc_name && timer.isRunning) {
+          const boss = getBossFromDialog(payload.npc_name, timer.currentZone);
+          if (boss) {
+            const { startBossEncounter } = useRunStore.getState();
+            startBossEncounter(boss);
           }
         }
         break;
