@@ -65,25 +65,44 @@ export function PracticeTimer() {
 
       {/* Timer display */}
       <div className="card-inset rounded-lg p-6 text-center">
-        <div className="timer-display timer-glow text-5xl font-bold text-[--color-text]">
-          {formatTime(timer.elapsedMs)}
-        </div>
-
-        {/* Delta vs best */}
-        {bestTimeMs !== null && timer.isRunning && (
-          <div className={`timer-display text-xl mt-2 ${timer.elapsedMs > bestTimeMs ? 'text-[--color-timer-behind]' : 'text-[--color-timer-ahead]'}`}>
-            {timer.elapsedMs > bestTimeMs
-              ? `+${formatTime(timer.elapsedMs - bestTimeMs)}`
-              : `-${formatTime(bestTimeMs - timer.elapsedMs)}`
-            }
+        {/* Single zone: show waiting state when timer not running */}
+        {mode === 'single_zone' && !timer.isRunning ? (
+          <div className="py-2">
+            <div className="timer-display text-5xl font-bold text-[--color-text-muted]">
+              {formatTime(0)}
+            </div>
+            <div className="mt-3 text-sm text-[--color-poe-gold] animate-pulse">
+              Waiting for zone entry...
+            </div>
+            <div className="mt-1 text-xs text-[--color-text-muted]">
+              Enter <span className="text-[--color-text]">{selectedZones[0]?.name}</span> to start the timer
+            </div>
           </div>
+        ) : (
+          <>
+            <div className="timer-display timer-glow text-5xl font-bold text-[--color-text]">
+              {formatTime(timer.elapsedMs)}
+            </div>
+
+            {/* Delta vs best */}
+            {bestTimeMs !== null && timer.isRunning && (
+              <div className={`timer-display text-xl mt-2 ${timer.elapsedMs > bestTimeMs ? 'text-[--color-timer-behind]' : 'text-[--color-timer-ahead]'}`}>
+                {timer.elapsedMs > bestTimeMs
+                  ? `+${formatTime(timer.elapsedMs - bestTimeMs)}`
+                  : `-${formatTime(bestTimeMs - timer.elapsedMs)}`
+                }
+              </div>
+            )}
+          </>
         )}
 
         {/* Current zone display */}
-        <div className="mt-3 text-sm text-[--color-text-muted]">
-          <MapPin className="w-3.5 h-3.5 inline mr-1" />
-          {currentZone || 'Waiting for zone...'}
-        </div>
+        {(timer.isRunning || mode === 'route') && (
+          <div className="mt-3 text-sm text-[--color-text-muted]">
+            <MapPin className="w-3.5 h-3.5 inline mr-1" />
+            {currentZone || 'Waiting for zone...'}
+          </div>
+        )}
 
         {/* Death count */}
         {timer.deathCount > 0 && (
@@ -95,38 +114,53 @@ export function PracticeTimer() {
 
       {/* Controls */}
       <div className="flex gap-3">
-        {!timer.isRunning ? (
+        {mode === 'single_zone' ? (
+          /* Single zone: no start/pause since it's automatic */
           <Button
-            variant="primary"
+            variant="destructive"
             size="lg"
-            icon={Play}
-            onClick={startPractice}
+            icon={RotateCcw}
+            onClick={handleBack}
             className="flex-1"
-            style={{ background: 'linear-gradient(180deg, #2cc660 0%, #189845 100%)', borderColor: '#44d070', color: 'white', boxShadow: '0 0 14px rgba(34, 197, 94, 0.3), inset 0 1px 0 rgba(255,255,255,0.15)' }}
           >
-            {timer.elapsedMs > 0 ? 'Resume' : 'Start'}
+            Stop Practice
           </Button>
         ) : (
-          <Button
-            variant="primary"
-            size="lg"
-            icon={Pause}
-            onClick={stopPractice}
-            className="flex-1"
-          >
-            Pause
-          </Button>
-        )}
+          <>
+            {!timer.isRunning ? (
+              <Button
+                variant="primary"
+                size="lg"
+                icon={Play}
+                onClick={startPractice}
+                className="flex-1"
+                style={{ background: 'linear-gradient(180deg, #2cc660 0%, #189845 100%)', borderColor: '#44d070', color: 'white', boxShadow: '0 0 14px rgba(34, 197, 94, 0.3), inset 0 1px 0 rgba(255,255,255,0.15)' }}
+              >
+                {timer.elapsedMs > 0 ? 'Resume' : 'Start'}
+              </Button>
+            ) : (
+              <Button
+                variant="primary"
+                size="lg"
+                icon={Pause}
+                onClick={stopPractice}
+                className="flex-1"
+              >
+                Pause
+              </Button>
+            )}
 
-        <Button
-          variant="destructive"
-          size="lg"
-          icon={RotateCcw}
-          onClick={resetPractice}
-          disabled={timer.elapsedMs === 0 && !timer.isRunning}
-        >
-          Reset
-        </Button>
+            <Button
+              variant="destructive"
+              size="lg"
+              icon={RotateCcw}
+              onClick={resetPractice}
+              disabled={timer.elapsedMs === 0 && !timer.isRunning}
+            >
+              Reset
+            </Button>
+          </>
+        )}
       </div>
 
       {/* Zone progression (route mode) */}
@@ -196,7 +230,7 @@ function SingleZoneInfo() {
       ) : null}
       <p className="text-xs text-[--color-text-muted] mt-1.5">
         {exitZone
-          ? `Start the timer, then run through ${zone.name}. The attempt records when you enter ${exitZone.name}.`
+          ? `Timer auto-starts when you enter ${zone.name} and records when you enter ${exitZone.name}. Runs on repeat.`
           : `This is the last zone in the game progression. No exit zone could be determined.`
         }
       </p>
