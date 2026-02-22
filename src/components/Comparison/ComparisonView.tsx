@@ -357,9 +357,7 @@ export function ComparisonView() {
                             })()}
                           </td>
                           <td className="p-3 text-right text-xs">
-                            {hasRefRun ? (
-                              <span className="text-[--color-text-muted]">N/A</span>
-                            ) : townDelta !== null && townDelta !== 0 ? (
+                            {townDelta !== null && townDelta !== 0 ? (
                               <span
                                 className={
                                   townDelta < 0
@@ -431,7 +429,21 @@ export function ComparisonView() {
                         })()}
                       </td>
                       <td className="p-3 text-right text-xs">
-                        {hasRefRun && <span className="text-[--color-text-muted]">N/A</span>}
+                        {(() => {
+                          const leftTownTotal = leftSplits.length > 0
+                            ? (leftSplits[leftSplits.length - 1].townTimeMs ?? 0) + (leftSplits[leftSplits.length - 1].hideoutTimeMs ?? 0)
+                            : 0;
+                          const rightTownTotal = rightSplits.length > 0
+                            ? (rightSplits[rightSplits.length - 1].townTimeMs ?? 0) + (rightSplits[rightSplits.length - 1].hideoutTimeMs ?? 0)
+                            : 0;
+                          const totalTownDelta = leftTownTotal - rightTownTotal;
+                          if (totalTownDelta === 0) return null;
+                          return (
+                            <span className={totalTownDelta < 0 ? 'text-[--color-timer-ahead]' : 'text-[--color-timer-behind]'}>
+                              {formatDelta(totalTownDelta)}
+                            </span>
+                          );
+                        })()}
                       </td>
                       <td className="p-3 text-center text-xs">
                         {(leftSplits.length > 0 || rightSplits.length > 0 || hasRefRun) ? (
@@ -480,7 +492,7 @@ export function ComparisonView() {
                       Reference: {leftRun.sourceName}
                     </div>
                   )}
-                  {leftSplits.length > 0 && !leftRun.isReference && (
+                  {leftSplits.length > 0 && (
                     <div className="flex flex-wrap gap-x-4 gap-y-1 mt-2 pt-2 border-t border-[--color-border] text-xs">
                       <span className="text-yellow-400/70">Town: <span className="timer-display text-[--color-text]">{formatTime(leftSplits[leftSplits.length - 1].townTimeMs ?? 0)}</span></span>
                       <span className="text-blue-400/70">Hideout: <span className="timer-display text-[--color-text]">{formatTime(leftSplits[leftSplits.length - 1].hideoutTimeMs ?? 0)}</span></span>
@@ -516,7 +528,7 @@ export function ComparisonView() {
                       Reference: {rightRun.sourceName}
                     </div>
                   )}
-                  {rightSplits.length > 0 && !rightRun.isReference && (
+                  {rightSplits.length > 0 && (
                     <div className="flex flex-wrap gap-x-4 gap-y-1 mt-2 pt-2 border-t border-[--color-border] text-xs">
                       <span className="text-yellow-400/70">Town: <span className="timer-display text-[--color-text]">{formatTime(rightSplits[rightSplits.length - 1].townTimeMs ?? 0)}</span></span>
                       <span className="text-blue-400/70">Hideout: <span className="timer-display text-[--color-text]">{formatTime(rightSplits[rightSplits.length - 1].hideoutTimeMs ?? 0)}</span></span>
