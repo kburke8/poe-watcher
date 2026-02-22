@@ -1,7 +1,28 @@
 import { create } from 'zustand';
 import type { PracticeMode, PracticeZone, PracticeAttempt } from '../types';
+import { defaultBreakpoints } from '../config/breakpoints';
 
 const PRACTICE_STORAGE_KEY = 'poe-watcher-practice';
+
+// Build a lookup: for a given zone (by zoneName+act), find the next zone-trigger
+// breakpoint in game progression order. This is used in single zone mode so the
+// attempt completes when you EXIT the zone (i.e. enter the next one).
+function getNextZone(zoneName: string, act: number): PracticeZone | null {
+  const zoneBreakpoints = defaultBreakpoints.filter(
+    bp => bp.trigger.type === 'zone' && bp.trigger.zoneName && bp.trigger.act
+  );
+  const idx = zoneBreakpoints.findIndex(
+    bp => bp.trigger.zoneName!.toLowerCase() === zoneName.toLowerCase()
+      && bp.trigger.act === act
+  );
+  if (idx === -1 || idx + 1 >= zoneBreakpoints.length) return null;
+  const next = zoneBreakpoints[idx + 1];
+  return {
+    name: next.name,
+    zoneName: next.trigger.zoneName!,
+    act: next.trigger.act!,
+  };
+}
 
 interface PracticeTimerState {
   isRunning: boolean;
@@ -43,6 +64,9 @@ interface PracticeState {
 
   // Actions - Zone progression (called by useTauriEvents)
   handleZoneEnter: (zoneName: string) => void;
+
+  // Derived - get the "exit zone" (zone after the selected one) for single zone mode
+  getExitZone: () => PracticeZone | null;
 
   // Actions - History
   clearAttempts: () => void;
@@ -167,6 +191,13 @@ export const usePracticeStore = create<PracticeState>((set, get) => ({
     }));
   },
 
+  // Derived
+  getExitZone: () => {
+    const { selectedZones, mode } = get();
+    if (mode !== 'single_zone' || selectedZones.length === 0) return null;
+    return getNextZone(selectedZones[0].zoneName, selectedZones[0].act);
+  },
+
   // Zone progression
   handleZoneEnter: (zoneName: string) => {
     const { timer, selectedZones, mode, isActive } = get();
@@ -175,9 +206,13 @@ export const usePracticeStore = create<PracticeState>((set, get) => ({
     const normalizedZone = zoneName.toLowerCase();
 
     if (mode === 'single_zone') {
-      // In single zone mode, entering the selected zone completes the attempt
+      // In single zone mode, the attempt completes when you enter the NEXT zone
+      // after the selected one (i.e. you've finished running through the target zone).
       const targetZone = selectedZones[0];
-      if (targetZone.zoneName.toLowerCase() === normalizedZone) {
+      const exitZone = getNextZone(targetZone.zoneName, targetZone.act);
+      if (!exitZone) return;
+
+      if (exitZone.zoneName.toLowerCase() === normalizedZone) {
         const actualElapsedMs = timer.startTime ? Date.now() - timer.startTime : timer.elapsedMs;
 
         const attempt: PracticeAttempt = {
