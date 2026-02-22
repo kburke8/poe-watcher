@@ -170,9 +170,13 @@ pub async fn create_reference_run(data: ReferenceRunData) -> Result<i64, String>
     let run_id = Run::insert_reference(&data).map_err(|e| e.to_string())?;
 
     // Insert all splits for the reference run
+    // town_time_ms from the frontend is per-segment, but real runs store it
+    // cumulatively. Accumulate here so comparisons work correctly.
     let mut prev_time = 0i64;
+    let mut cumulative_town_ms = 0i64;
     for split_data in &data.splits {
         let segment_time = split_data.split_time_ms - prev_time;
+        cumulative_town_ms += split_data.town_time_ms;
         let new_split = NewSplit {
             run_id,
             breakpoint_type: split_data.breakpoint_type.clone(),
@@ -180,7 +184,7 @@ pub async fn create_reference_run(data: ReferenceRunData) -> Result<i64, String>
             split_time_ms: split_data.split_time_ms,
             delta_ms: None,
             segment_time_ms: segment_time,
-            town_time_ms: split_data.town_time_ms,
+            town_time_ms: cumulative_town_ms,
             hideout_time_ms: 0,
             death_count: 0,
             boss_fight_ms: split_data.boss_fight_ms,

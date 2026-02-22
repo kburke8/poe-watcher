@@ -56,14 +56,18 @@ export function AddReferenceRunModal({ isOpen, onClose, onSuccess, editRunId, ed
       const times: Record<string, string> = {};
       const bosses: Record<string, string> = {};
       const towns: Record<string, string> = {};
+      let prevTownMs = 0;
       for (const split of editSplits) {
         times[split.breakpointName] = msToDigits(split.splitTimeMs);
         if (split.bossFightMs > 0) {
           bosses[split.breakpointName] = msToShortDigits(split.bossFightMs);
         }
-        if (split.townTimeMs > 0) {
-          towns[split.breakpointName] = msToShortDigits(split.townTimeMs);
+        // townTimeMs is stored cumulatively; convert back to per-segment for editing
+        const segmentTownMs = (split.townTimeMs ?? 0) - prevTownMs;
+        if (segmentTownMs > 0) {
+          towns[split.breakpointName] = msToShortDigits(segmentTownMs);
         }
+        prevTownMs = split.townTimeMs ?? 0;
       }
       setSplitTimes(times);
       setBossTimes(bosses);

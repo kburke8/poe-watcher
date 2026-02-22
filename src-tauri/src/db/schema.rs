@@ -456,9 +456,12 @@ impl Split {
         let conn = get_db()?;
         conn.execute("DELETE FROM splits WHERE run_id = ?1", params![run_id])?;
 
+        // town_time_ms from the frontend is per-segment; accumulate to match real runs
         let mut prev_time = 0i64;
+        let mut cumulative_town_ms = 0i64;
         for split_data in splits {
             let segment_time = split_data.split_time_ms - prev_time;
+            cumulative_town_ms += split_data.town_time_ms;
             conn.execute(
                 "INSERT INTO splits (run_id, breakpoint_type, breakpoint_name, split_time_ms, segment_time_ms, town_time_ms, hideout_time_ms, death_count, boss_fight_ms)
                  VALUES (?1, ?2, ?3, ?4, ?5, ?6, 0, 0, ?7)",
@@ -468,7 +471,7 @@ impl Split {
                     split_data.breakpoint_name,
                     split_data.split_time_ms,
                     segment_time,
-                    split_data.town_time_ms,
+                    cumulative_town_ms,
                     split_data.boss_fight_ms,
                 ],
             )?;

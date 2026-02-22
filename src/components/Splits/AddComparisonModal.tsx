@@ -50,15 +50,19 @@ export function AddComparisonModal({ isOpen, onClose, onSuccess, editRunId, edit
       const towns: Record<string, string> = {};
       const enabled = new Set<string>();
 
+      let prevTownMs = 0;
       for (const split of editSplits) {
         enabled.add(split.breakpointName);
         times[split.breakpointName] = msToDigits(split.splitTimeMs);
         if (split.bossFightMs > 0) {
           bosses[split.breakpointName] = msToShortDigits(split.bossFightMs);
         }
-        if (split.townTimeMs > 0) {
-          towns[split.breakpointName] = msToShortDigits(split.townTimeMs);
+        // townTimeMs is stored cumulatively; convert back to per-segment for editing
+        const segmentTownMs = (split.townTimeMs ?? 0) - prevTownMs;
+        if (segmentTownMs > 0) {
+          towns[split.breakpointName] = msToShortDigits(segmentTownMs);
         }
+        prevTownMs = split.townTimeMs ?? 0;
       }
 
       setEnabledSplits(enabled);
