@@ -67,6 +67,8 @@ interface PracticeState {
 
   // Derived - get the "exit zone" (zone after the selected one) for single zone mode
   getExitZone: () => PracticeZone | null;
+  // Derived - get the exit zone for route mode (zone after the last selected zone)
+  getRouteExitZone: () => PracticeZone | null;
 
   // Actions - History
   clearAttempts: () => void;
@@ -143,36 +145,18 @@ export const usePracticeStore = create<PracticeState>((set, get) => ({
 
   // Timer
   startPractice: () => {
-    const { selectedZones, timer, mode } = get();
+    const { selectedZones } = get();
     if (selectedZones.length === 0) return;
 
-    if (mode === 'single_zone') {
-      // In single zone mode, just arm the session. The timer auto-starts
-      // when you enter the target zone so you can chain-run without
-      // touching the UI.
-      set({
-        isActive: true,
-        timer: {
-          ...initialTimerState,
-        },
-      });
-    } else {
-      // Route mode: start immediately
-      const now = Date.now();
-      set({
-        isActive: true,
-        timer: {
-          ...timer,
-          isRunning: true,
-          startTime: now - timer.elapsedMs,
-          ...(timer.elapsedMs === 0 ? {
-            currentZoneIndex: 0,
-            completedZones: [],
-            deathCount: 0,
-          } : {}),
-        },
-      });
-    }
+    // Both modes: just arm the session. The timer auto-starts
+    // when you enter the target/first zone so you can chain-run
+    // without touching the UI.
+    set({
+      isActive: true,
+      timer: {
+        ...initialTimerState,
+      },
+    });
   },
 
   stopPractice: () => {
@@ -208,6 +192,13 @@ export const usePracticeStore = create<PracticeState>((set, get) => ({
     const { selectedZones, mode } = get();
     if (mode !== 'single_zone' || selectedZones.length === 0) return null;
     return getNextZone(selectedZones[0].zoneName, selectedZones[0].act);
+  },
+
+  getRouteExitZone: () => {
+    const { selectedZones, mode } = get();
+    if (mode !== 'route' || selectedZones.length === 0) return null;
+    const lastZone = selectedZones[selectedZones.length - 1];
+    return getNextZone(lastZone.zoneName, lastZone.act);
   },
 
   // Zone progression
@@ -268,52 +259,73 @@ export const usePracticeStore = create<PracticeState>((set, get) => ({
         get().saveToStorage();
       }
     } else {
+      // Route mode — three phases:
+      // 1. Auto-start on first zone
+      // 2. Progression through remaining zones
+      // 3. Completion on exit zone (zone after last selected)
+      const firstZone = selectedZones[0];
+      const lastZone = selectedZones[selectedZones.length - 1];
+      const exitZone = getNextZone(lastZone.zoneName, lastZone.act);
+
+      // Phase 1: Auto-start when entering the first zone
+      if (!timer.isRunning && firstZone.zoneName.toLowerCase() === normalizedZone) {
+        const now = Date.now();
+        set({
+          timer: {
+            ...initialTimerState,
+            isRunning: true,
+            startTime: now,
+            // First zone is visited on entry, advance to next
+            currentZoneIndex: 1,
+            completedZones: [firstZone.name],
+          },
+        });
+        return;
+      }
+
       if (!timer.isRunning) return;
-      // Route mode: check if this zone matches the next expected zone
-      const nextIndex = timer.currentZoneIndex;
-      if (nextIndex >= selectedZones.length) return;
 
-      const nextZone = selectedZones[nextIndex];
-      if (nextZone.zoneName.toLowerCase() === normalizedZone) {
-        const newCompletedZones = [...timer.completedZones, nextZone.name];
-        const newIndex = nextIndex + 1;
+      // Phase 3: Completion when entering exit zone (all selected zones visited)
+      if (timer.currentZoneIndex >= selectedZones.length && exitZone &&
+          exitZone.zoneName.toLowerCase() === normalizedZone) {
+        const actualElapsedMs = timer.startTime ? Date.now() - timer.startTime : timer.elapsedMs;
 
-        // Check if route is complete
-        if (newIndex >= selectedZones.length) {
-          const actualElapsedMs = timer.startTime ? Date.now() - timer.startTime : timer.elapsedMs;
+        const attempt: PracticeAttempt = {
+          id: Date.now(),
+          timeMs: actualElapsedMs,
+          completedAt: new Date().toISOString(),
+          zones: timer.completedZones,
+          deathCount: timer.deathCount,
+        };
 
-          const attempt: PracticeAttempt = {
-            id: Date.now(),
-            timeMs: actualElapsedMs,
-            completedAt: new Date().toISOString(),
-            zones: newCompletedZones,
-            deathCount: timer.deathCount,
+        set((state) => {
+          const newAttempts = [...state.attempts, attempt];
+          const newBest = state.bestTimeMs === null
+            ? actualElapsedMs
+            : Math.min(state.bestTimeMs, actualElapsedMs);
+          return {
+            attempts: newAttempts,
+            bestTimeMs: newBest,
+            // Reset to armed/waiting — next first-zone entry starts again
+            timer: {
+              ...initialTimerState,
+            },
           };
+        });
+        get().saveToStorage();
+        return;
+      }
 
-          set((state) => {
-            const newAttempts = [...state.attempts, attempt];
-            const newBest = state.bestTimeMs === null
-              ? actualElapsedMs
-              : Math.min(state.bestTimeMs, actualElapsedMs);
-            return {
-              attempts: newAttempts,
-              bestTimeMs: newBest,
-              // Auto-reset timer for next attempt
-              timer: {
-                ...initialTimerState,
-                isRunning: true,
-                startTime: Date.now(),
-              },
-            };
-          });
-          get().saveToStorage();
-        } else {
-          // Progress to next zone
+      // Phase 2: Progression through remaining zones
+      const nextIndex = timer.currentZoneIndex;
+      if (nextIndex < selectedZones.length) {
+        const nextZone = selectedZones[nextIndex];
+        if (nextZone.zoneName.toLowerCase() === normalizedZone) {
           set((state) => ({
             timer: {
               ...state.timer,
-              currentZoneIndex: newIndex,
-              completedZones: newCompletedZones,
+              currentZoneIndex: nextIndex + 1,
+              completedZones: [...state.timer.completedZones, nextZone.name],
             },
           }));
         }
