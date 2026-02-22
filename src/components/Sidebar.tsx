@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { getVersion } from '@tauri-apps/api/app';
 import { invoke } from '@tauri-apps/api/core';
-import { Timer, Camera, GitCompareArrows, History, Settings as SettingsIcon, Monitor, Users } from 'lucide-react';
+import { Timer, Camera, GitCompareArrows, History, Settings as SettingsIcon, Monitor, Users, Target } from 'lucide-react';
 import { useSettingsStore } from '../stores/settingsStore';
 import { useUpdateChecker } from '../hooks/useUpdateChecker';
 import { Button } from './Shared/Button';
@@ -16,6 +16,7 @@ interface NavItem {
 
 const baseNavItems: NavItem[] = [
   { id: 'timer', label: 'Timer', icon: Timer },
+  { id: 'practice', label: 'Practice', icon: Target },
   { id: 'snapshots', label: 'Snapshots', icon: Camera },
   { id: 'comparison', label: 'Compare', icon: GitCompareArrows },
   { id: 'history', label: 'History', icon: History },
@@ -26,7 +27,7 @@ export function Sidebar() {
   const { currentView, setCurrentView, checkUpdates, overlayEnabled, overlayOpen, setOverlayOpen, hotkeys, groupModeEnabled } = useSettingsStore();
 
   const navItems = groupModeEnabled
-    ? [...baseNavItems.slice(0, 4), { id: 'group' as ViewMode, label: 'Group', icon: Users }, baseNavItems[4]]
+    ? [...baseNavItems.slice(0, -1), { id: 'group' as ViewMode, label: 'Group', icon: Users }, baseNavItems[baseNavItems.length - 1]]
     : baseNavItems;
   const [appVersion, setAppVersion] = useState('');
   const { available, version, downloading, progress, downloadAndInstall } = useUpdateChecker(checkUpdates);
