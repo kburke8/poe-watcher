@@ -143,24 +143,36 @@ export const usePracticeStore = create<PracticeState>((set, get) => ({
 
   // Timer
   startPractice: () => {
-    const { selectedZones, timer } = get();
+    const { selectedZones, timer, mode } = get();
     if (selectedZones.length === 0) return;
 
-    const now = Date.now();
-    set({
-      isActive: true,
-      timer: {
-        ...timer,
-        isRunning: true,
-        startTime: now - timer.elapsedMs,
-        // Reset zone progress on fresh start
-        ...(timer.elapsedMs === 0 ? {
-          currentZoneIndex: 0,
-          completedZones: [],
-          deathCount: 0,
-        } : {}),
-      },
-    });
+    if (mode === 'single_zone') {
+      // In single zone mode, just arm the session. The timer auto-starts
+      // when you enter the target zone so you can chain-run without
+      // touching the UI.
+      set({
+        isActive: true,
+        timer: {
+          ...initialTimerState,
+        },
+      });
+    } else {
+      // Route mode: start immediately
+      const now = Date.now();
+      set({
+        isActive: true,
+        timer: {
+          ...timer,
+          isRunning: true,
+          startTime: now - timer.elapsedMs,
+          ...(timer.elapsedMs === 0 ? {
+            currentZoneIndex: 0,
+            completedZones: [],
+            deathCount: 0,
+          } : {}),
+        },
+      });
+    }
   },
 
   stopPractice: () => {
@@ -201,18 +213,34 @@ export const usePracticeStore = create<PracticeState>((set, get) => ({
   // Zone progression
   handleZoneEnter: (zoneName: string) => {
     const { timer, selectedZones, mode, isActive } = get();
-    if (!isActive || !timer.isRunning || selectedZones.length === 0) return;
+    if (!isActive || selectedZones.length === 0) return;
 
     const normalizedZone = zoneName.toLowerCase();
 
     if (mode === 'single_zone') {
-      // In single zone mode, the attempt completes when you enter the NEXT zone
-      // after the selected one (i.e. you've finished running through the target zone).
+      // Single zone mode has two triggers:
+      // 1. Entering the target zone  → auto-start the timer
+      // 2. Entering the exit zone    → record attempt, reset to waiting
+      // This lets you chain-run the zone without touching the UI.
       const targetZone = selectedZones[0];
       const exitZone = getNextZone(targetZone.zoneName, targetZone.act);
       if (!exitZone) return;
 
-      if (exitZone.zoneName.toLowerCase() === normalizedZone) {
+      if (!timer.isRunning && targetZone.zoneName.toLowerCase() === normalizedZone) {
+        // Entering the target zone → start the timer
+        const now = Date.now();
+        set({
+          timer: {
+            ...initialTimerState,
+            isRunning: true,
+            startTime: now,
+          },
+        });
+        return;
+      }
+
+      if (timer.isRunning && exitZone.zoneName.toLowerCase() === normalizedZone) {
+        // Entering the exit zone → record the attempt, reset to waiting
         const actualElapsedMs = timer.startTime ? Date.now() - timer.startTime : timer.elapsedMs;
 
         const attempt: PracticeAttempt = {
@@ -231,17 +259,16 @@ export const usePracticeStore = create<PracticeState>((set, get) => ({
           return {
             attempts: newAttempts,
             bestTimeMs: newBest,
-            // Auto-reset timer for next attempt
+            // Reset timer but stay armed — next zone entry starts it again
             timer: {
               ...initialTimerState,
-              isRunning: true,
-              startTime: Date.now(),
             },
           };
         });
         get().saveToStorage();
       }
     } else {
+      if (!timer.isRunning) return;
       // Route mode: check if this zone matches the next expected zone
       const nextIndex = timer.currentZoneIndex;
       if (nextIndex >= selectedZones.length) return;
