@@ -4,27 +4,6 @@ import type { TimerState, Breakpoint } from '../types';
 // Extract and test the buildOverlayState logic
 // We replicate it here since it's not exported from the hook module
 
-interface OverlayConfig {
-  overlayOpacity: number;
-  overlayScale: 'small' | 'medium' | 'large';
-  overlayFontSize: 'small' | 'medium' | 'large';
-  overlayShowTimer: boolean;
-  overlayShowZone: boolean;
-  overlayShowLastSplit: boolean;
-  overlayShowBreakpoints: boolean;
-  overlayBreakpointCount: number;
-  overlayBgOpacity: number;
-  overlayAccentColor: string;
-  overlayAlwaysOnTop: boolean;
-  overlayLocked: boolean;
-}
-
-interface HotkeyLabels {
-  hotkeyToggleTimer: string;
-  hotkeyToggleOverlay: string;
-  hotkeyToggleOverlayLock: string;
-}
-
 // Replicated from useOverlaySync.ts for unit testing
 function buildTestOverlayState(
   timer: TimerState,
