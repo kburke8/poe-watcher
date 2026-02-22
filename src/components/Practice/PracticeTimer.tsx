@@ -1,5 +1,5 @@
 import { useEffect, useRef } from 'react';
-import { Play, Pause, RotateCcw, ArrowLeft, CheckCircle2, Circle, MapPin } from 'lucide-react';
+import { Play, Pause, RotateCcw, ArrowLeft, CheckCircle2, Circle, MapPin, ArrowRight } from 'lucide-react';
 import { usePracticeStore } from '../../stores/practiceStore';
 import { useRunStore } from '../../stores/runStore';
 import { Button } from '../Shared/Button';
@@ -168,17 +168,38 @@ export function PracticeTimer() {
 
       {/* Single zone mode - target indicator */}
       {mode === 'single_zone' && selectedZones.length > 0 && (
-        <div className="card-inset rounded-lg p-3">
-          <div className="flex items-center gap-2 text-sm">
-            <span className="text-[--color-text-muted]">Target:</span>
-            <span className="text-[--color-poe-gold] font-medium">{selectedZones[0].name}</span>
-            <span className="text-[--color-text-muted] text-xs">(A{selectedZones[0].act})</span>
-          </div>
-          <p className="text-xs text-[--color-text-muted] mt-1">
-            Timer auto-resets when you enter this zone. Start timer before entering the zone preceding this one.
-          </p>
-        </div>
+        <SingleZoneInfo />
       )}
+    </div>
+  );
+}
+
+function SingleZoneInfo() {
+  const selectedZones = usePracticeStore((s) => s.selectedZones);
+  const exitZone = usePracticeStore((s) => s.getExitZone());
+  const zone = selectedZones[0];
+
+  return (
+    <div className="card-inset rounded-lg p-3">
+      <div className="flex items-center gap-2 text-sm">
+        <span className="text-[--color-text-muted]">Practicing:</span>
+        <span className="text-[--color-poe-gold] font-medium">{zone.name}</span>
+        <span className="text-[--color-text-muted] text-xs">(A{zone.act})</span>
+      </div>
+      {exitZone ? (
+        <div className="flex items-center gap-2 text-sm mt-1.5">
+          <span className="text-[--color-text-muted]">Completes on:</span>
+          <ArrowRight className="w-3 h-3 text-green-500" />
+          <span className="text-green-400 font-medium">{exitZone.name}</span>
+          <span className="text-[--color-text-muted] text-xs">(A{exitZone.act})</span>
+        </div>
+      ) : null}
+      <p className="text-xs text-[--color-text-muted] mt-1.5">
+        {exitZone
+          ? `Start the timer, then run through ${zone.name}. The attempt records when you enter ${exitZone.name}.`
+          : `This is the last zone in the game progression. No exit zone could be determined.`
+        }
+      </p>
     </div>
   );
 }
