@@ -1,5 +1,5 @@
 import { useEffect, useRef } from 'react';
-import { Play, Pause, RotateCcw, ArrowLeft, CheckCircle2, Circle, MapPin, ArrowRight } from 'lucide-react';
+import { RotateCcw, ArrowLeft, CheckCircle2, Circle, MapPin, ArrowRight } from 'lucide-react';
 import { usePracticeStore } from '../../stores/practiceStore';
 import { useRunStore } from '../../stores/runStore';
 import { Button } from '../Shared/Button';
@@ -7,7 +7,7 @@ import { Button } from '../Shared/Button';
 export function PracticeTimer() {
   const {
     mode, selectedZones, timer, attempts, bestTimeMs,
-    startPractice, stopPractice, resetPractice, updateElapsed,
+    stopPractice, resetPractice, updateElapsed,
   } = usePracticeStore();
   const currentZone = useRunStore((s) => s.timer.currentZone);
   const animationRef = useRef<number | null>(null);
@@ -65,8 +65,8 @@ export function PracticeTimer() {
 
       {/* Timer display */}
       <div className="card-inset rounded-lg p-6 text-center">
-        {/* Single zone: show waiting state when timer not running */}
-        {mode === 'single_zone' && !timer.isRunning ? (
+        {/* Waiting state: shown when armed but timer not yet running (both modes) */}
+        {!timer.isRunning ? (
           <div className="py-2">
             <div className="timer-display text-5xl font-bold text-[--color-text-muted]">
               {formatTime(0)}
@@ -75,7 +75,9 @@ export function PracticeTimer() {
               Waiting for zone entry...
             </div>
             <div className="mt-1 text-xs text-[--color-text-muted]">
-              Enter <span className="text-[--color-text]">{selectedZones[0]?.name}</span> to start the timer
+              Enter <span className="text-[--color-text]">
+                {mode === 'single_zone' ? selectedZones[0]?.name : selectedZones[0]?.name}
+              </span> to start the timer
             </div>
           </div>
         ) : (
@@ -97,7 +99,7 @@ export function PracticeTimer() {
         )}
 
         {/* Current zone display */}
-        {(timer.isRunning || mode === 'route') && (
+        {timer.isRunning && (
           <div className="mt-3 text-sm text-[--color-text-muted]">
             <MapPin className="w-3.5 h-3.5 inline mr-1" />
             {currentZone || 'Waiting for zone...'}
@@ -112,55 +114,17 @@ export function PracticeTimer() {
         )}
       </div>
 
-      {/* Controls */}
+      {/* Controls — both modes are fully automatic, just "Stop Practice" */}
       <div className="flex gap-3">
-        {mode === 'single_zone' ? (
-          /* Single zone: no start/pause since it's automatic */
-          <Button
-            variant="destructive"
-            size="lg"
-            icon={RotateCcw}
-            onClick={handleBack}
-            className="flex-1"
-          >
-            Stop Practice
-          </Button>
-        ) : (
-          <>
-            {!timer.isRunning ? (
-              <Button
-                variant="primary"
-                size="lg"
-                icon={Play}
-                onClick={startPractice}
-                className="flex-1"
-                style={{ background: 'linear-gradient(180deg, #2cc660 0%, #189845 100%)', borderColor: '#44d070', color: 'white', boxShadow: '0 0 14px rgba(34, 197, 94, 0.3), inset 0 1px 0 rgba(255,255,255,0.15)' }}
-              >
-                {timer.elapsedMs > 0 ? 'Resume' : 'Start'}
-              </Button>
-            ) : (
-              <Button
-                variant="primary"
-                size="lg"
-                icon={Pause}
-                onClick={stopPractice}
-                className="flex-1"
-              >
-                Pause
-              </Button>
-            )}
-
-            <Button
-              variant="destructive"
-              size="lg"
-              icon={RotateCcw}
-              onClick={resetPractice}
-              disabled={timer.elapsedMs === 0 && !timer.isRunning}
-            >
-              Reset
-            </Button>
-          </>
-        )}
+        <Button
+          variant="destructive"
+          size="lg"
+          icon={RotateCcw}
+          onClick={handleBack}
+          className="flex-1"
+        >
+          Stop Practice
+        </Button>
       </div>
 
       {/* Zone progression (route mode) */}
@@ -200,25 +164,32 @@ export function PracticeTimer() {
         </div>
       )}
 
-      {/* Single zone mode - target indicator */}
-      {mode === 'single_zone' && selectedZones.length > 0 && (
-        <SingleZoneInfo />
+      {/* Practice info — target/exit zone indicator */}
+      {selectedZones.length > 0 && (
+        <PracticeInfo />
       )}
     </div>
   );
 }
 
-function SingleZoneInfo() {
+function PracticeInfo() {
+  const mode = usePracticeStore((s) => s.mode);
   const selectedZones = usePracticeStore((s) => s.selectedZones);
-  const exitZone = usePracticeStore((s) => s.getExitZone());
-  const zone = selectedZones[0];
+  const getExitZone = usePracticeStore((s) => s.getExitZone);
+  const getRouteExitZone = usePracticeStore((s) => s.getRouteExitZone);
+
+  const isSingleZone = mode === 'single_zone';
+  const exitZone = isSingleZone ? getExitZone() : getRouteExitZone();
+  const startZone = selectedZones[0];
 
   return (
     <div className="card-inset rounded-lg p-3">
       <div className="flex items-center gap-2 text-sm">
-        <span className="text-[--color-text-muted]">Practicing:</span>
-        <span className="text-[--color-poe-gold] font-medium">{zone.name}</span>
-        <span className="text-[--color-text-muted] text-xs">(A{zone.act})</span>
+        <span className="text-[--color-text-muted]">
+          {isSingleZone ? 'Practicing:' : 'Starts on:'}
+        </span>
+        <span className="text-[--color-poe-gold] font-medium">{startZone.name}</span>
+        <span className="text-[--color-text-muted] text-xs">(A{startZone.act})</span>
       </div>
       {exitZone ? (
         <div className="flex items-center gap-2 text-sm mt-1.5">
@@ -230,7 +201,7 @@ function SingleZoneInfo() {
       ) : null}
       <p className="text-xs text-[--color-text-muted] mt-1.5">
         {exitZone
-          ? `Timer auto-starts when you enter ${zone.name} and records when you enter ${exitZone.name}. Runs on repeat.`
+          ? `Timer auto-starts when you enter ${startZone.name} and records when you enter ${exitZone.name}. Runs on repeat.`
           : `This is the last zone in the game progression. No exit zone could be determined.`
         }
       </p>
