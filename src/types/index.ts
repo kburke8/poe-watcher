@@ -300,8 +300,32 @@ export interface MemberCharacterInfo {
   characterExperience: number;
 }
 
+// Practice mode types
+export type PracticeMode = 'single_zone' | 'route';
+
+export interface PracticeZone {
+  name: string;           // Display name (from breakpoints)
+  zoneName: string;       // Client.txt zone name (trigger.zoneName)
+  act: number;
+}
+
+export interface PracticeAttempt {
+  id: number;
+  timeMs: number;
+  completedAt: string;
+  zones: string[];        // Zone names for this attempt
+  deathCount: number;
+}
+
+export interface PracticeSession {
+  mode: PracticeMode;
+  zones: PracticeZone[];
+  attempts: PracticeAttempt[];
+  bestTimeMs: number | null;
+}
+
 // UI state
-export type ViewMode = 'timer' | 'snapshots' | 'comparison' | 'history' | 'settings' | 'group';
+export type ViewMode = 'timer' | 'snapshots' | 'comparison' | 'history' | 'settings' | 'group' | 'practice';
 
 // Filtering and analytics
 export interface RunFilters {
