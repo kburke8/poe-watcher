@@ -2,50 +2,80 @@ import { useState, useMemo, useRef, useEffect } from 'react';
 import { invoke } from '@tauri-apps/api/core';
 import { useSettingsStore } from '../../stores/settingsStore';
 import { getWizardCategory } from '../../config/wizardRoutes';
-import type { ReferenceRunData, ReferenceSplitData } from '../../types';
+import { SplitTimeEditor, msToDigits, msToShortDigits, parseDigitsToMs, parseShortDigitsToMs, formatTime } from '../Shared/SplitTimeEditor';
+import type { Run, Split, ReferenceRunData, ReferenceSplitData } from '../../types';
 
 interface AddComparisonModalProps {
   isOpen: boolean;
   onClose: () => void;
   onSuccess: () => void;
+  editRunId?: number;
+  editRun?: Run;
+  editSplits?: Split[];
 }
 
-export function AddComparisonModal({ isOpen, onClose, onSuccess }: AddComparisonModalProps) {
+export function AddComparisonModal({ isOpen, onClose, onSuccess, editRunId, editRun, editSplits }: AddComparisonModalProps) {
   const { breakpoints, wizardConfig, getCurrentPresetName, getEnabledBreakpointNames, setActiveComparison } = useSettingsStore();
+  const isEditing = !!editRun;
 
   const [name, setName] = useState('');
   const [splitTimes, setSplitTimes] = useState<Record<string, string>>({});
+  const [bossTimes, setBossTimes] = useState<Record<string, string>>({});
+  const [townTimes, setTownTimes] = useState<Record<string, string>>({});
   const [enabledSplits, setEnabledSplits] = useState<Set<string>>(new Set());
   const [setAsActive, setSetAsActive] = useState(true);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const timeInputRefs = useRef<Record<string, HTMLInputElement | null>>({});
-
   const enabledBreakpoints = useMemo(() => {
     return breakpoints.filter((bp) => bp.isEnabled);
   }, [breakpoints]);
 
-  // Initialize enabled splits when modal opens
+  // Initialize enabled splits when modal opens (new mode only)
   const wasOpen = useRef(false);
   useEffect(() => {
-    if (isOpen && !wasOpen.current) {
+    if (isOpen && !wasOpen.current && !isEditing) {
       setEnabledSplits(new Set(enabledBreakpoints.map(bp => bp.name)));
     }
     wasOpen.current = isOpen;
-  }, [isOpen, enabledBreakpoints]);
+  }, [isOpen, enabledBreakpoints, isEditing]);
+
+  // Pre-populate fields when editing
+  useEffect(() => {
+    if (isOpen && editRun && editSplits) {
+      setName(editRun.sourceName || '');
+
+      const times: Record<string, string> = {};
+      const bosses: Record<string, string> = {};
+      const towns: Record<string, string> = {};
+      const enabled = new Set<string>();
+
+      for (const split of editSplits) {
+        enabled.add(split.breakpointName);
+        times[split.breakpointName] = msToDigits(split.splitTimeMs);
+        if (split.bossFightMs > 0) {
+          bosses[split.breakpointName] = msToShortDigits(split.bossFightMs);
+        }
+        if (split.townTimeMs > 0) {
+          towns[split.breakpointName] = msToShortDigits(split.townTimeMs);
+        }
+      }
+
+      setEnabledSplits(enabled);
+      setSplitTimes(times);
+      setBossTimes(bosses);
+      setTownTimes(towns);
+    }
+  }, [isOpen, editRun, editSplits]);
 
   const toggleSplit = (name: string) => {
     setEnabledSplits(prev => {
       const next = new Set(prev);
       if (next.has(name)) {
         next.delete(name);
-        // Also clear the time input
-        setSplitTimes(prev => {
-          const copy = { ...prev };
-          delete copy[name];
-          return copy;
-        });
+        setSplitTimes(prev => { const copy = { ...prev }; delete copy[name]; return copy; });
+        setBossTimes(prev => { const copy = { ...prev }; delete copy[name]; return copy; });
+        setTownTimes(prev => { const copy = { ...prev }; delete copy[name]; return copy; });
       } else {
         next.add(name);
       }
@@ -58,52 +88,18 @@ export function AddComparisonModal({ isOpen, onClose, onSuccess }: AddComparison
     if (enabledSplits.size === allNames.length) {
       setEnabledSplits(new Set());
       setSplitTimes({});
+      setBossTimes({});
+      setTownTimes({});
     } else {
       setEnabledSplits(new Set(allNames));
     }
   };
 
-  const focusNextTimeInput = (currentBpName: string) => {
-    const enabledList = enabledBreakpoints.filter(bp => enabledSplits.has(bp.name));
-    const currentIndex = enabledList.findIndex(bp => bp.name === currentBpName);
-    if (currentIndex >= 0 && currentIndex < enabledList.length - 1) {
-      const nextBpName = enabledList[currentIndex + 1].name;
-      timeInputRefs.current[nextBpName]?.focus();
-    }
-  };
-
-  const handleTimeKeyDown = (e: React.KeyboardEvent<HTMLInputElement>, bpName: string) => {
-    if (e.key >= '0' && e.key <= '9') {
-      e.preventDefault();
-      const current = splitTimes[bpName] || '';
-      if (current.length < 6) {
-        setSplitTimes(prev => ({ ...prev, [bpName]: current + e.key }));
-      }
-    } else if (e.key === 'Backspace') {
-      e.preventDefault();
-      const current = splitTimes[bpName] || '';
-      if (current.length > 0) {
-        setSplitTimes(prev => ({ ...prev, [bpName]: current.slice(0, -1) }));
-      }
-    } else if (e.key === 'Delete') {
-      e.preventDefault();
-      setSplitTimes(prev => ({ ...prev, [bpName]: '' }));
-    } else if (e.key === 'Enter') {
-      e.preventDefault();
-      focusNextTimeInput(bpName);
-    } else if (!['Tab', 'Shift', 'Control', 'Alt', 'Meta', 'Escape'].includes(e.key)) {
-      e.preventDefault();
-    }
-  };
-
   const totalTimeMs = useMemo(() => {
-    // Find last enabled breakpoint with a time
     const enabledBps = enabledBreakpoints.filter(bp => enabledSplits.has(bp.name));
     for (let i = enabledBps.length - 1; i >= 0; i--) {
       const time = splitTimes[enabledBps[i].name];
-      if (time) {
-        return parseDigitsToMs(time);
-      }
+      if (time) return parseDigitsToMs(time);
     }
     return 0;
   }, [enabledBreakpoints, enabledSplits, splitTimes]);
@@ -116,7 +112,6 @@ export function AddComparisonModal({ isOpen, onClose, onSuccess }: AddComparison
       return;
     }
 
-    // Build splits array from enabled splits with times
     const splits: ReferenceSplitData[] = [];
     for (const bp of enabledBreakpoints) {
       if (!enabledSplits.has(bp.name)) continue;
@@ -124,10 +119,14 @@ export function AddComparisonModal({ isOpen, onClose, onSuccess }: AddComparison
       if (digits) {
         const timeMs = parseDigitsToMs(digits);
         if (timeMs > 0) {
+          const bossDigits = bossTimes[bp.name];
+          const townDigits = townTimes[bp.name];
           splits.push({
             breakpointName: bp.name,
             breakpointType: bp.type,
             splitTimeMs: timeMs,
+            bossFightMs: bossDigits ? parseShortDigitsToMs(bossDigits) : 0,
+            townTimeMs: townDigits ? parseShortDigitsToMs(townDigits) : 0,
           });
         }
       }
@@ -153,21 +152,24 @@ export function AddComparisonModal({ isOpen, onClose, onSuccess }: AddComparison
 
     setIsSubmitting(true);
     try {
-      const runId = await invoke<number>('create_reference_run', { data });
-
-      if (setAsActive) {
-        setActiveComparison(runId, name.trim());
+      if (isEditing && editRunId) {
+        await invoke('update_reference_run', { runId: editRunId, data });
+        if (setAsActive) setActiveComparison(editRunId, name.trim());
+      } else {
+        const runId = await invoke<number>('create_reference_run', { data });
+        if (setAsActive) setActiveComparison(runId, name.trim());
       }
 
       onSuccess();
       onClose();
-      // Reset form
       setName('');
       setSplitTimes({});
+      setBossTimes({});
+      setTownTimes({});
       setEnabledSplits(new Set());
       setSetAsActive(true);
     } catch (err) {
-      setError(`Failed to create comparison: ${err}`);
+      setError(`Failed to ${isEditing ? 'update' : 'create'} comparison: ${err}`);
     } finally {
       setIsSubmitting(false);
     }
@@ -180,12 +182,12 @@ export function AddComparisonModal({ isOpen, onClose, onSuccess }: AddComparison
 
   return (
     <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
-      <div className="bg-[#1c1916] border border-[--color-border] rounded-lg w-full max-w-lg max-h-[85vh] overflow-hidden flex flex-col shadow-2xl">
+      <div className="bg-[#1c1916] border border-[--color-border] rounded-lg w-full max-w-2xl max-h-[85vh] overflow-hidden flex flex-col shadow-2xl">
         {/* Header */}
         <div className="p-4 border-b border-[--color-border]">
-          <h2 className="text-lg font-semibold text-[--color-text]">Add Comparison Run</h2>
+          <h2 className="text-lg font-semibold text-[--color-text]">{isEditing ? 'Edit Comparison Run' : 'Add Comparison Run'}</h2>
           <p className="text-sm text-[--color-text-muted]">
-            Enter split times to compare against during runs
+            {isEditing ? 'Modify split times for this comparison run' : 'Enter split times to compare against during runs'}
           </p>
         </div>
 
@@ -211,52 +213,19 @@ export function AddComparisonModal({ isOpen, onClose, onSuccess }: AddComparison
           </div>
 
           {/* Split times */}
-          <div>
-            <div className="flex items-center justify-between mb-2">
-              <label className="text-sm text-[--color-text-muted]">
-                Split Times
-              </label>
-              <button
-                onClick={toggleAll}
-                className="text-xs text-[--color-poe-gold] hover:text-[--color-poe-gold-light] transition-colors"
-              >
-                {allSelected ? 'Deselect All' : 'Select All'}
-              </button>
-            </div>
-            <div className="space-y-1 max-h-[300px] overflow-auto rounded-lg border border-[--color-border]">
-              {enabledBreakpoints.map((bp) => {
-                const isSelected = enabledSplits.has(bp.name);
-                return (
-                  <div
-                    key={bp.name}
-                    className={`flex items-center gap-2 px-3 py-1.5 ${isSelected ? '' : 'opacity-40'}`}
-                  >
-                    <input
-                      type="checkbox"
-                      checked={isSelected}
-                      onChange={() => toggleSplit(bp.name)}
-                      className="w-3.5 h-3.5 rounded flex-shrink-0"
-                    />
-                    <span
-                      className="text-sm text-[--color-text] flex-1 min-w-0 truncate"
-                      title={bp.name}
-                    >
-                      {bp.name}
-                    </span>
-                    <input
-                      ref={(el) => { timeInputRefs.current[bp.name] = el; }}
-                      type="text"
-                      value={formatDigitsDisplay(splitTimes[bp.name] || '')}
-                      onChange={() => {}}
-                      onKeyDown={(e) => handleTimeKeyDown(e, bp.name)}
-                      disabled={!isSelected}
-                      className={`w-[5.5rem] px-2 py-0.5 bg-[--color-surface-elevated] border border-[--color-border] rounded text-sm timer-display text-center disabled:opacity-30 ${splitTimes[bp.name] ? 'text-[--color-text]' : 'text-[--color-text-muted]/40'}`}
-                    />
-                  </div>
-                );
-              })}
-            </div>
-          </div>
+          <SplitTimeEditor
+            breakpoints={enabledBreakpoints}
+            splitTimes={splitTimes}
+            setSplitTimes={setSplitTimes}
+            bossTimes={bossTimes}
+            setBossTimes={setBossTimes}
+            townTimes={townTimes}
+            setTownTimes={setTownTimes}
+            enabledSplits={enabledSplits}
+            onToggleSplit={toggleSplit}
+            onToggleAll={toggleAll}
+            allSelected={allSelected}
+          />
 
           {/* Set as active */}
           <label className="flex items-center gap-2">
@@ -296,39 +265,10 @@ export function AddComparisonModal({ isOpen, onClose, onSuccess }: AddComparison
             disabled={isSubmitting}
             className="px-4 py-2 bg-[--color-poe-gold] text-[--color-poe-darker] font-semibold rounded-lg hover:bg-[--color-poe-gold-light] disabled:opacity-50 text-sm"
           >
-            {isSubmitting ? 'Creating...' : 'Create'}
+            {isSubmitting ? (isEditing ? 'Saving...' : 'Creating...') : (isEditing ? 'Save' : 'Create')}
           </button>
         </div>
       </div>
     </div>
   );
-}
-
-function parseDigitsToMs(digits: string): number {
-  if (!digits) return 0;
-  const padded = digits.padStart(6, '0');
-  const hours = parseInt(padded.slice(0, 2));
-  const minutes = parseInt(padded.slice(2, 4));
-  const seconds = parseInt(padded.slice(4, 6));
-  return (hours * 3600 + minutes * 60 + seconds) * 1000;
-}
-
-function formatDigitsDisplay(digits: string): string {
-  const padded = (digits || '').padStart(6, '0');
-  const h = parseInt(padded.slice(0, 2));
-  const m = padded.slice(2, 4);
-  const s = padded.slice(4, 6);
-  return `${h}:${m}:${s}`;
-}
-
-function formatTime(ms: number): string {
-  const totalSeconds = Math.floor(ms / 1000);
-  const hours = Math.floor(totalSeconds / 3600);
-  const minutes = Math.floor((totalSeconds % 3600) / 60);
-  const seconds = totalSeconds % 60;
-
-  if (hours > 0) {
-    return `${hours}:${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
-  }
-  return `${minutes}:${seconds.toString().padStart(2, '0')}`;
 }

@@ -41,6 +41,8 @@ export interface Split {
   hideoutTimeMs: number;
   // Death tracking (cumulative at this split)
   deathCount: number;
+  // Boss fight time for this segment
+  bossFightMs: number;
 }
 
 export type BreakpointType = 'zone' | 'level' | 'boss' | 'act' | 'lab' | 'custom';
@@ -88,7 +90,8 @@ export type LogEventType =
   | 'death'
   | 'instance_details'
   | 'login'
-  | 'kitava_affliction';
+  | 'kitava_affliction'
+  | 'npc_dialog';
 
 export interface ZoneEnterEvent {
   zoneName: string;
@@ -231,6 +234,25 @@ export const DEFAULT_HOTKEYS: HotkeySettings = {
   toggleOverlayLock: 'Ctrl+Shift+L',
 };
 
+// Town visit tracking (individual visits shown as pseudo-segments)
+export interface TownVisit {
+  zoneName: string;
+  enteredAt: number;        // Date.now() timestamp
+  exitedAt: number | null;  // null = still in town
+  durationMs: number;       // computed on exit
+  afterSplitIndex: number;  // timer.splits.length - 1 at time of entry
+}
+
+// Boss encounter tracking (detected via NPC dialog lines)
+export interface BossEncounter {
+  bossName: string;         // "Brutus" or "Merveil"
+  zoneName: string;         // zone where encounter started (for re-entry detection)
+  startedAt: number;        // Date.now() when dialog detected
+  endedAt: number | null;
+  durationMs: number | null;
+  afterSplitIndex: number;  // timer.splits.length - 1 at time of start
+}
+
 // Timer state
 export interface TimerState {
   isRunning: boolean;
@@ -248,6 +270,10 @@ export interface TimerState {
   currentZone: string | null;
   // Death tracking
   deathCount: number;
+  // Town visit & boss encounter tracking
+  townVisits: TownVisit[];
+  activeBossEncounter: BossEncounter | null;
+  bossEncounters: BossEncounter[];
 }
 
 export interface SplitTime {
@@ -372,4 +398,6 @@ export interface ReferenceSplitData {
   breakpointName: string;
   breakpointType: string;
   splitTimeMs: number;
+  bossFightMs?: number;
+  townTimeMs?: number;
 }

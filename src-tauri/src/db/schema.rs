@@ -251,6 +251,28 @@ impl Run {
         })
     }
 
+    /// Update an existing reference run
+    pub fn update_reference(id: i64, data: &ReferenceRunData) -> Result<()> {
+        let conn = get_db()?;
+        conn.execute(
+            "UPDATE runs SET source_name = ?1, character_name = ?2, class = ?3, ascendancy = ?4, league = ?5, category = ?6, breakpoint_preset = ?7, enabled_breakpoints = ?8, total_time_ms = ?9
+             WHERE id = ?10 AND is_reference = 1",
+            params![
+                data.source_name,
+                data.character_name.clone().unwrap_or_default(),
+                data.class,
+                data.ascendancy,
+                data.league.clone().unwrap_or_else(|| "Standard".to_string()),
+                data.category,
+                data.breakpoint_preset,
+                data.enabled_breakpoints,
+                data.total_time_ms,
+                id,
+            ],
+        )?;
+        Ok(())
+    }
+
     /// Insert a reference run (manually entered external times)
     pub fn insert_reference(data: &ReferenceRunData) -> Result<i64> {
         let conn = get_db()?;
@@ -332,6 +354,10 @@ pub struct ReferenceSplitData {
     pub breakpoint_name: String,
     pub breakpoint_type: String,
     pub split_time_ms: i64,
+    #[serde(default)]
+    pub boss_fight_ms: i64,
+    #[serde(default)]
+    pub town_time_ms: i64,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -373,6 +399,8 @@ pub struct Split {
     pub hideout_time_ms: i64,
     // Death tracking (cumulative at this split)
     pub death_count: i64,
+    // Boss fight time for this segment
+    pub boss_fight_ms: i64,
 }
 
 impl Split {
@@ -388,14 +416,15 @@ impl Split {
             town_time_ms: row.get("town_time_ms")?,
             hideout_time_ms: row.get("hideout_time_ms")?,
             death_count: row.get("death_count")?,
+            boss_fight_ms: row.get("boss_fight_ms")?,
         })
     }
 
     pub fn insert(split: &NewSplit) -> Result<i64> {
         let conn = get_db()?;
         conn.execute(
-            "INSERT INTO splits (run_id, breakpoint_type, breakpoint_name, split_time_ms, delta_ms, segment_time_ms, town_time_ms, hideout_time_ms, death_count)
-             VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9)",
+            "INSERT INTO splits (run_id, breakpoint_type, breakpoint_name, split_time_ms, delta_ms, segment_time_ms, town_time_ms, hideout_time_ms, death_count, boss_fight_ms)
+             VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10)",
             params![
                 split.run_id,
                 split.breakpoint_type,
@@ -406,6 +435,7 @@ impl Split {
                 split.town_time_ms,
                 split.hideout_time_ms,
                 split.death_count,
+                split.boss_fight_ms,
             ],
         )?;
         Ok(conn.last_insert_rowid())
@@ -419,6 +449,32 @@ impl Split {
             .filter_map(|r| r.ok())
             .collect();
         Ok(splits)
+    }
+
+    /// Replace all splits for a run (used when editing reference runs)
+    pub fn replace_for_run(run_id: i64, splits: &[ReferenceSplitData]) -> Result<()> {
+        let conn = get_db()?;
+        conn.execute("DELETE FROM splits WHERE run_id = ?1", params![run_id])?;
+
+        let mut prev_time = 0i64;
+        for split_data in splits {
+            let segment_time = split_data.split_time_ms - prev_time;
+            conn.execute(
+                "INSERT INTO splits (run_id, breakpoint_type, breakpoint_name, split_time_ms, segment_time_ms, town_time_ms, hideout_time_ms, death_count, boss_fight_ms)
+                 VALUES (?1, ?2, ?3, ?4, ?5, ?6, 0, 0, ?7)",
+                params![
+                    run_id,
+                    split_data.breakpoint_type,
+                    split_data.breakpoint_name,
+                    split_data.split_time_ms,
+                    segment_time,
+                    split_data.town_time_ms,
+                    split_data.boss_fight_ms,
+                ],
+            )?;
+            prev_time = split_data.split_time_ms;
+        }
+        Ok(())
     }
 
     /// Get split statistics for runs matching the given filters
@@ -486,6 +542,9 @@ pub struct NewSplit {
     // Death tracking (cumulative at this split)
     #[serde(default)]
     pub death_count: i64,
+    // Boss fight time for this segment
+    #[serde(default)]
+    pub boss_fight_ms: i64,
 }
 
 // ============================================================================

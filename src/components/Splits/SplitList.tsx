@@ -1,10 +1,18 @@
+import { useMemo } from 'react';
 import { ListChecks, Settings } from 'lucide-react';
 import { useRunStore } from '../../stores/runStore';
 import { useSettingsStore } from '../../stores/settingsStore';
 import { getWizardCategory } from '../../config/wizardRoutes';
 import { EmptyState } from '../Shared/EmptyState';
 import { SplitRow } from './SplitRow';
+import { PseudoSegmentRow } from './PseudoSegmentRow';
 import { ComparisonSelector } from './ComparisonSelector';
+import type { Breakpoint, TownVisit, BossEncounter } from '../../types';
+
+type SplitListItem =
+  | { kind: 'split'; bp: Breakpoint; index: number }
+  | { kind: 'town'; visit: TownVisit; live?: boolean }
+  | { kind: 'boss'; encounter: BossEncounter; live?: boolean };
 
 export function SplitList() {
   const { timer, currentRun, personalBests, comparisonSplits } = useRunStore();
@@ -20,6 +28,68 @@ export function SplitList() {
   const cls = currentRun?.class ?? 'Unknown';
 
   const hasComparison = activeComparisonRunId != null && comparisonSplits.size > 0;
+
+  // Build interleaved display list
+  const displayItems = useMemo((): SplitListItem[] => {
+    const items: SplitListItem[] = [];
+
+    for (let i = 0; i < enabledBreakpoints.length; i++) {
+      const prevIndex = i - 1;
+
+      // Insert completed town visits that belong between prevIndex and this split
+      for (const visit of timer.townVisits) {
+        if (visit.afterSplitIndex === prevIndex && visit.exitedAt !== null) {
+          items.push({ kind: 'town', visit });
+        }
+      }
+
+      // Insert completed boss encounters that belong between prevIndex and this split
+      for (const enc of timer.bossEncounters) {
+        if (enc.afterSplitIndex === prevIndex) {
+          items.push({ kind: 'boss', encounter: enc });
+        }
+      }
+
+      items.push({ kind: 'split', bp: enabledBreakpoints[i], index: i });
+    }
+
+    // After the last split, insert any remaining town visits or boss encounters
+    const lastIndex = enabledBreakpoints.length - 1;
+    for (const visit of timer.townVisits) {
+      if (visit.afterSplitIndex >= lastIndex && visit.exitedAt !== null) {
+        // Only if not already inserted above
+        const alreadyInserted = items.some(
+          (it) => it.kind === 'town' && (it as { visit: TownVisit }).visit === visit
+        );
+        if (!alreadyInserted) {
+          items.push({ kind: 'town', visit });
+        }
+      }
+    }
+    for (const enc of timer.bossEncounters) {
+      if (enc.afterSplitIndex >= lastIndex) {
+        const alreadyInserted = items.some(
+          (it) => it.kind === 'boss' && (it as { encounter: BossEncounter }).encounter === enc
+        );
+        if (!alreadyInserted) {
+          items.push({ kind: 'boss', encounter: enc });
+        }
+      }
+    }
+
+    // Append live pseudo-rows for active town visit or boss encounter
+    if (timer.inTown && timer.isRunning) {
+      const openVisit = timer.townVisits.find((v) => v.exitedAt === null);
+      if (openVisit) {
+        items.push({ kind: 'town', visit: openVisit, live: true });
+      }
+    }
+    if (timer.activeBossEncounter) {
+      items.push({ kind: 'boss', encounter: timer.activeBossEncounter, live: true });
+    }
+
+    return items;
+  }, [enabledBreakpoints, timer.townVisits, timer.bossEncounters, timer.activeBossEncounter, timer.inTown, timer.isRunning, timer.splits]);
 
   return (
     <div className="card-inset rounded-lg h-full flex flex-col">
@@ -65,12 +135,35 @@ export function SplitList() {
                 <span className="text-xs text-[--color-text-muted] uppercase tracking-wide min-w-[50px] text-right">Time</span>
               </div>
             </div>
-            {enabledBreakpoints.map((bp, index) => {
+            {displayItems.map((item) => {
+              if (item.kind === 'town') {
+                return (
+                  <PseudoSegmentRow
+                    key={`town-${item.visit.enteredAt}`}
+                    kind="town"
+                    visit={item.visit}
+                    live={item.live}
+                  />
+                );
+              }
+
+              if (item.kind === 'boss') {
+                return (
+                  <PseudoSegmentRow
+                    key={`boss-${item.encounter.startedAt}`}
+                    kind="boss"
+                    encounter={item.encounter}
+                    live={item.live}
+                  />
+                );
+              }
+
+              // kind === 'split'
+              const { bp, index } = item;
               const split = completedSplits[index];
               const isNext = index === completedSplits.length;
               const isCompleted = index < completedSplits.length;
 
-              // Use comparison splits if active, otherwise fall back to PB
               const compTime = hasComparison ? (comparisonSplits.get(bp.name) ?? null) : null;
               const pbTime = category ? (personalBests.get(`${category}-${cls}-${bp.name}`) ?? null) : null;
               const referenceTime = compTime ?? pbTime;

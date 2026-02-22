@@ -137,6 +137,7 @@ pub fn run() {
             get_run_stats,
             get_split_stats,
             create_reference_run,
+            update_reference_run,
             // Splits
             add_split,
             get_splits,

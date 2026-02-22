@@ -259,6 +259,7 @@ export function ComparisonView() {
                         {rightRun.characterName || rightRun.character}
                         {showSegmentTime && <span className="text-xs ml-1">(seg)</span>}
                       </th>
+                      <th className="p-3 text-right text-xs">Boss</th>
                       <th className="p-3 text-right text-xs">Town +/-</th>
                       <th className="p-3 text-center text-xs">Deaths</th>
                     </tr>
@@ -335,6 +336,27 @@ export function ComparisonView() {
                             {rightTime !== undefined ? formatTime(rightTime) : '--:--'}
                           </td>
                           <td className="p-3 text-right text-xs">
+                            {(() => {
+                              const leftBoss = row.leftSplit?.bossFightMs ?? 0;
+                              const rightBoss = row.rightSplit?.bossFightMs ?? 0;
+                              if (leftBoss === 0 && rightBoss === 0) {
+                                return <span className="text-[--color-text-muted]">-</span>;
+                              }
+                              const bossDelta = leftBoss > 0 && rightBoss > 0 ? leftBoss - rightBoss : null;
+                              return (
+                                <span className="flex justify-end gap-1">
+                                  <span className={bossDelta !== null && bossDelta < 0 ? 'text-[--color-timer-ahead] timer-display' : 'text-[--color-text-muted] timer-display'}>
+                                    {leftBoss > 0 ? formatTime(leftBoss) : '-'}
+                                  </span>
+                                  <span className="text-[--color-text-muted]">/</span>
+                                  <span className={bossDelta !== null && bossDelta > 0 ? 'text-[--color-timer-ahead] timer-display' : 'text-[--color-text-muted] timer-display'}>
+                                    {rightBoss > 0 ? formatTime(rightBoss) : '-'}
+                                  </span>
+                                </span>
+                              );
+                            })()}
+                          </td>
+                          <td className="p-3 text-right text-xs">
                             {hasRefRun ? (
                               <span className="text-[--color-text-muted]">N/A</span>
                             ) : townDelta !== null && townDelta !== 0 ? (
@@ -395,6 +417,20 @@ export function ComparisonView() {
                         {formatTime(rightRun.totalTimeMs ?? 0)}
                       </td>
                       <td className="p-3 text-right text-xs">
+                        {(() => {
+                          const leftBossTotal = leftSplits.reduce((sum, s) => sum + (s.bossFightMs ?? 0), 0);
+                          const rightBossTotal = rightSplits.reduce((sum, s) => sum + (s.bossFightMs ?? 0), 0);
+                          if (leftBossTotal === 0 && rightBossTotal === 0) return null;
+                          return (
+                            <span className="flex justify-end gap-1 timer-display">
+                              <span className="text-[--color-text]">{leftBossTotal > 0 ? formatTime(leftBossTotal) : '-'}</span>
+                              <span className="text-[--color-text-muted]">/</span>
+                              <span className="text-[--color-text]">{rightBossTotal > 0 ? formatTime(rightBossTotal) : '-'}</span>
+                            </span>
+                          );
+                        })()}
+                      </td>
+                      <td className="p-3 text-right text-xs">
                         {hasRefRun && <span className="text-[--color-text-muted]">N/A</span>}
                       </td>
                       <td className="p-3 text-center text-xs">
@@ -445,11 +481,14 @@ export function ComparisonView() {
                     </div>
                   )}
                   {leftSplits.length > 0 && !leftRun.isReference && (
-                    <div className="flex gap-4 mt-2 pt-2 border-t border-[--color-border] text-xs">
+                    <div className="flex flex-wrap gap-x-4 gap-y-1 mt-2 pt-2 border-t border-[--color-border] text-xs">
                       <span className="text-yellow-400/70">Town: <span className="timer-display text-[--color-text]">{formatTime(leftSplits[leftSplits.length - 1].townTimeMs ?? 0)}</span></span>
                       <span className="text-blue-400/70">Hideout: <span className="timer-display text-[--color-text]">{formatTime(leftSplits[leftSplits.length - 1].hideoutTimeMs ?? 0)}</span></span>
                       {(leftSplits[leftSplits.length - 1]?.deathCount ?? 0) > 0 && (
                         <span className="text-red-400/70">Deaths: <span className="text-[--color-text]">{leftSplits[leftSplits.length - 1].deathCount}</span></span>
+                      )}
+                      {leftSplits.reduce((sum, s) => sum + (s.bossFightMs ?? 0), 0) > 0 && (
+                        <span className="text-orange-400/70">Boss: <span className="timer-display text-[--color-text]">{formatTime(leftSplits.reduce((sum, s) => sum + (s.bossFightMs ?? 0), 0))}</span></span>
                       )}
                     </div>
                   )}
@@ -478,11 +517,14 @@ export function ComparisonView() {
                     </div>
                   )}
                   {rightSplits.length > 0 && !rightRun.isReference && (
-                    <div className="flex gap-4 mt-2 pt-2 border-t border-[--color-border] text-xs">
+                    <div className="flex flex-wrap gap-x-4 gap-y-1 mt-2 pt-2 border-t border-[--color-border] text-xs">
                       <span className="text-yellow-400/70">Town: <span className="timer-display text-[--color-text]">{formatTime(rightSplits[rightSplits.length - 1].townTimeMs ?? 0)}</span></span>
                       <span className="text-blue-400/70">Hideout: <span className="timer-display text-[--color-text]">{formatTime(rightSplits[rightSplits.length - 1].hideoutTimeMs ?? 0)}</span></span>
                       {(rightSplits[rightSplits.length - 1]?.deathCount ?? 0) > 0 && (
                         <span className="text-red-400/70">Deaths: <span className="text-[--color-text]">{rightSplits[rightSplits.length - 1].deathCount}</span></span>
+                      )}
+                      {rightSplits.reduce((sum, s) => sum + (s.bossFightMs ?? 0), 0) > 0 && (
+                        <span className="text-orange-400/70">Boss: <span className="timer-display text-[--color-text]">{formatTime(rightSplits.reduce((sum, s) => sum + (s.bossFightMs ?? 0), 0))}</span></span>
                       )}
                     </div>
                   )}

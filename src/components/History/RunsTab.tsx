@@ -1,13 +1,14 @@
 import { useState } from 'react';
 import { invoke } from '@tauri-apps/api/core';
-import { Search, Crosshair } from 'lucide-react';
+import { Search, Crosshair, Pencil } from 'lucide-react';
 import { useRunStore } from '../../stores/runStore';
 import { useSettingsStore } from '../../stores/settingsStore';
 import { exportRunToJson } from '../../utils/jsonExport';
 import { Button } from '../Shared/Button';
 import { EmptyState } from '../Shared/EmptyState';
+import { AddReferenceRunModal } from './AddReferenceRunModal';
 import { format } from 'date-fns';
-import type { Run } from '../../types';
+import type { Run, Split } from '../../types';
 
 type SortField = 'startedAt' | 'totalTimeMs' | 'class' | 'category';
 type SortDirection = 'asc' | 'desc';
@@ -17,6 +18,8 @@ export function RunsTab() {
   const { navigateToSnapshot, activeComparisonRunId, setActiveComparison } = useSettingsStore();
   const [sortField, setSortField] = useState<SortField>('startedAt');
   const [sortDirection, setSortDirection] = useState<SortDirection>('desc');
+  const [editingRun, setEditingRun] = useState<Run | null>(null);
+  const [editingSplits, setEditingSplits] = useState<Split[]>([]);
 
   // Sort runs
   const sortedRuns = [...filteredRuns].sort((a, b) => {
@@ -46,6 +49,16 @@ export function RunsTab() {
     } else {
       setSortField(field);
       setSortDirection('desc');
+    }
+  };
+
+  const handleEdit = async (run: Run) => {
+    try {
+      const splits = await invoke<Split[]>('get_splits', { runId: run.id });
+      setEditingSplits(splits);
+      setEditingRun(run);
+    } catch (error) {
+      console.error('[RunsTab] Failed to load splits for editing:', error);
     }
   };
 
@@ -204,6 +217,16 @@ export function RunsTab() {
                           <Crosshair className="w-3.5 h-3.5" strokeWidth={2} />
                         </Button>
                       )}
+                      {run.isReference && (
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => handleEdit(run)}
+                          title="Edit reference run"
+                        >
+                          <Pencil className="w-3.5 h-3.5" strokeWidth={2} />
+                        </Button>
+                      )}
                       <Button
                         variant="ghost"
                         size="sm"
@@ -242,6 +265,17 @@ export function RunsTab() {
       <div className="p-3 border-t border-[--color-border] text-sm text-[--color-text-muted]">
         {filteredRuns.length} run{filteredRuns.length !== 1 ? 's' : ''} found
       </div>
+
+      {editingRun && (
+        <AddReferenceRunModal
+          isOpen={!!editingRun}
+          onClose={() => { setEditingRun(null); setEditingSplits([]); }}
+          onSuccess={() => { setEditingRun(null); setEditingSplits([]); loadFilteredRuns(); }}
+          editRunId={editingRun.id}
+          editRun={editingRun}
+          editSplits={editingSplits}
+        />
+      )}
     </div>
   );
 }
