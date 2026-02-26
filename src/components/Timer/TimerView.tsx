@@ -1,7 +1,8 @@
 import { useEffect, useRef, useCallback, useState } from 'react';
 import { invoke } from '@tauri-apps/api/core';
-import { Monitor, Lock, Unlock } from 'lucide-react';
+import { Monitor } from 'lucide-react';
 import { useRunStore } from '../../stores/runStore';
+import { HelpTip } from '../Shared/HelpTip';
 import { useSettingsStore } from '../../stores/settingsStore';
 import { TimerDisplay } from './TimerDisplay';
 import { TimerControls } from './TimerControls';
@@ -17,7 +18,7 @@ interface SnapshotTarget {
 
 export function TimerView() {
   const { timer, updateElapsed, currentRun } = useRunStore();
-  const { overlayOpen, overlayEnabled, overlayLocked, setOverlayOpen, setOverlayLocked, hotkeys } = useSettingsStore();
+  const { overlayOpen, overlayEnabled, setOverlayOpen, hotkeys } = useSettingsStore();
   const animationRef = useRef<number | null>(null);
   const [snapshotTarget, setSnapshotTarget] = useState<SnapshotTarget | null>(null);
 
@@ -29,10 +30,6 @@ export function TimerView() {
       console.error('Failed to toggle overlay:', error);
     }
   }, [setOverlayOpen]);
-
-  const handleToggleLock = useCallback(() => {
-    setOverlayLocked(!overlayLocked);
-  }, [overlayLocked, setOverlayLocked]);
 
   // Update timer every frame when running
   useEffect(() => {
@@ -110,11 +107,6 @@ export function TimerView() {
 
           {/* Overlay buttons */}
           <div className="ml-auto flex items-center gap-1.5">
-            {overlayEnabled && overlayOpen && (
-              <button onClick={handleToggleLock} className={`p-1.5 rounded-lg transition-all ${overlayLocked ? 'text-[--color-poe-gold]' : 'text-[--color-text-muted]'}`}>
-                {overlayLocked ? <Lock className="w-4 h-4" /> : <Unlock className="w-4 h-4" />}
-              </button>
-            )}
             {overlayEnabled && (
               <button onClick={handleToggleOverlay} className={`p-1.5 rounded-lg border transition-all ${overlayOpen ? 'text-[--color-poe-gold] border-[--color-poe-gold]/60' : 'text-[--color-text-muted] border-[--color-border]'}`}>
                 <Monitor className="w-4 h-4" />
@@ -151,7 +143,12 @@ export function TimerView() {
       {/* Header */}
       <div className="mb-6 flex items-start justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-[--color-text]" style={{ textShadow: '0 0 30px rgba(175, 96, 37, 0.2)' }}>Speedrun Timer</h1>
+          <h1 className="text-2xl font-bold text-[--color-text] flex items-center gap-2" style={{ textShadow: '0 0 30px rgba(175, 96, 37, 0.2)' }}>
+            Speedrun Timer
+            <HelpTip>
+              Your main speedrun timer with live splits, zone tracking, and PB comparison. Start a run, and splits trigger automatically as you hit breakpoints. Use Ctrl+Space to start/pause, or configure hotkeys in Settings.
+            </HelpTip>
+          </h1>
           {currentRun && (
             <p className="text-[--color-text-muted] mt-1">
               {currentRun.characterName} - {currentRun.class} ({currentRun.league})
@@ -160,19 +157,6 @@ export function TimerView() {
         </div>
         {overlayEnabled && (
           <div className="flex items-center gap-1.5">
-            {overlayOpen && (
-              <button
-                onClick={handleToggleLock}
-                className={`p-2 rounded-lg transition-all active:scale-95 ${
-                  overlayLocked
-                    ? 'text-[--color-poe-gold] border-2 border-[--color-poe-gold]/60 bg-[--color-poe-gold]/10'
-                    : 'text-[--color-text-muted] hover:text-[--color-text]'
-                }`}
-                title={overlayLocked ? `Unlock Overlay (${hotkeys.toggleOverlayLock})` : `Lock Overlay (${hotkeys.toggleOverlayLock})`}
-              >
-                {overlayLocked ? <Lock className="w-5 h-5" strokeWidth={1.75} /> : <Unlock className="w-5 h-5" strokeWidth={1.75} />}
-              </button>
-            )}
             <button
               onClick={handleToggleOverlay}
               className={`p-2 rounded-lg border-2 transition-all active:scale-95 ${

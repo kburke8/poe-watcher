@@ -757,7 +757,6 @@ pub struct HotkeySettings {
     pub reset_timer: String,
     pub manual_snapshot: String,
     pub toggle_overlay: String,
-    pub toggle_overlay_lock: String,
     pub manual_split: String,
 }
 
@@ -769,7 +768,6 @@ pub async fn get_hotkeys() -> Result<HotkeySettings, String> {
         reset_timer: settings.hotkey_reset_timer,
         manual_snapshot: settings.hotkey_manual_snapshot,
         toggle_overlay: settings.hotkey_toggle_overlay,
-        toggle_overlay_lock: settings.hotkey_toggle_overlay_lock,
         manual_split: settings.hotkey_manual_split,
     })
 }
@@ -782,7 +780,6 @@ pub async fn update_hotkeys(app_handle: AppHandle, hotkeys: HotkeySettings) -> R
         (hotkeys.reset_timer.clone(), "reset-timer"),
         (hotkeys.manual_snapshot.clone(), "manual-snapshot"),
         (hotkeys.toggle_overlay.clone(), "toggle-overlay"),
-        (hotkeys.toggle_overlay_lock.clone(), "toggle-overlay-lock"),
         (hotkeys.manual_split.clone(), "manual-split"),
     ];
 
@@ -828,7 +825,6 @@ pub async fn update_hotkeys(app_handle: AppHandle, hotkeys: HotkeySettings) -> R
     settings.hotkey_reset_timer = hotkeys.reset_timer;
     settings.hotkey_manual_snapshot = hotkeys.manual_snapshot;
     settings.hotkey_toggle_overlay = hotkeys.toggle_overlay;
-    settings.hotkey_toggle_overlay_lock = hotkeys.toggle_overlay_lock;
     settings.hotkey_manual_split = hotkeys.manual_split;
     Settings::save(&settings).map_err(|e| e.to_string())?;
 
@@ -860,11 +856,9 @@ pub async fn open_overlay(app_handle: AppHandle) -> Result<(), String> {
         _ => (320.0, 180.0), // medium (default)
     };
 
-    // Build the overlay window
-    // transparent(true) is required for setIgnoreCursorEvents (click-through) to work
-    // on Windows — it sets WS_EX_LAYERED which enables per-pixel alpha hit-testing.
-    // OBS "Window Capture" won't work (layered window limitation), but "Game Capture"
-    // or "Display Capture" will. The overlay content is fully opaque via CSS.
+    // Build the overlay window — always non-transparent for OBS compatibility.
+    // --disable-gpu forces CPU rendering via Skia so OBS Window Capture works
+    // (WebView2 DirectComposition is invisible to BitBlt capture).
     let mut builder = WebviewWindowBuilder::new(
         &app_handle,
         "overlay",
@@ -873,11 +867,22 @@ pub async fn open_overlay(app_handle: AppHandle) -> Result<(), String> {
     .title("PoE Watcher Overlay")
     .inner_size(width, height)
     .decorations(false)
-    .transparent(true)
+    .transparent(false)
     .always_on_top(settings.overlay_always_on_top)
     .skip_taskbar(true)
     .resizable(false)
     .background_color(tauri::window::Color(13, 11, 10, 255));
+
+    // A separate data_directory is required when browser args differ between windows
+    // (WebView2 constraint, see tauri-apps/tauri#11144).
+    #[cfg(target_os = "windows")]
+    {
+        let app_data = app_handle.path().app_data_dir().map_err(|e| e.to_string())?;
+        let overlay_data_dir = app_data.join("overlay-stream-webview");
+        builder = builder
+            .additional_browser_args("--disable-gpu")
+            .data_directory(overlay_data_dir);
+    }
 
     // Set position if saved
     if let (Some(x), Some(y)) = (saved_x, saved_y) {

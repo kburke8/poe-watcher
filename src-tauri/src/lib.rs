@@ -82,7 +82,6 @@ pub fn run() {
                 (settings.hotkey_reset_timer.clone(), "reset-timer"),
                 (settings.hotkey_manual_snapshot.clone(), "manual-snapshot"),
                 (settings.hotkey_toggle_overlay.clone(), "toggle-overlay"),
-                (settings.hotkey_toggle_overlay_lock.clone(), "toggle-overlay-lock"),
                 (settings.hotkey_manual_split.clone(), "manual-split"),
             ];
 

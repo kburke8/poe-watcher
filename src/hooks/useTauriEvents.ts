@@ -373,7 +373,7 @@ export function useTauriEvents() {
 
       case 'npc_dialog':
         if (payload.npc_name && timer.isRunning) {
-          const boss = getBossFromDialog(payload.npc_name, timer.currentZone);
+          const boss = getBossFromDialog(payload.npc_name, timer.currentZone, payload.dialog_text);
           if (boss) {
             const { startBossEncounter } = useRunStore.getState();
             startBossEncounter(boss);

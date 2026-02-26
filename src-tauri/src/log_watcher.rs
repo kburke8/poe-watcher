@@ -245,11 +245,11 @@ impl LogWatcher {
                 r"(\d{4}/\d{2}/\d{2} \d{2}:\d{2}:\d{2}).*\] :? ?Got Instance Details"
             ).unwrap();
 
-            // Pattern: NPC dialog lines (Merveil, Piety)
+            // Pattern: NPC dialog lines (boss voicelines)
             // Match lines like: 2024/01/15 12:34:56 12345678 abc [INFO Client 1234] Merveil: You dare approach me?
             // Skip player chat lines containing ] # or ] @ or ] $
             static ref NPC_DIALOG: Regex = Regex::new(
-                r"(\d{4}/\d{2}/\d{2} \d{2}:\d{2}:\d{2}).*\] (Brutus, the Warden|Merveil|Piety): (.+)"
+                r"(\d{4}/\d{2}/\d{2} \d{2}:\d{2}:\d{2}).*\] (Brutus, the Warden|Merveil|Piety|Dominus|Daresso|King Kaom|Malachai|Avarius|Tukohama|Nessa|Silk): (.+)"
             ).unwrap();
 
             // Pattern: Connecting to instance server

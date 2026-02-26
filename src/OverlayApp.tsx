@@ -34,11 +34,9 @@ interface OverlayState {
   bgOpacity?: number;
   accentColor?: string;
   alwaysOnTop?: boolean;
-  isLocked?: boolean;
   // Hotkey labels
   hotkeyToggleTimer?: string;
   hotkeyToggleOverlay?: string;
-  hotkeyToggleOverlayLock?: string;
 }
 
 const initialState: OverlayState = {
@@ -62,8 +60,6 @@ function debounce<T extends (...args: unknown[]) => unknown>(fn: T, ms: number) 
 
 export function OverlayApp() {
   const [state, setState] = useState<OverlayState>(initialState);
-  const [isLocked, setIsLocked] = useState(false);
-  const [lockHint, setLockHint] = useState(false);
   const prevScaleRef = useRef<string | undefined>(undefined);
   const contentRef = useRef<HTMLDivElement>(null);
 
@@ -80,26 +76,6 @@ export function OverlayApp() {
       unlistenState.then((fn) => fn());
     };
   }, []);
-
-  // Sync lock state from payload
-  useEffect(() => {
-    if (state.isLocked !== undefined && state.isLocked !== isLocked) {
-      setIsLocked(state.isLocked);
-      // Show unlock hint briefly when locking
-      if (state.isLocked) {
-        setLockHint(true);
-        const timer = setTimeout(() => {
-          setLockHint(false);
-          // Delay click-through until hint fades so user can see it
-          getCurrentWindow().setIgnoreCursorEvents(true).catch(() => {});
-        }, 2000);
-        return () => clearTimeout(timer);
-      } else {
-        getCurrentWindow().setIgnoreCursorEvents(false).catch(() => {});
-      }
-    }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [state.isLocked]);
 
   // Sync scale changes - update width (height is auto-sized from content)
   useEffect(() => {
@@ -137,14 +113,6 @@ export function OverlayApp() {
     }
   }, [state.alwaysOnTop]);
 
-  // Lock toggle is handled by the main window's useHotkeys hook, which updates
-  // the settings store. The overlay receives the updated isLocked via overlay-state-update.
-
-  // Ensure cursor events are enabled on mount
-  useEffect(() => {
-    getCurrentWindow().setIgnoreCursorEvents(false);
-  }, []);
-
   // Save position when window moves
   useEffect(() => {
     const savePositionDebounced = debounce(async () => {
@@ -165,18 +133,16 @@ export function OverlayApp() {
     };
   }, []);
 
-  // Handle dragging (only when unlocked)
+  // Handle dragging
   const handleMouseDown = useCallback((e: React.MouseEvent) => {
-    if (isLocked) return;
     e.preventDefault();
     getCurrentWindow().startDragging();
-  }, [isLocked]);
+  }, []);
 
   // Derive display values from config
   const scale = state.scale || 'medium';
   const accentColor = state.accentColor || 'transparent';
   const isTransparentAccent = accentColor === 'transparent';
-  const bgOpacity = state.bgOpacity ?? 0.9;
   const showTimer = state.showTimer ?? true;
   const showZone = state.showZone ?? true;
   const showLastSplit = state.showLastSplit ?? true;
@@ -185,9 +151,9 @@ export function OverlayApp() {
   // Scale drives font size directly - ensures content fits the window
   const fontSize = scale;
 
-  // Background color with opacity
+  // Background color — always opaque (non-transparent window for OBS compatibility)
   const bgR = 13, bgG = 11, bgB = 10; // #0d0b0a (warm black)
-  const bgColor = `rgba(${bgR}, ${bgG}, ${bgB}, ${bgOpacity})`;
+  const bgColor = `rgb(${bgR}, ${bgG}, ${bgB})`;
 
   // Scale-based layout classes
   const contentPadding = scale === 'small' ? 'p-1.5 space-y-1' : scale === 'large' ? 'p-4 space-y-2' : 'p-3 space-y-2';
@@ -199,7 +165,7 @@ export function OverlayApp() {
 
   return (
     <div
-      className={`w-full h-full overflow-hidden ${isLocked ? '' : 'drag-handle'}`}
+      className="w-full h-full overflow-hidden drag-handle"
       style={{
         opacity: state.opacity ?? 0.8,
         backgroundColor: bgColor,
@@ -210,13 +176,6 @@ export function OverlayApp() {
       onMouseDown={handleMouseDown}
     >
       <div ref={contentRef} className={contentPadding}>
-        {/* Lock hint */}
-        {lockHint && (
-          <div className="text-center py-1 text-xs text-[--color-poe-gold] animate-pulse">
-            {state.hotkeyToggleOverlayLock || 'Ctrl+Shift+L'} to unlock
-          </div>
-        )}
-
         {/* Timer */}
         {showTimer && (
           <OverlayTimer startTime={state.startTime} elapsedMs={state.elapsedMs} isRunning={state.isRunning} fontSize={fontSize} hotkeyToggleTimer={state.hotkeyToggleTimer} />

@@ -12,6 +12,7 @@ interface SplitRowProps {
   isNext: boolean;
   isCompleted: boolean;
   pbTime?: number | null;
+  tooltip?: string;
 }
 
 export function SplitRow({
@@ -24,6 +25,7 @@ export function SplitRow({
   isNext,
   isCompleted,
   pbTime,
+  tooltip,
 }: SplitRowProps) {
   const typeIcon = getTypeIcon(type);
   const deltaColor = getDeltaColor(delta);
@@ -45,7 +47,7 @@ export function SplitRow({
 
       {/* Split name */}
       <div className="flex-1 min-w-0">
-        <span className={`text-sm truncate block ${isCompleted ? 'text-[--color-text]' : 'text-[--color-text-muted]'}`}>
+        <span className={`text-sm truncate block ${isCompleted ? 'text-[--color-text]' : 'text-[--color-text-muted]'}`} title={tooltip}>
           {name}
         </span>
       </div>

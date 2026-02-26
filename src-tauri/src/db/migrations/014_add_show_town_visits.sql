@@ -1,0 +1,1 @@
+ALTER TABLE settings ADD COLUMN show_town_visits INTEGER NOT NULL DEFAULT 1;

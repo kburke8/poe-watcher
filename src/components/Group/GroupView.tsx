@@ -1,6 +1,7 @@
 import { useEffect } from 'react';
 import { Users } from 'lucide-react';
 import { useGroupStore } from '../../stores/groupStore';
+import { HelpTip } from '../Shared/HelpTip';
 import { GroupMemberCard } from './GroupMemberCard';
 import { AddMemberForm } from './AddMemberForm';
 import { GroupRunHistory } from './GroupRunHistory';
@@ -18,6 +19,9 @@ export function GroupView() {
         <h1 className="text-2xl font-bold text-[--color-text] flex items-center gap-2">
           <Users className="w-6 h-6" />
           Group Mode
+          <HelpTip>
+            Track up to 5 party members during group speedruns. Each member's progress is tracked independently. Enable Group Mode in Settings first, then add members here.
+          </HelpTip>
         </h1>
         <p className="text-[--color-text-muted] mt-1">
           Manage party members and view group run history

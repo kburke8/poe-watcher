@@ -1,0 +1,1 @@
+ALTER TABLE settings ADD COLUMN overlay_stream_mode INTEGER NOT NULL DEFAULT 1;

@@ -2,6 +2,7 @@ import { useState, useEffect, useMemo, useCallback } from 'react';
 import { invoke } from '@tauri-apps/api/core';
 import { Camera, MousePointerClick } from 'lucide-react';
 import { useRunStore } from '../../stores/runStore';
+import { HelpTip } from '../Shared/HelpTip';
 import { useSnapshotStore, parseItems, parsePassives, getEquippedItems } from '../../stores/snapshotStore';
 import { useSettingsStore } from '../../stores/settingsStore';
 import { EquipmentGrid } from './EquipmentGrid';
@@ -113,7 +114,12 @@ export function SnapshotView() {
     <div className="h-full flex flex-col p-6">
       <div className="mb-6 flex items-start justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-[--color-text]">Snapshots</h1>
+          <h1 className="text-2xl font-bold text-[--color-text] flex items-center gap-2">
+            Snapshots
+            <HelpTip>
+              View character snapshots captured during runs — equipment, passive tree, and skills at each breakpoint. Export to Path of Building or share on pobb.in. Your PoE profile must be public for snapshot capture to work.
+            </HelpTip>
+          </h1>
           <p className="text-[--color-text-muted] mt-1">
             Browse character snapshots from your runs
           </p>

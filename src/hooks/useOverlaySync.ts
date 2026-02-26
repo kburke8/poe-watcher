@@ -33,11 +33,9 @@ interface OverlayState {
   bgOpacity: number;
   accentColor: string;
   alwaysOnTop: boolean;
-  isLocked: boolean;
   // Hotkey labels for overlay tooltips
   hotkeyToggleTimer: string;
   hotkeyToggleOverlay: string;
-  hotkeyToggleOverlayLock: string;
 }
 
 interface OverlayConfig {
@@ -52,13 +50,11 @@ interface OverlayConfig {
   overlayBgOpacity: number;
   overlayAccentColor: string;
   overlayAlwaysOnTop: boolean;
-  overlayLocked: boolean;
 }
 
 interface HotkeyLabels {
   hotkeyToggleTimer: string;
   hotkeyToggleOverlay: string;
-  hotkeyToggleOverlayLock: string;
 }
 
 function buildOverlayState(
@@ -167,10 +163,8 @@ function buildOverlayState(
     bgOpacity: config.overlayBgOpacity,
     accentColor: config.overlayAccentColor,
     alwaysOnTop: config.overlayAlwaysOnTop,
-    isLocked: config.overlayLocked,
     hotkeyToggleTimer: hotkeyLabels.hotkeyToggleTimer,
     hotkeyToggleOverlay: hotkeyLabels.hotkeyToggleOverlay,
-    hotkeyToggleOverlayLock: hotkeyLabels.hotkeyToggleOverlayLock,
   };
 }
 
@@ -199,7 +193,6 @@ export function useOverlaySync() {
   const overlayBgOpacity = useSettingsStore((state) => state.overlayBgOpacity);
   const overlayAccentColor = useSettingsStore((state) => state.overlayAccentColor);
   const overlayAlwaysOnTop = useSettingsStore((state) => state.overlayAlwaysOnTop);
-  const overlayLocked = useSettingsStore((state) => state.overlayLocked);
   const hotkeys = useSettingsStore((state) => state.hotkeys);
 
   const config: OverlayConfig = {
@@ -214,7 +207,6 @@ export function useOverlaySync() {
     overlayBgOpacity,
     overlayAccentColor,
     overlayAlwaysOnTop,
-    overlayLocked,
   };
 
   // Track previous non-time state to detect meaningful changes
@@ -223,7 +215,6 @@ export function useOverlaySync() {
   const hotkeyLabels: HotkeyLabels = {
     hotkeyToggleTimer: hotkeys.toggleTimer,
     hotkeyToggleOverlay: hotkeys.toggleOverlay,
-    hotkeyToggleOverlayLock: hotkeys.toggleOverlayLock,
   };
 
   // Build and send current state
@@ -233,7 +224,7 @@ export function useOverlaySync() {
     const state = buildOverlayState(timer, breakpoints, config, personalBests, goldSplits, comparisonSplits, runInfo, hotkeyLabels, fallbackCategory);
     sendToOverlay(state);
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [timer, breakpoints, overlayOpacity, overlayScale, overlayFontSize, overlayShowTimer, overlayShowZone, overlayShowLastSplit, overlayShowBreakpoints, overlayBreakpointCount, overlayBgOpacity, overlayAccentColor, overlayAlwaysOnTop, overlayLocked, personalBests, goldSplits, comparisonSplits, currentRun, hotkeys, wizardConfig]);
+  }, [timer, breakpoints, overlayOpacity, overlayScale, overlayFontSize, overlayShowTimer, overlayShowZone, overlayShowLastSplit, overlayShowBreakpoints, overlayBreakpointCount, overlayBgOpacity, overlayAccentColor, overlayAlwaysOnTop, personalBests, goldSplits, comparisonSplits, currentRun, hotkeys, wizardConfig]);
 
   // Emit immediately on meaningful state changes (zone, splits, start/stop, config, etc.)
   useEffect(() => {
@@ -255,7 +246,6 @@ export function useOverlaySync() {
       bgOpacity: overlayBgOpacity,
       accentColor: overlayAccentColor,
       alwaysOnTop: overlayAlwaysOnTop,
-      locked: overlayLocked,
       pbCount: personalBests.size,
       goldCount: goldSplits.size,
       comparisonCount: comparisonSplits.size,
@@ -265,7 +255,7 @@ export function useOverlaySync() {
       prevNonTimeRef.current = nonTimeKey;
       syncNow();
     }
-  }, [timer, overlayOpacity, overlayScale, overlayFontSize, overlayShowTimer, overlayShowZone, overlayShowLastSplit, overlayShowBreakpoints, overlayBreakpointCount, overlayBgOpacity, overlayAccentColor, overlayAlwaysOnTop, overlayLocked, personalBests, goldSplits, comparisonSplits, syncNow]);
+  }, [timer, overlayOpacity, overlayScale, overlayFontSize, overlayShowTimer, overlayShowZone, overlayShowLastSplit, overlayShowBreakpoints, overlayBreakpointCount, overlayBgOpacity, overlayAccentColor, overlayAlwaysOnTop, personalBests, goldSplits, comparisonSplits, syncNow]);
 
   // Listen for overlay-ready signal and immediately sync
   useEffect(() => {

@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { Plus } from 'lucide-react';
 import { useRunStore } from '../../stores/runStore';
+import { HelpTip } from '../Shared/HelpTip';
 import { RunFilter } from '../Shared/RunFilter';
 import { Button } from '../Shared/Button';
 import { RunsTab } from './RunsTab';
@@ -34,7 +35,12 @@ export function HistoryView() {
   return (
     <div className="h-full flex flex-col p-6">
       <div className="mb-4">
-        <h1 className="text-2xl font-bold text-[--color-text]">Run History</h1>
+        <h1 className="text-2xl font-bold text-[--color-text] flex items-center gap-2">
+          Run History
+          <HelpTip>
+            Browse all completed and abandoned runs with detailed split times, statistics, and trends over time. Click a run to view its splits and snapshots.
+          </HelpTip>
+        </h1>
         <p className="text-[--color-text-muted] mt-1">
           View past runs and analyze your performance
         </p>

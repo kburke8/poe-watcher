@@ -176,8 +176,8 @@ function App() {
           overlay_bg_opacity: number;
           overlay_accent_color: string;
           overlay_always_on_top: boolean;
-          overlay_locked: boolean;
           group_mode_enabled: boolean;
+          show_town_visits: boolean;
         } | null>('get_settings');
 
         if (settings) {
@@ -197,8 +197,8 @@ function App() {
             overlayBgOpacity: settings.overlay_bg_opacity ?? 0.9,
             overlayAccentColor: settings.overlay_accent_color || 'transparent',
             overlayAlwaysOnTop: settings.overlay_always_on_top ?? true,
-            overlayLocked: settings.overlay_locked ?? false,
             groupModeEnabled: settings.group_mode_enabled ?? false,
+            showTownVisits: settings.show_town_visits ?? true,
           });
 
           // Start log watcher if we have a path

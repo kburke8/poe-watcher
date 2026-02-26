@@ -11,6 +11,7 @@ import {
   speedrunEnabledBreakpoints,
 } from '../config/breakpoints';
 import { generateBreakpoints } from '../config/wizardRoutes';
+import { useRunStore } from './runStore';
 
 interface SettingsState extends Settings {
   // UI state
@@ -66,7 +67,6 @@ interface SettingsState extends Settings {
   setOverlayBgOpacity: (opacity: number) => void;
   setOverlayAccentColor: (color: string) => void;
   setOverlayAlwaysOnTop: (enabled: boolean) => void;
-  setOverlayLocked: (locked: boolean) => void;
   setOverlayOpen: (open: boolean) => void;
   // Hotkey actions
   loadHotkeys: () => Promise<void>;
@@ -74,6 +74,8 @@ interface SettingsState extends Settings {
   resetHotkeys: () => Promise<void>;
   // Group mode
   setGroupModeEnabled: (enabled: boolean) => void;
+  // Display toggles
+  setShowTownVisits: (show: boolean) => void;
   // Comparison
   setActiveComparison: (runId: number | null, label?: string | null) => void;
 }
@@ -103,9 +105,10 @@ export const useSettingsStore = create<SettingsState>((set, get) => ({
   overlayBgOpacity: 0.9,
   overlayAccentColor: 'transparent',
   overlayAlwaysOnTop: true,
-  overlayLocked: false,
   // Group mode
   groupModeEnabled: false,
+  // Display toggles
+  showTownVisits: true,
   // Runtime-only
   overlayOpen: false,
   // Hotkey settings
@@ -121,13 +124,19 @@ export const useSettingsStore = create<SettingsState>((set, get) => ({
   setOverlayEnabled: (enabled) => set({ overlayEnabled: enabled }),
   setOverlayOpacity: (opacity) => set({ overlayOpacity: opacity }),
   setSoundEnabled: (enabled) => set({ soundEnabled: enabled }),
-  setBreakpoints: (breakpoints) => set({ breakpoints }),
+  setBreakpoints: (breakpoints) => {
+    set({ breakpoints });
+    useRunStore.getState().resetRun();
+  },
 
-  toggleBreakpoint: (name) => set((state) => ({
-    breakpoints: state.breakpoints.map((bp) =>
-      bp.name === name ? { ...bp, isEnabled: !bp.isEnabled } : bp
-    ),
-  })),
+  toggleBreakpoint: (name) => {
+    set((state) => ({
+      breakpoints: state.breakpoints.map((bp) =>
+        bp.name === name ? { ...bp, isEnabled: !bp.isEnabled } : bp
+      ),
+    }));
+    useRunStore.getState().resetRun();
+  },
 
   toggleSnapshotCapture: (name) => set((state) => ({
     breakpoints: state.breakpoints.map((bp) =>
@@ -158,28 +167,43 @@ export const useSettingsStore = create<SettingsState>((set, get) => ({
     return { breakpoints };
   }),
 
-  setAllBreakpoints: (enabled) => set((state) => ({
-    breakpoints: state.breakpoints.map((bp) => ({ ...bp, isEnabled: enabled })),
-  })),
+  setAllBreakpoints: (enabled) => {
+    set((state) => ({
+      breakpoints: state.breakpoints.map((bp) => ({ ...bp, isEnabled: enabled })),
+    }));
+    useRunStore.getState().resetRun();
+  },
 
-  setActBreakpoints: (act, enabled) => set((state) => ({
-    breakpoints: state.breakpoints.map((bp) =>
-      bp.trigger.act === act ? { ...bp, isEnabled: enabled } : bp
-    ),
-  })),
+  setActBreakpoints: (act, enabled) => {
+    set((state) => ({
+      breakpoints: state.breakpoints.map((bp) =>
+        bp.trigger.act === act ? { ...bp, isEnabled: enabled } : bp
+      ),
+    }));
+    useRunStore.getState().resetRun();
+  },
 
-  applySpeedrunPreset: () => set((state) => {
-    const newBreakpoints = applySpeedrunPreset(state.breakpoints);
-    return { breakpoints: newBreakpoints };
-  }),
+  applySpeedrunPreset: () => {
+    set((state) => {
+      const newBreakpoints = applySpeedrunPreset(state.breakpoints);
+      return { breakpoints: newBreakpoints };
+    });
+    useRunStore.getState().resetRun();
+  },
 
-  applyMinimalPreset: () => set((state) => ({
-    breakpoints: applyMinimalPreset(state.breakpoints),
-  })),
+  applyMinimalPreset: () => {
+    set((state) => ({
+      breakpoints: applyMinimalPreset(state.breakpoints),
+    }));
+    useRunStore.getState().resetRun();
+  },
 
-  applyTownsOnlyPreset: () => set((state) => ({
-    breakpoints: applyTownsOnlyPreset(state.breakpoints),
-  })),
+  applyTownsOnlyPreset: () => {
+    set((state) => ({
+      breakpoints: applyTownsOnlyPreset(state.breakpoints),
+    }));
+    useRunStore.getState().resetRun();
+  },
 
   resetBreakpoints: () => {
     // Clear localStorage to remove any corrupted data
@@ -189,18 +213,21 @@ export const useSettingsStore = create<SettingsState>((set, get) => ({
       console.error('[Store] Failed to clear localStorage:', e);
     }
     const defaults = resetToDefault();
-    return set({
-      breakpoints: defaults,
-    });
+    set({ breakpoints: defaults });
+    useRunStore.getState().resetRun();
   },
 
   // Wizard config
   setWizardConfig: (config: WizardConfig) => {
     const breakpoints = generateBreakpoints(config);
-    return set({ wizardConfig: config, breakpoints });
+    set({ wizardConfig: config, breakpoints });
+    useRunStore.getState().resetRun();
   },
 
-  clearWizardConfig: () => set({ wizardConfig: undefined }),
+  clearWizardConfig: () => {
+    set({ wizardConfig: undefined });
+    useRunStore.getState().resetRun();
+  },
 
   // Overlay config setters
   setOverlayScale: (scale) => set({ overlayScale: scale }),
@@ -213,7 +240,6 @@ export const useSettingsStore = create<SettingsState>((set, get) => ({
   setOverlayBgOpacity: (opacity) => set({ overlayBgOpacity: opacity }),
   setOverlayAccentColor: (color) => set({ overlayAccentColor: color }),
   setOverlayAlwaysOnTop: (enabled) => set({ overlayAlwaysOnTop: enabled }),
-  setOverlayLocked: (locked) => set({ overlayLocked: locked }),
   setOverlayOpen: (open) => set({ overlayOpen: open }),
   // Detect current preset based on enabled breakpoints
   getCurrentPresetName: () => {
@@ -281,6 +307,8 @@ export const useSettingsStore = create<SettingsState>((set, get) => ({
   },
   // Group mode
   setGroupModeEnabled: (enabled) => set({ groupModeEnabled: enabled }),
+  // Display toggles
+  setShowTownVisits: (show) => set({ showTownVisits: show }),
   // Comparison
   setActiveComparison: (runId, label = null) => set({
     activeComparisonRunId: runId,

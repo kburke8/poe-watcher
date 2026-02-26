@@ -16,7 +16,7 @@ A local desktop application for tracking Path of Exile speedruns. Monitor your g
 - **Always-on-top overlay** - See your timer, splits, and upcoming breakpoints while playing
 - **Live countdown** - Upcoming breakpoints show a live delta as you approach your PB pace
 - **Customizable** - Adjust size, opacity, accent color, and which sections to show
-- **Lock mode** - Click-through mode so the overlay never interferes with gameplay
+- **OBS compatible** - Capturable via OBS Window Capture out of the box
 
 ![Overlay](screenshots/overlay.png)
 
@@ -165,6 +165,18 @@ poe-watcher/
 │   └── Cargo.toml
 └── package.json
 ```
+
+## OBS Overlay Setup
+
+The overlay is OBS-compatible by default. To capture it in OBS:
+
+1. **Open the overlay** in PoE Watcher (Settings > Overlay > Open Overlay, or press `Ctrl+O`)
+2. In OBS, add a new **Window Capture** source
+3. Select **"PoE Watcher Overlay"** as the window
+4. Set **Capture Method** to **Windows 10 (1903 and up)**
+5. Optionally check **"Client Area"** to crop out the window border
+
+The overlay uses software rendering (`--disable-gpu`) so OBS can capture it reliably. Position and resize the overlay in-game by dragging it, then crop/scale the OBS source to fit your scene.
 
 ## API Rate Limiting
 

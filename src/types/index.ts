@@ -167,9 +167,10 @@ export interface Settings {
   overlayBgOpacity: number;
   overlayAccentColor: string;
   overlayAlwaysOnTop: boolean;
-  overlayLocked: boolean;
   // Group mode
   groupModeEnabled: boolean;
+  // Display toggles
+  showTownVisits: boolean;
 }
 
 // PoE API types
@@ -222,7 +223,6 @@ export interface HotkeySettings {
   manualSnapshot: string;
   manualSplit: string;
   toggleOverlay: string;
-  toggleOverlayLock: string;
 }
 
 export const DEFAULT_HOTKEYS: HotkeySettings = {
@@ -231,7 +231,6 @@ export const DEFAULT_HOTKEYS: HotkeySettings = {
   manualSnapshot: 'Ctrl+Alt+Space',
   manualSplit: 'Ctrl+Shift+S',
   toggleOverlay: 'Ctrl+O',
-  toggleOverlayLock: 'Ctrl+Shift+L',
 };
 
 // Town visit tracking (individual visits shown as pseudo-segments)

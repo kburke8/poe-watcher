@@ -4,10 +4,11 @@ import { open } from '@tauri-apps/plugin-dialog';
 import { MapPin, ArrowUp, Skull, Landmark, Trophy, Star, ChevronUp, ChevronDown, Save } from 'lucide-react';
 import { useSettingsStore } from '../../stores/settingsStore';
 import { useUpdateChecker } from '../../hooks/useUpdateChecker';
-import { BreakpointWizard, RouteCustomizations } from './BreakpointWizard';
+import { BreakpointWizard } from './BreakpointWizard';
 import { HotkeyInput } from './HotkeyInput';
 import { Button } from '../Shared/Button';
 import { Toggle } from '../Shared/Toggle';
+import { HelpTip } from '../Shared/HelpTip';
 import { LoadingSpinner } from '../Shared/LoadingSpinner';
 import type { HotkeySettings, BreakpointType, Breakpoint } from '../../types';
 import { DEFAULT_HOTKEYS } from '../../types';
@@ -20,7 +21,6 @@ const HOTKEY_ACTIONS: { key: keyof HotkeySettings; label: string }[] = [
   { key: 'manualSplit', label: 'Manual Split' },
   { key: 'manualSnapshot', label: 'Manual Snapshot' },
   { key: 'toggleOverlay', label: 'Toggle Overlay' },
-  { key: 'toggleOverlayLock', label: 'Toggle Overlay Lock' },
 ];
 
 type SettingsTab = 'general' | 'breakpoints' | 'overlay' | 'shortcuts';
@@ -77,7 +77,6 @@ export function SettingsView() {
     overlayBgOpacity,
     overlayAccentColor,
     overlayAlwaysOnTop,
-    overlayLocked,
     overlayOpen,
     setOverlayScale,
     setOverlayShowTimer,
@@ -87,7 +86,6 @@ export function SettingsView() {
     setOverlayBgOpacity,
     setOverlayAccentColor,
     setOverlayAlwaysOnTop,
-    setOverlayLocked,
     setOverlayOpen,
     // Hotkeys
     hotkeys,
@@ -279,14 +277,13 @@ export function SettingsView() {
           overlay_bg_opacity: overlayBgOpacity,
           overlay_accent_color: overlayAccentColor,
           overlay_always_on_top: overlayAlwaysOnTop,
-          overlay_locked: overlayLocked,
           hotkey_toggle_timer: hotkeys.toggleTimer,
           hotkey_reset_timer: hotkeys.resetTimer,
           hotkey_manual_snapshot: hotkeys.manualSnapshot,
           hotkey_toggle_overlay: hotkeys.toggleOverlay,
-          hotkey_toggle_overlay_lock: hotkeys.toggleOverlayLock,
           hotkey_manual_split: hotkeys.manualSplit,
           group_mode_enabled: useSettingsStore.getState().groupModeEnabled,
+          show_town_visits: useSettingsStore.getState().showTownVisits,
         },
       });
 
@@ -326,7 +323,12 @@ export function SettingsView() {
   return (
     <div className="h-full overflow-auto p-6">
       <div className="max-w-2xl">
-        <h1 className="text-2xl font-bold text-[--color-text] mb-6">Settings</h1>
+        <h1 className="text-2xl font-bold text-[--color-text] mb-6 flex items-center gap-2">
+          Settings
+          <HelpTip>
+            Configure your PoE log file path, account name, breakpoints, overlay, hotkeys, and other preferences. Changes to General settings require clicking Save.
+          </HelpTip>
+        </h1>
 
         {/* Tab bar */}
         <div className="flex gap-6 border-b border-[--color-border] mb-6">
@@ -393,7 +395,6 @@ export function SettingsView() {
           overlayShowLastSplit={overlayShowLastSplit}
           overlayShowBreakpoints={overlayShowBreakpoints}
           overlayAlwaysOnTop={overlayAlwaysOnTop}
-          overlayLocked={overlayLocked}
           overlayOpen={overlayOpen}
           setOverlayEnabled={setOverlayEnabled}
           setOverlayOpacity={setOverlayOpacity}
@@ -405,7 +406,6 @@ export function SettingsView() {
           setOverlayShowLastSplit={setOverlayShowLastSplit}
           setOverlayShowBreakpoints={setOverlayShowBreakpoints}
           setOverlayAlwaysOnTop={setOverlayAlwaysOnTop}
-          setOverlayLocked={setOverlayLocked}
           handleToggleOverlay={handleToggleOverlay}
           handleResetPosition={handleResetPosition}
           hotkeys={hotkeys}
@@ -434,7 +434,12 @@ function GroupModeSection() {
 
   return (
     <section>
-      <h2 className="text-lg font-semibold text-[--color-text] mb-4">Group Mode</h2>
+      <h2 className="text-lg font-semibold text-[--color-text] mb-4 flex items-center gap-2 flex-wrap">
+        Group Mode
+        <HelpTip>
+          Group Mode tracks up to 5 party members during group speedruns. Each member's progress is tracked independently. Enable this before starting a group run, then configure members in the Group tab.
+        </HelpTip>
+      </h2>
       <div className="card-inset rounded-lg p-4">
         <div className="flex items-center justify-between">
           <div>
@@ -499,7 +504,12 @@ function GeneralTab({
     <div className="space-y-8">
       {/* PoE Configuration */}
       <section>
-        <h2 className="text-lg font-semibold text-[--color-text] mb-4">Path of Exile</h2>
+        <h2 className="text-lg font-semibold text-[--color-text] mb-4 flex items-center gap-2 flex-wrap">
+          Path of Exile
+          <HelpTip>
+            PoE Watcher monitors your Client.txt log file to detect zone changes, level ups, and other game events. Your account name is used to fetch character data (equipment, passives, skills) from the public PoE API. Your profile must be set to public at pathofexile.com for snapshots to work.
+          </HelpTip>
+        </h2>
         <div className="card-inset rounded-lg p-4 space-y-4">
           {/* Log path */}
           <div>
@@ -569,7 +579,12 @@ function GeneralTab({
 
       {/* Updates */}
       <section>
-        <h2 className="text-lg font-semibold text-[--color-text] mb-4">Updates</h2>
+        <h2 className="text-lg font-semibold text-[--color-text] mb-4 flex items-center gap-2 flex-wrap">
+          Updates
+          <HelpTip>
+            When enabled, PoE Watcher checks for new versions on startup. You can also check manually at any time. Updates are downloaded and installed automatically — the app will restart after updating.
+          </HelpTip>
+        </h2>
         <div className="card-inset rounded-lg p-4 space-y-4">
           <div className="flex items-center justify-between">
             <div>
@@ -683,18 +698,26 @@ function BreakpointsTab({
     <div className="space-y-8">
       {/* Wizard */}
       <section>
-        <h2 className="text-lg font-semibold text-[--color-text] mb-2">Breakpoint Wizard</h2>
+        <h2 className="text-lg font-semibold text-[--color-text] mb-2 flex items-center gap-2 flex-wrap">
+          Breakpoint Wizard
+          <HelpTip>
+            Breakpoints are zone transitions or events that trigger automatic splits in your timer. The wizard generates a set of breakpoints based on your run type (e.g., Act 10 Any%) and how many splits you want. You can choose bosses only, key zones, or every zone transition. The camera icon next to each breakpoint controls whether a character snapshot is captured at that split.
+          </HelpTip>
+        </h2>
         <p className="text-sm text-[--color-text-muted] mb-4">
           Configure which zone transitions trigger automatic splits. Use the wizard to generate a breakpoint set based on your run type and routing preferences.
         </p>
         <BreakpointWizard />
       </section>
 
-      {/* Route Customizations */}
-      <section>
-        <h2 className="text-lg font-semibold text-[--color-text] mb-2">
+      {/* Route Customizations - hidden for now */}
+      {/* <section>
+        <h2 className="text-lg font-semibold text-[--color-text] mb-2 flex items-center gap-2 flex-wrap">
           Route Customizations
-          <span className="text-xs font-normal text-[--color-text-muted] ml-2">(Optional)</span>
+          <span className="text-xs font-normal text-[--color-text-muted]">(Optional)</span>
+          <HelpTip>
+            Different speedrun routes take different paths through each act. These settings let you adjust zone ordering to match your preferred routing — for example, doing Dweller of the Deep before Brutus, or choosing Kaom before Daresso in Act 4.
+          </HelpTip>
         </h2>
         <div className="card-inset rounded-lg p-4">
           <p className="text-sm text-[--color-text-muted] mb-4">
@@ -702,15 +725,18 @@ function BreakpointsTab({
           </p>
           <RouteCustomizations />
         </div>
-      </section>
+      </section> */}
 
       {/* Manual Overrides */}
       <details className="group">
-        <summary className="text-lg font-semibold text-[--color-text] mb-2 cursor-pointer list-none flex items-center gap-2 select-none hover:text-[--color-poe-gold] transition-colors">
+        <summary className="text-lg font-semibold text-[--color-text] mb-2 cursor-pointer list-none flex items-center gap-2 flex-wrap select-none hover:text-[--color-poe-gold] transition-colors">
           <svg className="w-4 h-4 text-[--color-text-muted] transition-transform group-open:rotate-90" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
           </svg>
           Advanced: Manual Overrides
+          <HelpTip>
+            Override individual breakpoints generated by the wizard. You can enable/disable specific splits, toggle snapshot capture per breakpoint, and reorder them. Changes here persist even when the wizard regenerates breakpoints.
+          </HelpTip>
         </summary>
         <div className="card-inset rounded-lg overflow-hidden">
           {/* Filter and bulk actions */}
@@ -889,7 +915,6 @@ interface OverlayTabProps {
   overlayShowLastSplit: boolean;
   overlayShowBreakpoints: boolean;
   overlayAlwaysOnTop: boolean;
-  overlayLocked: boolean;
   overlayOpen: boolean;
   setOverlayEnabled: (v: boolean) => void;
   setOverlayOpacity: (v: number) => void;
@@ -901,7 +926,6 @@ interface OverlayTabProps {
   setOverlayShowLastSplit: (v: boolean) => void;
   setOverlayShowBreakpoints: (v: boolean) => void;
   setOverlayAlwaysOnTop: (v: boolean) => void;
-  setOverlayLocked: (v: boolean) => void;
   handleToggleOverlay: () => void;
   handleResetPosition: () => void;
   hotkeys: HotkeySettings;
@@ -918,7 +942,6 @@ function OverlayTab({
   overlayShowLastSplit,
   overlayShowBreakpoints,
   overlayAlwaysOnTop,
-  overlayLocked,
   overlayOpen,
   setOverlayEnabled,
   setOverlayOpacity,
@@ -930,7 +953,6 @@ function OverlayTab({
   setOverlayShowLastSplit,
   setOverlayShowBreakpoints,
   setOverlayAlwaysOnTop,
-  setOverlayLocked,
   handleToggleOverlay,
   handleResetPosition,
   hotkeys,
@@ -940,7 +962,12 @@ function OverlayTab({
       {/* Enable toggle */}
       <div className="flex items-center justify-between">
         <div>
-          <div className="text-[--color-text]">Enable Overlay</div>
+          <div className="text-[--color-text] flex items-center gap-2">
+            Enable Overlay
+            <HelpTip>
+              The overlay is a small always-on-top window that displays your timer, current zone, last split comparison, and upcoming breakpoints while you play. It can be dragged anywhere on screen and is fully compatible with OBS Window Capture.
+            </HelpTip>
+          </div>
           <div className="text-xs text-[--color-text-muted]">Show minimal timer as overlay window</div>
         </div>
         <Toggle checked={overlayEnabled} onChange={setOverlayEnabled} />
@@ -948,7 +975,12 @@ function OverlayTab({
 
       {/* Appearance */}
       <div className="pt-3 border-t border-[--color-border]">
-        <h3 className="text-sm font-semibold text-[--color-text-muted] mb-3 uppercase tracking-wide">Appearance</h3>
+        <h3 className="text-sm font-semibold text-[--color-text-muted] mb-3 uppercase tracking-wide flex items-center gap-2 flex-wrap">
+          Appearance
+          <HelpTip>
+            Size controls the overlay window width. Window Opacity affects the entire overlay's transparency. Background Opacity controls just the dark background. Accent Color adds a colored border — useful for OBS chroma-key setups or visual distinction.
+          </HelpTip>
+        </h3>
 
         {/* Size */}
         <div className="mb-3">
@@ -1051,7 +1083,12 @@ function OverlayTab({
 
       {/* Visible Sections */}
       <div className="pt-3 border-t border-[--color-border]">
-        <h3 className="text-sm font-semibold text-[--color-text-muted] mb-3 uppercase tracking-wide">Visible Sections</h3>
+        <h3 className="text-sm font-semibold text-[--color-text-muted] mb-3 uppercase tracking-wide flex items-center gap-2 flex-wrap">
+          Visible Sections
+          <HelpTip>
+            Choose which information the overlay displays. Timer shows your run clock. Zone shows your current area. Last Split shows the delta vs your PB/reference. Upcoming Breakpoints shows your next splits with live PB pace comparison.
+          </HelpTip>
+        </h3>
 
         {[
           { label: 'Show Timer', value: overlayShowTimer, setter: setOverlayShowTimer },
@@ -1068,7 +1105,12 @@ function OverlayTab({
 
       {/* Behavior */}
       <div className="pt-3 border-t border-[--color-border]">
-        <h3 className="text-sm font-semibold text-[--color-text-muted] mb-3 uppercase tracking-wide">Behavior</h3>
+        <h3 className="text-sm font-semibold text-[--color-text-muted] mb-3 uppercase tracking-wide flex items-center gap-2 flex-wrap">
+          Behavior
+          <HelpTip>
+            Always on Top keeps the overlay above all other windows including PoE. For OBS capture: add a Window Capture source, select "PoE Watcher Overlay", and set Capture Method to "Windows 10 (1903 and up)".
+          </HelpTip>
+        </h3>
 
         <div className="flex items-center justify-between mb-2">
           <div>
@@ -1078,12 +1120,8 @@ function OverlayTab({
           <Toggle checked={overlayAlwaysOnTop} onChange={setOverlayAlwaysOnTop} />
         </div>
 
-        <div className="flex items-center justify-between mb-2">
-          <div>
-            <div className="text-sm text-[--color-text]">Lock Overlay</div>
-            <div className="text-xs text-[--color-text-muted]">Make click-through ({hotkeys.toggleOverlayLock})</div>
-          </div>
-          <Toggle checked={overlayLocked} onChange={setOverlayLocked} />
+        <div className="text-xs text-[--color-text-muted] mt-2">
+          The overlay is OBS-compatible. In OBS, add a <span className="font-medium text-[--color-text]">Window Capture</span> for "PoE Watcher Overlay" with Capture Method set to <span className="font-medium text-[--color-text]">Windows 10 (1903 and up)</span>.
         </div>
       </div>
 
@@ -1132,9 +1170,14 @@ function ShortcutsTab({
 }: ShortcutsTabProps) {
   return (
     <div className="card-inset rounded-lg p-4 space-y-3">
-      <p className="text-sm text-[--color-text-muted] mb-3">
-        Customize global hotkeys. Click a shortcut to rebind it, then press your desired key combination (must include Ctrl, Shift, or Alt). Press Escape to cancel.
-      </p>
+      <div className="flex items-start gap-2 mb-3">
+        <p className="text-sm text-[--color-text-muted]">
+          Customize global hotkeys. Click a shortcut to rebind it, then press your desired key combination (must include Ctrl, Shift, or Alt). Press Escape to cancel.
+        </p>
+        <HelpTip>
+          These global hotkeys work even when PoE Watcher is not focused — they're registered system-wide. Click a shortcut field and press your desired key combination. Each shortcut must include at least one modifier key (Ctrl, Shift, or Alt). Press Escape while recording to cancel.
+        </HelpTip>
+      </div>
       {HOTKEY_ACTIONS.map(({ key, label }) => (
         <div key={key} className="flex items-center justify-between">
           <span className="text-sm text-[--color-text]">{label}</span>

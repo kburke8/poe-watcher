@@ -2,6 +2,8 @@ import { useState, useEffect, useMemo } from 'react';
 import { invoke } from '@tauri-apps/api/core';
 import { GitCompareArrows } from 'lucide-react';
 import { useRunStore } from '../../stores/runStore';
+import { HelpTip } from '../Shared/HelpTip';
+import { useSettingsStore } from '../../stores/settingsStore';
 import { RunFilter } from '../Shared/RunFilter';
 import { CustomSelect } from '../Shared/CustomSelect';
 import { EmptyState } from '../Shared/EmptyState';
@@ -16,6 +18,7 @@ interface SplitComparison {
 
 export function ComparisonView() {
   const { runs } = useRunStore();
+  const showTownVisits = useSettingsStore((s) => s.showTownVisits);
   const [leftRunId, setLeftRunId] = useState<number | null>(null);
   const [rightRunId, setRightRunId] = useState<number | null>(null);
   const [leftSplits, setLeftSplits] = useState<Split[]>([]);
@@ -150,7 +153,12 @@ export function ComparisonView() {
   return (
     <div className="h-full flex flex-col p-6">
       <div className="mb-4">
-        <h1 className="text-2xl font-bold text-[--color-text]">Compare Runs</h1>
+        <h1 className="text-2xl font-bold text-[--color-text] flex items-center gap-2">
+          Compare Runs
+          <HelpTip>
+            Compare split times between two runs side by side. Set a reference run to see live split deltas in the timer and overlay during your next run.
+          </HelpTip>
+        </h1>
         <p className="text-[--color-text-muted] mt-1">
           Compare split times between two runs side by side
         </p>
@@ -260,7 +268,7 @@ export function ComparisonView() {
                         {showSegmentTime && <span className="text-xs ml-1">(seg)</span>}
                       </th>
                       <th className="p-3 text-right text-xs">Boss</th>
-                      <th className="p-3 text-right text-xs">Town +/-</th>
+                      {showTownVisits && <th className="p-3 text-right text-xs">Town +/-</th>}
                       <th className="p-3 text-center text-xs">Deaths</th>
                     </tr>
                   </thead>
@@ -356,21 +364,23 @@ export function ComparisonView() {
                               );
                             })()}
                           </td>
-                          <td className="p-3 text-right text-xs">
-                            {townDelta !== null && townDelta !== 0 ? (
-                              <span
-                                className={
-                                  townDelta < 0
-                                    ? 'text-[--color-timer-ahead]'
-                                    : 'text-[--color-timer-behind]'
-                                }
-                              >
-                                {formatDelta(townDelta)}
-                              </span>
-                            ) : (
-                              <span className="text-[--color-text-muted]">-</span>
-                            )}
-                          </td>
+                          {showTownVisits && (
+                            <td className="p-3 text-right text-xs">
+                              {townDelta !== null && townDelta !== 0 ? (
+                                <span
+                                  className={
+                                    townDelta < 0
+                                      ? 'text-[--color-timer-ahead]'
+                                      : 'text-[--color-timer-behind]'
+                                  }
+                                >
+                                  {formatDelta(townDelta)}
+                                </span>
+                              ) : (
+                                <span className="text-[--color-text-muted]">-</span>
+                              )}
+                            </td>
+                          )}
                           <td className="p-3 text-center text-xs">
                             {(leftDeaths !== null || rightDeaths !== null || hasRefRun) ? (
                               <span className="flex justify-center gap-1">
@@ -428,23 +438,25 @@ export function ComparisonView() {
                           );
                         })()}
                       </td>
-                      <td className="p-3 text-right text-xs">
-                        {(() => {
-                          const leftTownTotal = leftSplits.length > 0
-                            ? (leftSplits[leftSplits.length - 1].townTimeMs ?? 0) + (leftSplits[leftSplits.length - 1].hideoutTimeMs ?? 0)
-                            : 0;
-                          const rightTownTotal = rightSplits.length > 0
-                            ? (rightSplits[rightSplits.length - 1].townTimeMs ?? 0) + (rightSplits[rightSplits.length - 1].hideoutTimeMs ?? 0)
-                            : 0;
-                          const totalTownDelta = leftTownTotal - rightTownTotal;
-                          if (totalTownDelta === 0) return null;
-                          return (
-                            <span className={totalTownDelta < 0 ? 'text-[--color-timer-ahead]' : 'text-[--color-timer-behind]'}>
-                              {formatDelta(totalTownDelta)}
-                            </span>
-                          );
-                        })()}
-                      </td>
+                      {showTownVisits && (
+                        <td className="p-3 text-right text-xs">
+                          {(() => {
+                            const leftTownTotal = leftSplits.length > 0
+                              ? (leftSplits[leftSplits.length - 1].townTimeMs ?? 0) + (leftSplits[leftSplits.length - 1].hideoutTimeMs ?? 0)
+                              : 0;
+                            const rightTownTotal = rightSplits.length > 0
+                              ? (rightSplits[rightSplits.length - 1].townTimeMs ?? 0) + (rightSplits[rightSplits.length - 1].hideoutTimeMs ?? 0)
+                              : 0;
+                            const totalTownDelta = leftTownTotal - rightTownTotal;
+                            if (totalTownDelta === 0) return null;
+                            return (
+                              <span className={totalTownDelta < 0 ? 'text-[--color-timer-ahead]' : 'text-[--color-timer-behind]'}>
+                                {formatDelta(totalTownDelta)}
+                              </span>
+                            );
+                          })()}
+                        </td>
+                      )}
                       <td className="p-3 text-center text-xs">
                         {(leftSplits.length > 0 || rightSplits.length > 0 || hasRefRun) ? (
                           <span className="flex justify-center gap-1">

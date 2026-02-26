@@ -1,5 +1,5 @@
 import { useMemo } from 'react';
-import { ListChecks, Settings } from 'lucide-react';
+import { ListChecks, Settings, Home } from 'lucide-react';
 import { useRunStore } from '../../stores/runStore';
 import { useSettingsStore } from '../../stores/settingsStore';
 import { getWizardCategory } from '../../config/wizardRoutes';
@@ -9,6 +9,9 @@ import { PseudoSegmentRow } from './PseudoSegmentRow';
 import { ComparisonSelector } from './ComparisonSelector';
 import type { Breakpoint, TownVisit, BossEncounter } from '../../types';
 
+const splitTooltips: Record<string, string> = {
+};
+
 type SplitListItem =
   | { kind: 'split'; bp: Breakpoint; index: number }
   | { kind: 'town'; visit: TownVisit; live?: boolean }
@@ -17,7 +20,8 @@ type SplitListItem =
 export function SplitList() {
   const { timer, currentRun, personalBests, comparisonSplits } = useRunStore();
   const { breakpoints, wizardConfig, navigateToSettingsTab,
-          activeComparisonRunId, activeComparisonLabel } = useSettingsStore();
+          activeComparisonRunId, activeComparisonLabel,
+          showTownVisits, setShowTownVisits } = useSettingsStore();
 
   const enabledBreakpoints = breakpoints.filter((bp) => bp.isEnabled);
   const completedSplits = timer.splits;
@@ -91,6 +95,11 @@ export function SplitList() {
     return items;
   }, [enabledBreakpoints, timer.townVisits, timer.bossEncounters, timer.activeBossEncounter, timer.inTown, timer.isRunning, timer.splits]);
 
+  const filteredDisplayItems = useMemo(() => {
+    if (showTownVisits) return displayItems;
+    return displayItems.filter((item) => item.kind !== 'town');
+  }, [displayItems, showTownVisits]);
+
   return (
     <div className="card-inset rounded-lg h-full flex flex-col">
       <div className="p-4 section-header rounded-t-lg flex items-start justify-between">
@@ -100,13 +109,26 @@ export function SplitList() {
             {completedSplits.length} / {enabledBreakpoints.length}
           </p>
         </div>
-        <button
-          onClick={() => navigateToSettingsTab('breakpoints')}
-          className="p-1.5 rounded-md text-[--color-text-muted] hover:text-[--color-text] hover:bg-[--color-surface-elevated] transition-colors"
-          title="Edit breakpoints"
-        >
-          <Settings className="w-4 h-4" strokeWidth={1.75} />
-        </button>
+        <div className="flex items-center gap-1">
+          <button
+            onClick={() => setShowTownVisits(!showTownVisits)}
+            className={`p-1.5 rounded-md transition-colors ${
+              showTownVisits
+                ? 'text-yellow-400/80 hover:text-yellow-400 bg-yellow-400/10'
+                : 'text-[--color-text-muted] hover:text-[--color-text] hover:bg-[--color-surface-elevated]'
+            }`}
+            title={showTownVisits ? 'Hide town visits' : 'Show town visits'}
+          >
+            <Home className="w-4 h-4" strokeWidth={1.75} />
+          </button>
+          <button
+            onClick={() => navigateToSettingsTab('breakpoints')}
+            className="p-1.5 rounded-md text-[--color-text-muted] hover:text-[--color-text] hover:bg-[--color-surface-elevated] transition-colors"
+            title="Edit breakpoints"
+          >
+            <Settings className="w-4 h-4" strokeWidth={1.75} />
+          </button>
+        </div>
       </div>
 
       <ComparisonSelector />
@@ -135,7 +157,7 @@ export function SplitList() {
                 <span className="text-xs text-[--color-text-muted] uppercase tracking-wide min-w-[50px] text-right">Time</span>
               </div>
             </div>
-            {displayItems.map((item) => {
+            {filteredDisplayItems.map((item) => {
               if (item.kind === 'town') {
                 return (
                   <PseudoSegmentRow
@@ -180,6 +202,7 @@ export function SplitList() {
                   isNext={isNext}
                   isCompleted={isCompleted}
                   pbTime={referenceTime}
+                  tooltip={splitTooltips[bp.name]}
                 />
               );
             })}
