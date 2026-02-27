@@ -66,12 +66,6 @@ function mapKeyToTauri(e: KeyboardEvent): string | null {
   return key;
 }
 
-/** Keys that are safe to bind without a modifier (won't conflict with typing) */
-function isSafeWithoutModifier(tauriKey: string): boolean {
-  // Function keys and numpad keys are safe standalone
-  return /^F\d{1,2}$/.test(tauriKey) || tauriKey.startsWith('Numpad');
-}
-
 export function HotkeyInput({ value, onChange, error }: HotkeyInputProps) {
   const [capturing, setCapturing] = useState(false);
   const buttonRef = useRef<HTMLButtonElement>(null);
@@ -88,11 +82,6 @@ export function HotkeyInput({ value, onChange, error }: HotkeyInputProps) {
 
     const tauriKey = mapKeyToTauri(e);
     if (!tauriKey) return; // Ignore lone modifier presses
-
-    const hasModifier = e.ctrlKey || e.shiftKey || e.altKey;
-
-    // Require at least one modifier unless the key is safe standalone
-    if (!hasModifier && !isSafeWithoutModifier(tauriKey)) return;
 
     // Build shortcut string in Tauri format
     const parts: string[] = [];
