@@ -130,7 +130,7 @@ jobs:
           NEW_VERSION="${{ steps.bump.outputs.new_version }}"
 
           # Update package.json and package-lock.json
-          npm version "$NEW_VERSION" --no-git-tag-version
+          npm version "$NEW_VERSION" --no-git-tag-version --allow-same-version
 
           # Update tauri.conf.json (use jq for surgical top-level update)
           cd src-tauri
