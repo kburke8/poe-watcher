@@ -161,8 +161,9 @@ jobs:
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
           git add package.json package-lock.json src-tauri/tauri.conf.json src-tauri/Cargo.toml src-tauri/Cargo.lock
-          git commit -m "chore: release v${NEW_VERSION} [skip ci]"
-          git tag "v${NEW_VERSION}"
+          # Commit only if files actually changed (they may already be at the target version)
+          git diff --cached --quiet || git commit -m "chore: release v${NEW_VERSION} [skip ci]"
+          git tag -f "v${NEW_VERSION}"
           git push origin HEAD:master --follow-tags
 
   build:
