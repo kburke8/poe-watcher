@@ -178,6 +178,7 @@ function App() {
           overlay_always_on_top: boolean;
           group_mode_enabled: boolean;
           show_town_visits: boolean;
+          minimize_to_tray: boolean;
         } | null>('get_settings');
 
         if (settings) {
@@ -199,6 +200,7 @@ function App() {
             overlayAlwaysOnTop: settings.overlay_always_on_top ?? true,
             groupModeEnabled: settings.group_mode_enabled ?? false,
             showTownVisits: settings.show_town_visits ?? true,
+            minimizeToTray: settings.minimize_to_tray ?? false,
           });
 
           // Start log watcher if we have a path

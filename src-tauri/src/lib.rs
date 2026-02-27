@@ -7,11 +7,17 @@ use commands::*;
 use std::collections::HashMap;
 use std::sync::Arc;
 use tauri::{Emitter, Manager};
+use tauri::menu::{MenuBuilder, MenuItemBuilder};
+use tauri::tray::TrayIconBuilder;
 use tauri_plugin_global_shortcut::{GlobalShortcutExt, Shortcut, ShortcutState};
 
 /// Shared state mapping shortcut strings to action names.
 /// Accessible from commands via `app.state::<HotkeyMap>()`.
 pub struct HotkeyMap(pub Arc<std::sync::Mutex<HashMap<String, String>>>);
+
+/// In-memory flag for minimize-to-tray behavior.
+/// Read synchronously in `on_window_event`, updated by `set_minimize_to_tray` command.
+pub struct MinimizeToTrayFlag(pub Arc<std::sync::Mutex<bool>>);
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
@@ -63,6 +69,55 @@ pub fn run() {
 
             // Load settings (including hotkeys) and register shortcuts
             let settings = db::Settings::load().unwrap_or_default();
+
+            // Set up minimize-to-tray flag from persisted setting
+            let minimize_flag = Arc::new(std::sync::Mutex::new(settings.minimize_to_tray));
+            app.manage(MinimizeToTrayFlag(minimize_flag));
+
+            // Create system tray icon with context menu
+            let show_item = MenuItemBuilder::with_id("show", "Show PoE Watcher").build(app)?;
+            let separator = tauri::menu::PredefinedMenuItem::separator(app)?;
+            let quit_item = MenuItemBuilder::with_id("quit", "Quit").build(app)?;
+            let tray_menu = MenuBuilder::new(app)
+                .item(&show_item)
+                .item(&separator)
+                .item(&quit_item)
+                .build()?;
+
+            TrayIconBuilder::new()
+                .icon(app.default_window_icon().unwrap().clone())
+                .menu(&tray_menu)
+                .tooltip("PoE Watcher")
+                .on_menu_event(|app_handle, event| {
+                    match event.id().as_ref() {
+                        "show" => {
+                            if let Some(window) = app_handle.get_webview_window("main") {
+                                let _ = window.show();
+                                let _ = window.unminimize();
+                                let _ = window.set_focus();
+                            }
+                        }
+                        "quit" => {
+                            // Close overlay if open
+                            if let Some(overlay) = app_handle.get_webview_window("overlay") {
+                                let _ = overlay.close();
+                            }
+                            app_handle.exit(0);
+                        }
+                        _ => {}
+                    }
+                })
+                .on_tray_icon_event(|tray, event| {
+                    if let tauri::tray::TrayIconEvent::Click { button: tauri::tray::MouseButton::Left, .. } = event {
+                        let app_handle = tray.app_handle();
+                        if let Some(window) = app_handle.get_webview_window("main") {
+                            let _ = window.show();
+                            let _ = window.unminimize();
+                            let _ = window.set_focus();
+                        }
+                    }
+                })
+                .build(app)?;
 
             // Start log watcher if configured
             if !settings.poe_log_path.is_empty() {
@@ -189,17 +244,32 @@ pub fn run() {
             resolve_group_member_characters,
             detect_group_characters,
             poll_group_member_info,
+            // System tray
+            set_minimize_to_tray,
         ])
         .on_window_event(|window, event| {
-            // When the main window is closed, close the overlay and exit
-            if let tauri::WindowEvent::CloseRequested { .. } = event {
+            // When the main window is closed, either hide to tray or exit
+            if let tauri::WindowEvent::CloseRequested { api, .. } = event {
                 if window.label() == "main" {
-                    // Close the overlay window if it exists
-                    if let Some(overlay) = window.app_handle().get_webview_window("overlay") {
-                        let _ = overlay.close();
+                    // Check minimize-to-tray flag
+                    let should_minimize = window
+                        .app_handle()
+                        .try_state::<MinimizeToTrayFlag>()
+                        .and_then(|flag| flag.0.lock().ok().map(|guard| *guard))
+                        .unwrap_or(false);
+
+                    if should_minimize {
+                        // Prevent the window from closing and hide it instead
+                        api.prevent_close();
+                        let _ = window.hide();
+                    } else {
+                        // Close the overlay window if it exists
+                        if let Some(overlay) = window.app_handle().get_webview_window("overlay") {
+                            let _ = overlay.close();
+                        }
+                        // Exit the process so it doesn't linger
+                        window.app_handle().exit(0);
                     }
-                    // Exit the process so it doesn't linger
-                    window.app_handle().exit(0);
                 }
             }
         })

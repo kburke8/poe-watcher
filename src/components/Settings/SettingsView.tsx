@@ -284,6 +284,7 @@ export function SettingsView() {
           hotkey_manual_split: hotkeys.manualSplit,
           group_mode_enabled: useSettingsStore.getState().groupModeEnabled,
           show_town_visits: useSettingsStore.getState().showTownVisits,
+          minimize_to_tray: useSettingsStore.getState().minimizeToTray,
         },
       });
 
@@ -310,6 +311,9 @@ export function SettingsView() {
         }
         await invoke('start_log_watcher', { logPath: poeLogPath });
       }
+
+      // Sync minimize-to-tray runtime flag
+      await invoke('set_minimize_to_tray', { enabled: useSettingsStore.getState().minimizeToTray });
 
       setSaveStatus('saved');
       setTimeout(() => setSaveStatus('idle'), 2000);
@@ -453,6 +457,43 @@ function GroupModeSection() {
   );
 }
 
+/* ---------- System Tray Section ---------- */
+
+function MinimizeToTraySection() {
+  const minimizeToTray = useSettingsStore((s) => s.minimizeToTray);
+  const setMinimizeToTray = useSettingsStore((s) => s.setMinimizeToTray);
+
+  const handleToggle = useCallback(async (enabled: boolean) => {
+    setMinimizeToTray(enabled);
+    // Sync to Rust immediately so close behavior takes effect without needing Save
+    try {
+      await invoke('set_minimize_to_tray', { enabled });
+    } catch (e) {
+      console.error('[Settings] Failed to sync minimize-to-tray flag:', e);
+    }
+  }, [setMinimizeToTray]);
+
+  return (
+    <section>
+      <h2 className="text-lg font-semibold text-[--color-text] mb-4 flex items-center gap-2 flex-wrap">
+        System Tray
+        <HelpTip>
+          When enabled, closing the main window hides the app to the system tray instead of quitting. The overlay stays visible for in-game use. Restore the window by clicking the tray icon or using the "Show" menu. Use "Quit" in the tray menu to fully exit.
+        </HelpTip>
+      </h2>
+      <div className="card-inset rounded-lg p-4">
+        <div className="flex items-center justify-between">
+          <div>
+            <div className="text-[--color-text]">Minimize to Tray on Close</div>
+            <div className="text-xs text-[--color-text-muted]">Hide to system tray instead of quitting when you close the window.</div>
+          </div>
+          <Toggle checked={minimizeToTray} onChange={handleToggle} />
+        </div>
+      </div>
+    </section>
+  );
+}
+
 /* ---------- General Tab ---------- */
 
 interface GeneralTabProps {
@@ -576,6 +617,9 @@ function GeneralTab({
 
       {/* Group Mode */}
       <GroupModeSection />
+
+      {/* System Tray */}
+      <MinimizeToTraySection />
 
       {/* Updates */}
       <section>

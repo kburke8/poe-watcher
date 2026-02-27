@@ -171,6 +171,8 @@ export interface Settings {
   groupModeEnabled: boolean;
   // Display toggles
   showTownVisits: boolean;
+  // System tray
+  minimizeToTray: boolean;
 }
 
 // PoE API types

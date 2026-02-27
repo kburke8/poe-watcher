@@ -76,6 +76,8 @@ interface SettingsState extends Settings {
   setGroupModeEnabled: (enabled: boolean) => void;
   // Display toggles
   setShowTownVisits: (show: boolean) => void;
+  // System tray
+  setMinimizeToTray: (enabled: boolean) => void;
   // Comparison
   setActiveComparison: (runId: number | null, label?: string | null) => void;
 }
@@ -109,6 +111,8 @@ export const useSettingsStore = create<SettingsState>((set, get) => ({
   groupModeEnabled: false,
   // Display toggles
   showTownVisits: true,
+  // System tray
+  minimizeToTray: false,
   // Runtime-only
   overlayOpen: false,
   // Hotkey settings
@@ -309,6 +313,8 @@ export const useSettingsStore = create<SettingsState>((set, get) => ({
   setGroupModeEnabled: (enabled) => set({ groupModeEnabled: enabled }),
   // Display toggles
   setShowTownVisits: (show) => set({ showTownVisits: show }),
+  // System tray
+  setMinimizeToTray: (enabled) => set({ minimizeToTray: enabled }),
   // Comparison
   setActiveComparison: (runId, label = null) => set({
     activeComparisonRunId: runId,

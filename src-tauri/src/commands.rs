@@ -5,7 +5,7 @@ use crate::db::{
     GroupMember, NewGroupMember, GroupSnapshot, NewGroupSnapshot,
 };
 use crate::log_watcher::{detect_log_path, LogWatcher};
-use crate::HotkeyMap;
+use crate::{HotkeyMap, MinimizeToTrayFlag};
 use anyhow::Result;
 use once_cell::sync::OnceCell;
 use serde::{Deserialize, Serialize};
@@ -859,6 +859,18 @@ pub async fn resume_hotkeys(app_handle: AppHandle) -> Result<(), String> {
         }
     }
 
+    Ok(())
+}
+
+// ============================================================================
+// System Tray Commands
+// ============================================================================
+
+#[tauri::command]
+pub async fn set_minimize_to_tray(app_handle: AppHandle, enabled: bool) -> Result<(), String> {
+    let flag = app_handle.state::<MinimizeToTrayFlag>();
+    let mut guard = flag.0.lock().map_err(|e| e.to_string())?;
+    *guard = enabled;
     Ok(())
 }
 
