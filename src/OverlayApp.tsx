@@ -178,7 +178,7 @@ export function OverlayApp() {
       <div ref={contentRef} className={contentPadding}>
         {/* Timer */}
         {showTimer && (
-          <OverlayTimer startTime={state.startTime} elapsedMs={state.elapsedMs} isRunning={state.isRunning} fontSize={fontSize} hotkeyToggleTimer={state.hotkeyToggleTimer} />
+          <OverlayTimer startTime={state.startTime} elapsedMs={state.elapsedMs} isRunning={state.isRunning} fontSize={fontSize} />
         )}
 
         {/* Current zone */}
