@@ -187,34 +187,52 @@ export function OverlayApp() {
             zoneName={state.currentZone}
             fontSize={fontSize}
             isAhead={state.lastSplit?.deltaMs != null ? state.lastSplit.deltaMs < 0 : undefined}
+            hotkeyHint={state.hotkeyToggleTimer}
+            showHotkeyHint={!state.isRunning && state.elapsedMs === 0}
           />
         )}
 
         {/* Last split */}
-        {showLastSplit && state.lastSplit && (
-          <OverlaySplit
-            name={state.lastSplit.name}
-            deltaMs={state.lastSplit.deltaMs}
-            isBestSegment={state.lastSplit.isBestSegment}
-            splitTimeMs={state.lastSplit.splitTimeMs}
-            segmentTimeMs={state.lastSplit.segmentTimeMs}
-            pbSegmentTimeMs={state.lastSplit.pbSegmentTimeMs}
-            goldSegmentTimeMs={state.lastSplit.goldSegmentTimeMs}
-            fontSize={fontSize}
-            scale={scale}
-          />
+        {showLastSplit && (
+          state.lastSplit ? (
+            <OverlaySplit
+              name={state.lastSplit.name}
+              deltaMs={state.lastSplit.deltaMs}
+              isBestSegment={state.lastSplit.isBestSegment}
+              splitTimeMs={state.lastSplit.splitTimeMs}
+              segmentTimeMs={state.lastSplit.segmentTimeMs}
+              pbSegmentTimeMs={state.lastSplit.pbSegmentTimeMs}
+              goldSegmentTimeMs={state.lastSplit.goldSegmentTimeMs}
+              fontSize={fontSize}
+              scale={scale}
+            />
+          ) : (
+            <div style={{ borderTop: '1px solid rgba(58, 58, 62, 0.5)' }} className={scale === 'small' ? 'pt-1' : 'pt-2'}>
+              <div className={fontSize === 'small' ? 'text-xs' : fontSize === 'large' ? 'text-base' : 'text-sm'} style={{ color: '#4a4440' }}>No splits yet</div>
+            </div>
+          )
         )}
 
         {/* Upcoming breakpoints */}
-        {showBreakpoints && state.upcomingBreakpoints.length > 0 && (
-          <OverlayBreakpoints
-            breakpoints={state.upcomingBreakpoints}
-            maxCount={breakpointCount}
-            fontSize={fontSize}
-            startTime={state.startTime}
-            elapsedMs={state.elapsedMs}
-            isRunning={state.isRunning}
-          />
+        {showBreakpoints && (
+          state.upcomingBreakpoints.length > 0 ? (
+            <OverlayBreakpoints
+              breakpoints={state.upcomingBreakpoints}
+              maxCount={breakpointCount}
+              fontSize={fontSize}
+              startTime={state.startTime}
+              elapsedMs={state.elapsedMs}
+              isRunning={state.isRunning}
+            />
+          ) : (
+            <div className="pt-1" style={{ borderTop: '1px solid rgba(58, 58, 62, 0.5)' }}>
+              <div className="space-y-0.5">
+                {Array.from({ length: breakpointCount }, (_, i) => (
+                  <div key={i} className={fontSize === 'small' ? 'text-[10px]' : fontSize === 'large' ? 'text-sm' : 'text-xs'} style={{ color: '#4a4440' }}>{i === 0 ? 'Waiting for run...' : '\u00A0'}</div>
+                ))}
+              </div>
+            </div>
+          )
         )}
       </div>
     </div>

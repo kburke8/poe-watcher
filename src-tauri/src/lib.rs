@@ -163,6 +163,8 @@ pub fn run() {
             // Hotkeys
             get_hotkeys,
             update_hotkeys,
+            suspend_hotkeys,
+            resume_hotkeys,
             // Overlay
             open_overlay,
             close_overlay,

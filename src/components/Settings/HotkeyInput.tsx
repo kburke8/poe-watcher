@@ -1,4 +1,5 @@
 import { useState, useCallback, useRef, useEffect } from 'react';
+import { invoke } from '@tauri-apps/api/core';
 
 interface HotkeyInputProps {
   value: string;
@@ -74,8 +75,14 @@ export function HotkeyInput({ value, onChange, error }: HotkeyInputProps) {
 
   useEffect(() => {
     if (capturing) {
+      // Suspend OS-level global shortcuts so key combos reach the webview
+      invoke('suspend_hotkeys').catch(() => {});
       window.addEventListener('keydown', handleKeyDown, true);
-      return () => window.removeEventListener('keydown', handleKeyDown, true);
+      return () => {
+        window.removeEventListener('keydown', handleKeyDown, true);
+        // Re-register global shortcuts when capture ends
+        invoke('resume_hotkeys').catch(() => {});
+      };
     }
   }, [capturing, handleKeyDown]);
 

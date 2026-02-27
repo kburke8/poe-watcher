@@ -56,11 +56,6 @@ export function OverlayTimer({ startTime, elapsedMs, isRunning, fontSize = 'medi
       >
         {formatTime(displayMs)}
       </div>
-      {!isRunning && elapsedMs === 0 && (
-        <div className={`${hintSizeClass} mt-1`} style={{ color: '#7a6e62' }}>
-          {hotkeyToggleTimer || 'Ctrl+Space'} to start
-        </div>
-      )}
     </div>
   );
 }

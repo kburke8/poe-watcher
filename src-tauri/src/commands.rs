@@ -831,6 +831,37 @@ pub async fn update_hotkeys(app_handle: AppHandle, hotkeys: HotkeySettings) -> R
     Ok(())
 }
 
+/// Temporarily unregister all OS-level global shortcuts so the webview can
+/// capture key combos in the HotkeyInput component. The HotkeyMap is
+/// preserved so `resume_hotkeys` can restore exactly the same shortcuts.
+#[tauri::command]
+pub async fn suspend_hotkeys(app_handle: AppHandle) -> Result<(), String> {
+    app_handle
+        .global_shortcut()
+        .unregister_all()
+        .map_err(|e| e.to_string())?;
+    Ok(())
+}
+
+/// Re-register all shortcuts from the preserved HotkeyMap after hotkey
+/// capture is finished.
+#[tauri::command]
+pub async fn resume_hotkeys(app_handle: AppHandle) -> Result<(), String> {
+    let hotkey_map = app_handle.state::<HotkeyMap>();
+    let map = hotkey_map.0.lock().map_err(|e| e.to_string())?;
+
+    for (shortcut_str, _action) in map.iter() {
+        if let Ok(shortcut) = shortcut_str.parse::<Shortcut>() {
+            app_handle
+                .global_shortcut()
+                .register(shortcut)
+                .map_err(|e| format!("Failed to re-register {}: {}", shortcut_str, e))?;
+        }
+    }
+
+    Ok(())
+}
+
 // ============================================================================
 // Overlay Commands
 // ============================================================================
