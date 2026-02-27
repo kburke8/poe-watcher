@@ -1,6 +1,6 @@
 [package]
 name = "poe-watcher"
-version = "0.8.2"
+version = "0.8.1"
 description = "Local Path of Exile Speedrun Tracker"
 authors = ["beerdz (Discord: beerdz)"]
 license = "MIT"
