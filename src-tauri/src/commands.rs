@@ -887,8 +887,8 @@ pub async fn open_overlay(app_handle: AppHandle) -> Result<(), String> {
         _ => (320.0, 180.0), // medium (default)
     };
 
-    // Build the overlay window — always non-transparent for OBS compatibility.
-    // --disable-gpu forces CPU rendering via Skia so OBS Window Capture works
+    // Build the overlay window — transparent so CSS rgba alpha controls background opacity.
+    // --disable-gpu forces CPU rendering via Skia so OBS Game/Display Capture works
     // (WebView2 DirectComposition is invisible to BitBlt capture).
     let mut builder = WebviewWindowBuilder::new(
         &app_handle,
@@ -898,11 +898,10 @@ pub async fn open_overlay(app_handle: AppHandle) -> Result<(), String> {
     .title("PoE Watcher Overlay")
     .inner_size(width, height)
     .decorations(false)
-    .transparent(false)
+    .transparent(true)
     .always_on_top(settings.overlay_always_on_top)
     .skip_taskbar(true)
-    .resizable(false)
-    .background_color(tauri::window::Color(13, 11, 10, 255));
+    .resizable(false);
 
     // A separate data_directory is required when browser args differ between windows
     // (WebView2 constraint, see tauri-apps/tauri#11144).

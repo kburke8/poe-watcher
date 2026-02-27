@@ -151,11 +151,9 @@ export function OverlayApp() {
   // Scale drives font size directly - ensures content fits the window
   const fontSize = scale;
 
-  // Background color — always opaque window (non-transparent for OBS compatibility)
-  // bgOpacity controls the background darkness (0 = fully transparent, 1 = fully opaque)
-  const bgR = 13, bgG = 11, bgB = 10; // #0d0b0a (warm black)
+  // Background color — transparent window, rgba alpha controls visibility
   const bgOpacity = state.bgOpacity ?? 1;
-  const bgColor = `rgba(${bgR}, ${bgG}, ${bgB}, ${bgOpacity})`;
+  const bgColor = `rgba(13, 11, 10, ${bgOpacity})`;
 
   // Scale-based layout classes
   const contentPadding = scale === 'small' ? 'p-1.5 space-y-1' : scale === 'large' ? 'p-4 space-y-2' : 'p-3 space-y-2';
@@ -170,14 +168,13 @@ export function OverlayApp() {
       className="w-full h-full overflow-hidden drag-handle"
       style={{
         opacity: state.opacity ?? 0.8,
-        backgroundColor: bgColor,
         border: borderStyle,
         boxShadow: isTransparentAccent ? 'none' : '0 4px 12px rgba(0, 0, 0, 0.8)',
         '--overlay-accent': accentColor,
       } as React.CSSProperties}
       onMouseDown={handleMouseDown}
     >
-      <div ref={contentRef} className={contentPadding}>
+      <div ref={contentRef} className={contentPadding} style={{ backgroundColor: bgColor }}>
         {/* Timer */}
         {showTimer && (
           <OverlayTimer startTime={state.startTime} elapsedMs={state.elapsedMs} isRunning={state.isRunning} fontSize={fontSize} />
