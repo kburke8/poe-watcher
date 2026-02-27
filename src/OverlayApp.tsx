@@ -151,9 +151,11 @@ export function OverlayApp() {
   // Scale drives font size directly - ensures content fits the window
   const fontSize = scale;
 
-  // Background color — always opaque (non-transparent window for OBS compatibility)
+  // Background color — always opaque window (non-transparent for OBS compatibility)
+  // bgOpacity controls the background darkness (0 = fully transparent, 1 = fully opaque)
   const bgR = 13, bgG = 11, bgB = 10; // #0d0b0a (warm black)
-  const bgColor = `rgb(${bgR}, ${bgG}, ${bgB})`;
+  const bgOpacity = state.bgOpacity ?? 1;
+  const bgColor = `rgba(${bgR}, ${bgG}, ${bgB}, ${bgOpacity})`;
 
   // Scale-based layout classes
   const contentPadding = scale === 'small' ? 'p-1.5 space-y-1' : scale === 'large' ? 'p-4 space-y-2' : 'p-3 space-y-2';

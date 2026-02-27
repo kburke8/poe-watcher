@@ -7,10 +7,35 @@ interface HotkeyInputProps {
   error?: string;
 }
 
-/** Maps browser KeyboardEvent.key values to Tauri shortcut key names */
-function mapKeyToTauri(key: string): string | null {
+/** Maps browser KeyboardEvent to a Tauri shortcut key name.
+ *  Uses `e.code` for numpad detection, falls back to `e.key` for everything else. */
+function mapKeyToTauri(e: KeyboardEvent): string | null {
   // Ignore standalone modifier keys
-  if (['Control', 'Shift', 'Alt', 'Meta'].includes(key)) return null;
+  if (['Control', 'Shift', 'Alt', 'Meta'].includes(e.key)) return null;
+
+  // Numpad keys — use e.code since e.key gives the same value as regular keys
+  const numpadMap: Record<string, string> = {
+    'Numpad0': 'Numpad0',
+    'Numpad1': 'Numpad1',
+    'Numpad2': 'Numpad2',
+    'Numpad3': 'Numpad3',
+    'Numpad4': 'Numpad4',
+    'Numpad5': 'Numpad5',
+    'Numpad6': 'Numpad6',
+    'Numpad7': 'Numpad7',
+    'Numpad8': 'Numpad8',
+    'Numpad9': 'Numpad9',
+    'NumpadAdd': 'NumpadAdd',
+    'NumpadSubtract': 'NumpadSubtract',
+    'NumpadMultiply': 'NumpadMultiply',
+    'NumpadDivide': 'NumpadDivide',
+    'NumpadDecimal': 'NumpadDecimal',
+    'NumpadEnter': 'NumpadEnter',
+    'NumpadEqual': 'NumpadEqual',
+  };
+  if (numpadMap[e.code]) return numpadMap[e.code];
+
+  const key = e.key;
 
   const keyMap: Record<string, string> = {
     ' ': 'Space',
@@ -41,6 +66,12 @@ function mapKeyToTauri(key: string): string | null {
   return key;
 }
 
+/** Keys that are safe to bind without a modifier (won't conflict with typing) */
+function isSafeWithoutModifier(tauriKey: string): boolean {
+  // Function keys and numpad keys are safe standalone
+  return /^F\d{1,2}$/.test(tauriKey) || tauriKey.startsWith('Numpad');
+}
+
 export function HotkeyInput({ value, onChange, error }: HotkeyInputProps) {
   const [capturing, setCapturing] = useState(false);
   const buttonRef = useRef<HTMLButtonElement>(null);
@@ -55,11 +86,13 @@ export function HotkeyInput({ value, onChange, error }: HotkeyInputProps) {
       return;
     }
 
-    const tauriKey = mapKeyToTauri(e.key);
+    const tauriKey = mapKeyToTauri(e);
     if (!tauriKey) return; // Ignore lone modifier presses
 
-    // Require at least one modifier
-    if (!e.ctrlKey && !e.shiftKey && !e.altKey) return;
+    const hasModifier = e.ctrlKey || e.shiftKey || e.altKey;
+
+    // Require at least one modifier unless the key is safe standalone
+    if (!hasModifier && !isSafeWithoutModifier(tauriKey)) return;
 
     // Build shortcut string in Tauri format
     const parts: string[] = [];
