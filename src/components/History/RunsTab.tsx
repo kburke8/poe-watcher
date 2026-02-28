@@ -5,6 +5,7 @@ import { useRunStore } from '../../stores/runStore';
 import { useSettingsStore } from '../../stores/settingsStore';
 import { exportRunToJson } from '../../utils/jsonExport';
 import { Button } from '../Shared/Button';
+import { ConfirmDialog } from '../Shared/ConfirmDialog';
 import { EmptyState } from '../Shared/EmptyState';
 import { AddReferenceRunModal } from './AddReferenceRunModal';
 import { format } from 'date-fns';
@@ -20,6 +21,7 @@ export function RunsTab() {
   const [sortDirection, setSortDirection] = useState<SortDirection>('desc');
   const [editingRun, setEditingRun] = useState<Run | null>(null);
   const [editingSplits, setEditingSplits] = useState<Split[]>([]);
+  const [deleteConfirmRun, setDeleteConfirmRun] = useState<Run | null>(null);
 
   // Sort runs
   const sortedRuns = [...filteredRuns].sort((a, b) => {
@@ -62,7 +64,15 @@ export function RunsTab() {
     }
   };
 
-  const handleDelete = async (run: Run) => {
+  const handleDeleteClick = (run: Run) => {
+    if (run.status === 'completed') {
+      setDeleteConfirmRun(run);
+    } else {
+      performDelete(run);
+    }
+  };
+
+  const performDelete = async (run: Run) => {
     try {
       await invoke('delete_run', { runId: run.id });
       loadFilteredRuns();
@@ -246,7 +256,7 @@ export function RunsTab() {
                       <Button
                         variant="ghost"
                         size="sm"
-                        onClick={() => handleDelete(run)}
+                        onClick={() => handleDeleteClick(run)}
                         title="Delete run"
                         className="text-[--color-timer-behind] hover:bg-[--color-timer-behind]/20"
                       >
@@ -276,6 +286,19 @@ export function RunsTab() {
           editSplits={editingSplits}
         />
       )}
+
+      <ConfirmDialog
+        isOpen={!!deleteConfirmRun}
+        title="Delete Completed Run?"
+        message={`Are you sure you want to delete "${deleteConfirmRun?.characterName || deleteConfirmRun?.character || 'Unknown'}" (${deleteConfirmRun?.ascendancy || deleteConfirmRun?.class || ''}, ${deleteConfirmRun?.totalTimeMs ? formatTime(deleteConfirmRun.totalTimeMs) : '--:--'})?`}
+        details="This will permanently delete the run, all splits, and any captured snapshots."
+        confirmLabel="Delete"
+        onConfirm={() => {
+          if (deleteConfirmRun) performDelete(deleteConfirmRun);
+          setDeleteConfirmRun(null);
+        }}
+        onCancel={() => setDeleteConfirmRun(null)}
+      />
     </div>
   );
 }

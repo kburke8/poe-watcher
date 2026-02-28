@@ -1,4 +1,4 @@
-import { useMemo } from 'react';
+import { useMemo, useRef, useEffect } from 'react';
 import { ListChecks, Settings, Home } from 'lucide-react';
 import { useRunStore } from '../../stores/runStore';
 import { useSettingsStore } from '../../stores/settingsStore';
@@ -23,8 +23,24 @@ export function SplitList() {
           activeComparisonRunId, activeComparisonLabel,
           showTownVisits, setShowTownVisits } = useSettingsStore();
 
+  const scrollContainerRef = useRef<HTMLDivElement>(null);
+
   const enabledBreakpoints = breakpoints.filter((bp) => bp.isEnabled);
   const completedSplits = timer.splits;
+
+  // Auto-scroll to the active (next) split when a new split is completed
+  // Uses manual scrollTop to avoid scrollIntoView propagating to parent containers
+  useEffect(() => {
+    const container = scrollContainerRef.current;
+    if (!container) return;
+    const activeEl = container.querySelector<HTMLElement>('[data-split-active]');
+    if (activeEl) {
+      const containerRect = container.getBoundingClientRect();
+      const activeRect = activeEl.getBoundingClientRect();
+      const targetScrollTop = container.scrollTop + (activeRect.top - containerRect.top) - (containerRect.height / 2) + (activeRect.height / 2);
+      container.scrollTo({ top: targetScrollTop, behavior: 'smooth' });
+    }
+  }, [completedSplits.length]);
 
   // Determine run category and class for PB lookup
   const category = currentRun?.category
@@ -133,7 +149,7 @@ export function SplitList() {
 
       <ComparisonSelector />
 
-      <div className="flex-1 overflow-auto">
+      <div className="flex-1 overflow-auto" ref={scrollContainerRef}>
         {enabledBreakpoints.length === 0 ? (
           <EmptyState
             icon={ListChecks}
@@ -191,19 +207,20 @@ export function SplitList() {
               const referenceTime = compTime ?? pbTime;
 
               return (
-                <SplitRow
-                  key={bp.name}
-                  name={bp.name}
-                  type={bp.type}
-                  splitTime={split?.splitTimeMs ?? null}
-                  segmentTime={split?.segmentTimeMs ?? null}
-                  delta={split?.deltaMs ?? null}
-                  isBestSegment={split?.isBestSegment ?? false}
-                  isNext={isNext}
-                  isCompleted={isCompleted}
-                  pbTime={referenceTime}
-                  tooltip={splitTooltips[bp.name]}
-                />
+                <div key={bp.name} {...(isNext ? { 'data-split-active': true } : {})}>
+                  <SplitRow
+                    name={bp.name}
+                    type={bp.type}
+                    splitTime={split?.splitTimeMs ?? null}
+                    segmentTime={split?.segmentTimeMs ?? null}
+                    delta={split?.deltaMs ?? null}
+                    isBestSegment={split?.isBestSegment ?? false}
+                    isNext={isNext}
+                    isCompleted={isCompleted}
+                    pbTime={referenceTime}
+                    tooltip={splitTooltips[bp.name]}
+                  />
+                </div>
               );
             })}
           </div>

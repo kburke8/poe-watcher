@@ -9,14 +9,16 @@ import { EquipmentGrid } from './EquipmentGrid';
 import { SkillsDisplay } from './SkillsDisplay';
 import { PassivesSummary } from './PassivesSummary';
 import { PassiveTree } from './PassiveTree';
+import { RunAnalysis } from './RunAnalysis';
 import { EmptyState } from '../Shared/EmptyState';
 import { LoadingSpinner } from '../Shared/LoadingSpinner';
 import { Button } from '../Shared/Button';
 import { exportToPob, shareOnPobbIn, exportAllToPob, shareAllOnPobbIn } from '../../utils/pobExport';
 import { exportRunToJson } from '../../utils/jsonExport';
-import type { Run, Split, Snapshot } from '../../types';
+import type { Run, Split, Snapshot, PersonalBest, GoldSplit } from '../../types';
 
-type TabType = 'equipment' | 'passives';
+type SnapshotTabType = 'equipment' | 'passives';
+type DetailMode = 'snapshots' | 'analysis';
 
 export function SnapshotView() {
   const { runs: rawRuns, currentRun } = useRunStore();
@@ -304,13 +306,38 @@ function SnapshotDetail({
   onRetryCapture,
 }: SnapshotDetailProps) {
   const { accountName } = useSettingsStore();
-  const [activeTab, setActiveTab] = useState<TabType>('equipment');
+  const [detailMode, setDetailMode] = useState<DetailMode>('snapshots');
+  const [activeTab, setActiveTab] = useState<SnapshotTabType>('equipment');
   const [exportStatus, setExportStatus] = useState<'idle' | 'loading' | 'success' | 'error'>('idle');
   const [shareStatus, setShareStatus] = useState<'idle' | 'loading' | 'success' | 'error'>('idle');
   const [shareUrl, setShareUrl] = useState<string | null>(null);
   const [exportAllStatus, setExportAllStatus] = useState<'idle' | 'loading' | 'success' | 'error'>('idle');
   const [shareAllStatus, setShareAllStatus] = useState<'idle' | 'loading' | 'success' | 'error'>('idle');
   const [shareAllUrl, setShareAllUrl] = useState<string | null>(null);
+  const [pbTimeMs, setPbTimeMs] = useState<number | null>(null);
+  const [goldSplitsMap, setGoldSplitsMap] = useState<Map<string, number>>(new Map());
+
+  // Load PB and gold splits for this run's category
+  useEffect(() => {
+    const category = run.category;
+    const cls = run.class;
+    if (!category || !cls) return;
+
+    invoke<PersonalBest[]>('get_personal_bests').then((pbs) => {
+      const pb = pbs.find((p) => p.category === category && p.class === cls);
+      setPbTimeMs(pb?.totalTimeMs ?? null);
+    }).catch(() => setPbTimeMs(null));
+
+    invoke<GoldSplit[]>('get_gold_splits').then((golds) => {
+      const map = new Map<string, number>();
+      for (const gold of golds) {
+        if (gold.category === category && gold.class === cls) {
+          map.set(gold.breakpointName, gold.bestSegmentMs);
+        }
+      }
+      setGoldSplitsMap(map);
+    }).catch(() => setGoldSplitsMap(new Map()));
+  }, [run.id, run.category, run.class]);
 
   const handleExportToPob = async () => {
     if (!selectedSnapshot) return;
@@ -420,282 +447,316 @@ function SnapshotDetail({
         </p>
       </div>
 
-      {/* Timeline scrubber */}
-      <div className="px-6 py-4 border-b border-[--color-border]">
-        <div className="text-sm text-[--color-text-muted] mb-2">
-          Snapshot Timeline
-          {isLoading && <span className="ml-2"><LoadingSpinner size="sm" /></span>}
-        </div>
-        <div className="relative h-8">
-          {/* Line segments connecting markers */}
-          {timelineMarkers.length > 0 && (() => {
-            const firstPos = (timelineMarkers[0].split.splitTimeMs / maxTime) * 100;
-            const lastPos = (timelineMarkers[timelineMarkers.length - 1].split.splitTimeMs / maxTime) * 100;
-            return (
-              <>
-                {/* Lead-in line from left edge to first dot */}
-                <div
-                  className="absolute top-1/2 -translate-y-1/2"
-                  style={{
-                    left: 0,
-                    width: `${firstPos}%`,
-                    height: '2px',
-                    opacity: 0.3,
-                    background: 'var(--color-text-muted)',
-                    maskImage: 'linear-gradient(90deg, transparent 0px, black 12px, black calc(100% - 9px), transparent 100%)',
-                    WebkitMaskImage: 'linear-gradient(90deg, transparent 0px, black 12px, black calc(100% - 9px), transparent 100%)',
-                  }}
-                />
-                {/* Segments between consecutive dots */}
-                {timelineMarkers.map((marker, i) => {
-                  if (i === 0) return null;
-                  const prevPos = (timelineMarkers[i - 1].split.splitTimeMs / maxTime) * 100;
-                  const currPos = (marker.split.splitTimeMs / maxTime) * 100;
-                  return (
-                    <div
-                      key={`line-${marker.split.id}`}
-                      className="absolute top-1/2 -translate-y-1/2"
-                      style={{
-                        left: `${prevPos}%`,
-                        width: `${currPos - prevPos}%`,
-                        height: '2px',
-                        opacity: 0.3,
-                        background: 'var(--color-text-muted)',
-                        maskImage: 'linear-gradient(90deg, transparent 0px, black 9px, black calc(100% - 9px), transparent 100%)',
-                        WebkitMaskImage: 'linear-gradient(90deg, transparent 0px, black 9px, black calc(100% - 9px), transparent 100%)',
-                      }}
-                    />
-                  );
-                })}
-                {/* Trail line from last dot to right edge */}
-                <div
-                  className="absolute top-1/2 -translate-y-1/2"
-                  style={{
-                    left: `${lastPos}%`,
-                    width: `${100 - lastPos}%`,
-                    height: '2px',
-                    opacity: 0.3,
-                    background: 'var(--color-text-muted)',
-                    maskImage: 'linear-gradient(90deg, transparent 0px, black 9px, black calc(100% - 12px), transparent 100%)',
-                    WebkitMaskImage: 'linear-gradient(90deg, transparent 0px, black 9px, black calc(100% - 12px), transparent 100%)',
-                  }}
-                />
-              </>
-            );
-          })()}
-
-          {/* Timeline markers */}
-          {timelineMarkers.map((marker) => {
-            const position = (marker.split.splitTimeMs / maxTime) * 100;
-            const isSelected = marker.snapshot?.id === selectedSnapshot?.id;
-
-            // Determine dot style
-            let dotClass: string;
-            if (marker.isPending) {
-              dotClass = 'bg-yellow-500 border-yellow-400 animate-pulse';
-            } else if (marker.failError) {
-              dotClass = 'bg-red-500 border-red-400 cursor-pointer';
-            } else if (isSelected) {
-              dotClass = 'scale-150 shadow-[0_0_12px_rgba(175,96,37,0.6)]';
-            } else if (marker.snapshot) {
-              dotClass = 'bg-[--color-poe-gold]/60 border-[--color-poe-gold-light]/60 hover:scale-110 hover:bg-[--color-poe-gold] hover:border-[--color-poe-gold-light]';
-            } else {
-              dotClass = 'bg-[--color-surface] border-[--color-border] hover:border-[--color-text-muted]';
-            }
-
-            return (
-              <button
-                key={marker.split.id}
-                className={`absolute top-1/2 -translate-y-1/2 -translate-x-1/2 w-4 h-4 rounded-full border-2 transition-all ${dotClass}`}
-                style={{
-                  left: `${position}%`,
-                  ...(isSelected ? { backgroundColor: '#af6025', borderColor: '#af6025' } : {}),
-                }}
-                onClick={() => {
-                  if (marker.failError) {
-                    onRetryCapture(marker.split.id, marker.split.splitTimeMs);
-                  } else if (marker.snapshot) {
-                    onSelectSnapshot(marker.snapshot.id);
-                  }
-                }}
-                title={`${marker.split.breakpointName}\n${formatTime(marker.split.splitTimeMs)}${
-                  marker.isPending
-                    ? '\nCapturing...'
-                    : marker.failError
-                    ? `\nFailed: ${marker.failError}\nClick to retry`
-                    : marker.snapshot
-                    ? `\nLevel ${marker.snapshot.characterLevel}`
-                    : '\nNo snapshot'
-                }`}
-              />
-            );
-          })}
-        </div>
-
-        {/* Timeline labels */}
-        <div className="flex justify-between mt-2 text-xs text-[--color-text-muted]">
-          <span>Start</span>
-          <span>{selectedSnapshot ? (() => {
-            const matchingSplit = splits.find(s => s.id === selectedSnapshot.splitId);
-            const zoneName = matchingSplit?.breakpointName;
-            return `${formatTime(selectedSnapshot.elapsedTimeMs)} - Level ${selectedSnapshot.characterLevel}${zoneName ? ` - ${zoneName}` : ''}`;
-          })() : ''}</span>
-          <span>{formatTime(maxTime)}</span>
+      {/* Top-level mode tabs: Snapshots | Analysis */}
+      <div className="px-6 border-b border-[--color-border]">
+        <div className="flex gap-4">
+          {(['snapshots', 'analysis'] as DetailMode[]).map((mode) => (
+            <button
+              key={mode}
+              onClick={() => setDetailMode(mode)}
+              className={`pb-2 pt-3 px-1 text-sm border-b-2 transition-colors capitalize ${
+                detailMode === mode
+                  ? 'text-[--color-text] border-[--color-poe-gold]'
+                  : 'text-[--color-text-muted] border-transparent hover:text-[--color-text] hover:border-[--color-poe-gold]/50'
+              }`}
+            >
+              {mode === 'snapshots' ? 'Snapshots' : 'Analysis'}
+            </button>
+          ))}
         </div>
       </div>
 
-      {/* Content area */}
-      {snapshots.length === 0 && !isLoading ? (
-        <div className="flex-1 flex items-center justify-center">
-          <EmptyState icon={Camera} title="No snapshots yet" description="Snapshots are automatically captured at act transitions and boss kills." />
+      {detailMode === 'analysis' ? (
+        /* ── Analysis mode ── */
+        <div className="flex-1 overflow-auto p-6">
+          <RunAnalysis
+            splits={splits}
+            totalTimeMs={run.totalTimeMs}
+            pbTimeMs={pbTimeMs}
+            goldSplits={goldSplitsMap}
+          />
         </div>
-      ) : selectedSnapshot ? (
+      ) : (
+        /* ── Snapshots mode ── */
         <>
-          {/* Tabs */}
-          <div className="px-6 border-b border-[--color-border]">
-            <div className="flex gap-4">
-              {(['equipment', 'passives'] as TabType[]).map((tab) => (
-                <button
-                  key={tab}
-                  onClick={() => setActiveTab(tab)}
-                  className={`pb-2 px-1 text-sm border-b-2 transition-colors capitalize ${
-                    activeTab === tab
-                      ? 'text-[--color-text] border-[--color-poe-gold]'
-                      : 'text-[--color-text-muted] border-transparent hover:text-[--color-text] hover:border-[--color-poe-gold]/50'
-                  }`}
-                >
-                  {tab === 'equipment' ? 'Gear & Skills' : tab}
-                </button>
-              ))}
+          {/* Timeline scrubber */}
+          <div className="px-6 py-4 border-b border-[--color-border]">
+            <div className="text-sm text-[--color-text-muted] mb-2">
+              Snapshot Timeline
+              {isLoading && <span className="ml-2"><LoadingSpinner size="sm" /></span>}
+            </div>
+            <div className="relative h-8">
+              {/* Line segments connecting markers */}
+              {timelineMarkers.length > 0 && (() => {
+                const firstPos = (timelineMarkers[0].split.splitTimeMs / maxTime) * 100;
+                const lastPos = (timelineMarkers[timelineMarkers.length - 1].split.splitTimeMs / maxTime) * 100;
+                return (
+                  <>
+                    {/* Lead-in line from left edge to first dot */}
+                    <div
+                      className="absolute top-1/2 -translate-y-1/2"
+                      style={{
+                        left: 0,
+                        width: `${firstPos}%`,
+                        height: '2px',
+                        opacity: 0.3,
+                        background: 'var(--color-text-muted)',
+                        maskImage: 'linear-gradient(90deg, transparent 0px, black 12px, black calc(100% - 9px), transparent 100%)',
+                        WebkitMaskImage: 'linear-gradient(90deg, transparent 0px, black 12px, black calc(100% - 9px), transparent 100%)',
+                      }}
+                    />
+                    {/* Segments between consecutive dots */}
+                    {timelineMarkers.map((marker, i) => {
+                      if (i === 0) return null;
+                      const prevPos = (timelineMarkers[i - 1].split.splitTimeMs / maxTime) * 100;
+                      const currPos = (marker.split.splitTimeMs / maxTime) * 100;
+                      return (
+                        <div
+                          key={`line-${marker.split.id}`}
+                          className="absolute top-1/2 -translate-y-1/2"
+                          style={{
+                            left: `${prevPos}%`,
+                            width: `${currPos - prevPos}%`,
+                            height: '2px',
+                            opacity: 0.3,
+                            background: 'var(--color-text-muted)',
+                            maskImage: 'linear-gradient(90deg, transparent 0px, black 9px, black calc(100% - 9px), transparent 100%)',
+                            WebkitMaskImage: 'linear-gradient(90deg, transparent 0px, black 9px, black calc(100% - 9px), transparent 100%)',
+                          }}
+                        />
+                      );
+                    })}
+                    {/* Trail line from last dot to right edge */}
+                    <div
+                      className="absolute top-1/2 -translate-y-1/2"
+                      style={{
+                        left: `${lastPos}%`,
+                        width: `${100 - lastPos}%`,
+                        height: '2px',
+                        opacity: 0.3,
+                        background: 'var(--color-text-muted)',
+                        maskImage: 'linear-gradient(90deg, transparent 0px, black 9px, black calc(100% - 12px), transparent 100%)',
+                        WebkitMaskImage: 'linear-gradient(90deg, transparent 0px, black 9px, black calc(100% - 12px), transparent 100%)',
+                      }}
+                    />
+                  </>
+                );
+              })()}
+
+              {/* Timeline markers */}
+              {timelineMarkers.map((marker) => {
+                const position = (marker.split.splitTimeMs / maxTime) * 100;
+                const isSelected = marker.snapshot?.id === selectedSnapshot?.id;
+
+                // Determine dot style
+                let dotClass: string;
+                if (marker.isPending) {
+                  dotClass = 'bg-yellow-500 border-yellow-400 animate-pulse';
+                } else if (marker.failError) {
+                  dotClass = 'bg-red-500 border-red-400 cursor-pointer';
+                } else if (isSelected) {
+                  dotClass = 'scale-150 shadow-[0_0_12px_rgba(175,96,37,0.6)]';
+                } else if (marker.snapshot) {
+                  dotClass = 'bg-[--color-poe-gold]/60 border-[--color-poe-gold-light]/60 hover:scale-110 hover:bg-[--color-poe-gold] hover:border-[--color-poe-gold-light]';
+                } else {
+                  dotClass = 'bg-[--color-surface] border-[--color-border] hover:border-[--color-text-muted]';
+                }
+
+                return (
+                  <button
+                    key={marker.split.id}
+                    className={`absolute top-1/2 -translate-y-1/2 -translate-x-1/2 w-4 h-4 rounded-full border-2 transition-all ${dotClass}`}
+                    style={{
+                      left: `${position}%`,
+                      ...(isSelected ? { backgroundColor: '#af6025', borderColor: '#af6025' } : {}),
+                    }}
+                    onClick={() => {
+                      if (marker.failError) {
+                        onRetryCapture(marker.split.id, marker.split.splitTimeMs);
+                      } else if (marker.snapshot) {
+                        onSelectSnapshot(marker.snapshot.id);
+                      }
+                    }}
+                    title={`${marker.split.breakpointName}\n${formatTime(marker.split.splitTimeMs)}${
+                      marker.isPending
+                        ? '\nCapturing...'
+                        : marker.failError
+                        ? `\nFailed: ${marker.failError}\nClick to retry`
+                        : marker.snapshot
+                        ? `\nLevel ${marker.snapshot.characterLevel}`
+                        : '\nNo snapshot'
+                    }`}
+                  />
+                );
+              })}
+            </div>
+
+            {/* Timeline labels */}
+            <div className="flex justify-between mt-2 text-xs text-[--color-text-muted]">
+              <span>Start</span>
+              <span>{selectedSnapshot ? (() => {
+                const matchingSplit = splits.find(s => s.id === selectedSnapshot.splitId);
+                const zoneName = matchingSplit?.breakpointName;
+                return `${formatTime(selectedSnapshot.elapsedTimeMs)} - Level ${selectedSnapshot.characterLevel}${zoneName ? ` - ${zoneName}` : ''}`;
+              })() : ''}</span>
+              <span>{formatTime(maxTime)}</span>
             </div>
           </div>
 
-          {/* Tab content */}
-          <div className="flex-1 overflow-auto p-6">
-            {activeTab === 'equipment' && (
-              <div className="grid grid-cols-[auto_1fr] gap-6">
-                {/* Equipment grid */}
-                <div className="shrink-0">
-                  <EquipmentGrid items={equippedItems} />
-                </div>
-                {/* Skills panel */}
-                <div className="min-w-0">
-                  <div className="section-header rounded-t-lg px-3 py-2 mb-3">
-                    <span className="text-sm font-medium text-[--color-text]">Socketed Gems</span>
-                  </div>
-                  <SkillsDisplay items={items} compact columns={2} />
+          {/* Snapshot content */}
+          {snapshots.length === 0 && !isLoading ? (
+            <div className="flex-1 flex items-center justify-center">
+              <EmptyState icon={Camera} title="No snapshots yet" description="Snapshots are automatically captured at act transitions and boss kills." />
+            </div>
+          ) : selectedSnapshot ? (
+            <>
+              {/* Sub-tabs: Gear & Skills | Passives */}
+              <div className="px-6 border-b border-[--color-border]">
+                <div className="flex gap-4">
+                  {(['equipment', 'passives'] as SnapshotTabType[]).map((tab) => (
+                    <button
+                      key={tab}
+                      onClick={() => setActiveTab(tab)}
+                      className={`pb-2 pt-3 px-1 text-sm border-b-2 transition-colors capitalize ${
+                        activeTab === tab
+                          ? 'text-[--color-text] border-[--color-poe-gold]'
+                          : 'text-[--color-text-muted] border-transparent hover:text-[--color-text] hover:border-[--color-poe-gold]/50'
+                      }`}
+                    >
+                      {tab === 'equipment' ? 'Gear & Skills' : 'Passives'}
+                    </button>
+                  ))}
                 </div>
               </div>
-            )}
-            {activeTab === 'passives' && (
-              <div className="space-y-4">
-                <PassiveTree
-                  allocatedNodes={passives.hashes}
-                  masterySelections={passives.masteryEffects}
-                  characterClass={run.class}
-                  ascendancy={run.ascendancy || undefined}
-                  width={Math.min(900, window.innerWidth - 450)}
-                  height={550}
-                />
-                <PassivesSummary
-                  hashes={passives.hashes}
-                  hashesEx={passives.hashesEx}
-                  characterLevel={selectedSnapshot.characterLevel}
-                />
-              </div>
-            )}
-          </div>
 
-          {/* Export bar */}
-          <div className="px-6 py-3 border-t border-[--color-border] flex items-center gap-2 flex-wrap">
-            {snapshots.length > 1 ? (
-              <>
-                <Button
-                  variant="primary"
-                  size="sm"
-                  onClick={handleExportAllToPob}
-                  disabled={exportAllStatus === 'loading'}
-                  title="Export all snapshots as separate item/skill/tree sets"
-                >
-                  {exportAllStatus === 'loading' ? 'Copying...' : exportAllStatus === 'success' ? 'Copied!' : `Export All to PoB (${snapshots.length})`}
-                </Button>
-                <Button
-                  variant="secondary"
-                  size="sm"
-                  onClick={handleShareAllOnPobbIn}
-                  disabled={shareAllStatus === 'loading'}
-                  title="Share all snapshots as one build with multiple sets"
-                >
-                  {shareAllStatus === 'loading' ? 'Uploading...' : shareAllStatus === 'success' ? 'Shared!' : 'Share All on pobb.in'}
-                </Button>
+              {/* Tab content */}
+              <div className="flex-1 overflow-auto p-6">
+                {activeTab === 'equipment' && (
+                  <div className="grid grid-cols-[auto_1fr] gap-6">
+                    {/* Equipment grid */}
+                    <div className="shrink-0">
+                      <EquipmentGrid items={equippedItems} />
+                    </div>
+                    {/* Skills panel */}
+                    <div className="min-w-0">
+                      <div className="section-header rounded-t-lg px-3 py-2 mb-3">
+                        <span className="text-sm font-medium text-[--color-text]">Socketed Gems</span>
+                      </div>
+                      <SkillsDisplay items={items} compact columns={2} />
+                    </div>
+                  </div>
+                )}
+                {activeTab === 'passives' && (
+                  <div className="space-y-4">
+                    <PassiveTree
+                      allocatedNodes={passives.hashes}
+                      masterySelections={passives.masteryEffects}
+                      characterClass={run.class}
+                      ascendancy={run.ascendancy || undefined}
+                      width={Math.min(900, window.innerWidth - 450)}
+                      height={550}
+                    />
+                    <PassivesSummary
+                      hashes={passives.hashes}
+                      hashesEx={passives.hashesEx}
+                      characterLevel={selectedSnapshot.characterLevel}
+                    />
+                  </div>
+                )}
+              </div>
+
+              {/* Export bar */}
+              <div className="px-6 py-3 border-t border-[--color-border] flex items-center gap-2 flex-wrap">
+                {snapshots.length > 1 ? (
+                  <>
+                    <Button
+                      variant="primary"
+                      size="sm"
+                      onClick={handleExportAllToPob}
+                      disabled={exportAllStatus === 'loading'}
+                      title="Export all snapshots as separate item/skill/tree sets"
+                    >
+                      {exportAllStatus === 'loading' ? 'Copying...' : exportAllStatus === 'success' ? 'Copied!' : `Export All to PoB (${snapshots.length})`}
+                    </Button>
+                    <Button
+                      variant="secondary"
+                      size="sm"
+                      onClick={handleShareAllOnPobbIn}
+                      disabled={shareAllStatus === 'loading'}
+                      title="Share all snapshots as one build with multiple sets"
+                    >
+                      {shareAllStatus === 'loading' ? 'Uploading...' : shareAllStatus === 'success' ? 'Shared!' : 'Share All on pobb.in'}
+                    </Button>
+                    <span className="w-px h-5 bg-[--color-border] mx-1" />
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={handleExportToPob}
+                      disabled={exportStatus === 'loading'}
+                      title="Export only the selected snapshot"
+                    >
+                      {exportStatus === 'loading' ? 'Copying...' : exportStatus === 'success' ? 'Copied!' : 'This Snapshot'}
+                    </Button>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={handleShareOnPobbIn}
+                      disabled={shareStatus === 'loading'}
+                      title="Share only the selected snapshot"
+                    >
+                      {shareStatus === 'loading' ? 'Uploading...' : shareStatus === 'success' ? 'Shared!' : 'Share This'}
+                    </Button>
+                  </>
+                ) : (
+                  <>
+                    <Button
+                      variant="primary"
+                      size="sm"
+                      onClick={handleExportToPob}
+                      disabled={exportStatus === 'loading'}
+                    >
+                      {exportStatus === 'loading' ? 'Copying...' : exportStatus === 'success' ? 'Copied!' : 'Export to PoB'}
+                    </Button>
+                    <Button
+                      variant="secondary"
+                      size="sm"
+                      onClick={handleShareOnPobbIn}
+                      disabled={shareStatus === 'loading'}
+                    >
+                      {shareStatus === 'loading' ? 'Uploading...' : shareStatus === 'success' ? 'Shared!' : 'Share on pobb.in'}
+                    </Button>
+                  </>
+                )}
                 <span className="w-px h-5 bg-[--color-border] mx-1" />
                 <Button
                   variant="ghost"
                   size="sm"
-                  onClick={handleExportToPob}
-                  disabled={exportStatus === 'loading'}
-                  title="Export only the selected snapshot"
+                  onClick={() => exportRunToJson(run.id, run)}
+                  title="Export full run data as JSON"
                 >
-                  {exportStatus === 'loading' ? 'Copying...' : exportStatus === 'success' ? 'Copied!' : 'This Snapshot'}
+                  Export JSON
                 </Button>
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={handleShareOnPobbIn}
-                  disabled={shareStatus === 'loading'}
-                  title="Share only the selected snapshot"
-                >
-                  {shareStatus === 'loading' ? 'Uploading...' : shareStatus === 'success' ? 'Shared!' : 'Share This'}
-                </Button>
-              </>
-            ) : (
-              <>
-                <Button
-                  variant="primary"
-                  size="sm"
-                  onClick={handleExportToPob}
-                  disabled={exportStatus === 'loading'}
-                >
-                  {exportStatus === 'loading' ? 'Copying...' : exportStatus === 'success' ? 'Copied!' : 'Export to PoB'}
-                </Button>
-                <Button
-                  variant="secondary"
-                  size="sm"
-                  onClick={handleShareOnPobbIn}
-                  disabled={shareStatus === 'loading'}
-                >
-                  {shareStatus === 'loading' ? 'Uploading...' : shareStatus === 'success' ? 'Shared!' : 'Share on pobb.in'}
-                </Button>
-              </>
-            )}
-            <span className="w-px h-5 bg-[--color-border] mx-1" />
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={() => exportRunToJson(run.id, run)}
-              title="Export full run data as JSON"
-            >
-              Export JSON
-            </Button>
-            {(shareStatus === 'success' && shareUrl) && (
-              <a href={shareUrl} target="_blank" rel="noopener noreferrer" className="text-xs text-[--color-poe-gold] hover:underline truncate max-w-xs ml-auto">
-                {shareUrl}
-              </a>
-            )}
-            {(shareAllStatus === 'success' && shareAllUrl) && (
-              <a href={shareAllUrl} target="_blank" rel="noopener noreferrer" className="text-xs text-[--color-poe-gold] hover:underline truncate max-w-xs ml-auto">
-                {shareAllUrl}
-              </a>
-            )}
-            {(exportStatus === 'error' || shareStatus === 'error' || exportAllStatus === 'error' || shareAllStatus === 'error') && (
-              <span className="text-xs text-red-400 ml-auto">Export failed</span>
-            )}
-          </div>
+                {(shareStatus === 'success' && shareUrl) && (
+                  <a href={shareUrl} target="_blank" rel="noopener noreferrer" className="text-xs text-[--color-poe-gold] hover:underline truncate max-w-xs ml-auto">
+                    {shareUrl}
+                  </a>
+                )}
+                {(shareAllStatus === 'success' && shareAllUrl) && (
+                  <a href={shareAllUrl} target="_blank" rel="noopener noreferrer" className="text-xs text-[--color-poe-gold] hover:underline truncate max-w-xs ml-auto">
+                    {shareAllUrl}
+                  </a>
+                )}
+                {(exportStatus === 'error' || shareStatus === 'error' || exportAllStatus === 'error' || shareAllStatus === 'error') && (
+                  <span className="text-xs text-red-400 ml-auto">Export failed</span>
+                )}
+              </div>
+            </>
+          ) : (
+            <div className="flex-1 flex items-center justify-center">
+              <EmptyState icon={MousePointerClick} title="Select a snapshot" description="Click a marker on the timeline above." />
+            </div>
+          )}
         </>
-      ) : (
-        <div className="flex-1 flex items-center justify-center">
-          <EmptyState icon={MousePointerClick} title="Select a snapshot" description="Click a marker on the timeline above." />
-        </div>
       )}
     </div>
   );
