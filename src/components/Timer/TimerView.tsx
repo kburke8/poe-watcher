@@ -225,14 +225,9 @@ export function TimerView() {
             <div className="mt-6 card-inset rounded-lg p-6">
               <h3 className="text-lg font-semibold text-[--color-text] mb-3">Start a Run</h3>
               <p className="text-[--color-text-muted] text-sm mb-4">
-                Configure your PoE log path in Settings, then start a new character or zone into the game.
-                The timer will automatically detect your character and begin tracking.
+                Configure your PoE log path in Settings, then create a new character.
+                Start the timer with <span className="px-1.5 py-0.5 bg-[--color-surface-elevated] rounded text-xs font-mono text-[--color-text]">{hotkeys.toggleTimer}</span> when your character first moves — splits will be tracked automatically as you progress.
               </p>
-              <div className="flex gap-2">
-                <span className="px-2 py-1 bg-[--color-surface-elevated] rounded text-xs text-[--color-text-muted]">
-                  Auto-detect enabled
-                </span>
-              </div>
             </div>
           ) : currentRun.isGroupRun ? (
             <GroupMemberPanels onSelectMember={handleSelectMember} />

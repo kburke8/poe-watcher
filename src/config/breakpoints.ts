@@ -3,8 +3,7 @@ import type { Breakpoint } from '../types';
 // All PoE zones organized by act - comprehensive list for speedrunning
 export const defaultBreakpoints: Breakpoint[] = [
   // ===== ACT 1 =====
-  { name: 'Twilight Strand', type: 'zone', trigger: { type: 'zone', zoneName: 'The Twilight Strand', act: 1 }, isEnabled: true, captureSnapshot: true },
-  { name: 'The Coast', type: 'zone', trigger: { type: 'zone', zoneName: 'The Coast', act: 1 }, isEnabled: true, captureSnapshot: false },
+  { name: 'The Coast', type: 'zone', trigger: { type: 'zone', zoneName: 'The Coast', act: 1 }, isEnabled: true, captureSnapshot: true },
   { name: 'The Tidal Island', type: 'zone', trigger: { type: 'zone', zoneName: 'The Tidal Island', act: 1 }, isEnabled: false, captureSnapshot: false },
   { name: 'The Mud Flats', type: 'zone', trigger: { type: 'zone', zoneName: 'The Mud Flats', act: 1 }, isEnabled: false, captureSnapshot: false },
   { name: 'The Fetid Pool', type: 'zone', trigger: { type: 'zone', zoneName: 'The Fetid Pool', act: 1 }, isEnabled: false, captureSnapshot: false },
@@ -242,7 +241,6 @@ export function isHideoutZone(zoneName: string): boolean {
 // (Kept as exported reference for documentation/tooling purposes)
 export const speedrunEnabledBreakpoints = [
   // Act 1
-  'Twilight Strand',
   'The Coast',
   'The Upper Prison',
   'The Cavern of Anger',
@@ -292,7 +290,7 @@ export const speedrunEnabledBreakpoints = [
 
 // First zone of each act - always enabled with snapshots across all presets
 export const actFirstZones = [
-  'Twilight Strand',       // Act 1
+  'The Coast',             // Act 1
   'The Southern Forest',   // Act 2
   'The City of Sarn',      // Act 3
   'The Aqueduct',          // Act 4
