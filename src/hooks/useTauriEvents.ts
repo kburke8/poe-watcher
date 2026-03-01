@@ -205,8 +205,11 @@ export function useTauriEvents() {
         // Update local state: sync elapsed time then either enter endgame or end run
         useRunStore.getState().updateElapsed(splitTimeMs);
 
+        // Only enter endgame after Act 10 Kitava kill (not Act 5 or other run endings)
         const { endgameEnabled } = useSettingsStore.getState();
-        if (endgameEnabled) {
+        const lastBp = breakpoints.find(bp => bp.name === breakpointName);
+        const isAct10Kitava = lastBp?.trigger.type === 'kitava' && lastBp?.trigger.act === 10;
+        if (endgameEnabled && isAct10Kitava) {
           useRunStore.getState().enterEndgame(splitTimeMs);
         } else {
           useRunStore.getState().endRun();
