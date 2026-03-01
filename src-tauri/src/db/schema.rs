@@ -812,6 +812,8 @@ pub struct Settings {
     pub show_town_visits: bool,
     // System tray
     pub minimize_to_tray: bool,
+    // Endgame mode
+    pub endgame_enabled: bool,
 }
 
 impl Default for Settings {
@@ -842,6 +844,7 @@ impl Default for Settings {
             group_mode_enabled: false,
             show_town_visits: true,
             minimize_to_tray: false,
+            endgame_enabled: true,
         }
     }
 }
@@ -855,7 +858,7 @@ impl Settings {
                     overlay_show_breakpoints, overlay_breakpoint_count, overlay_bg_opacity, overlay_accent_color,
                     overlay_always_on_top,
                     hotkey_toggle_timer, hotkey_reset_timer, hotkey_manual_snapshot, hotkey_toggle_overlay,
-                    hotkey_manual_split, group_mode_enabled, show_town_visits, minimize_to_tray
+                    hotkey_manual_split, group_mode_enabled, show_town_visits, minimize_to_tray, endgame_enabled
              FROM settings WHERE id = 1",
             [],
             |row| {
@@ -885,6 +888,7 @@ impl Settings {
                     group_mode_enabled: row.get(22)?,
                     show_town_visits: row.get(23)?,
                     minimize_to_tray: row.get(24)?,
+                    endgame_enabled: row.get(25)?,
                 })
             },
         );
@@ -903,8 +907,8 @@ impl Settings {
                                    overlay_show_breakpoints, overlay_breakpoint_count, overlay_bg_opacity, overlay_accent_color,
                                    overlay_always_on_top,
                                    hotkey_toggle_timer, hotkey_reset_timer, hotkey_manual_snapshot, hotkey_toggle_overlay,
-                                   hotkey_manual_split, group_mode_enabled, show_town_visits, minimize_to_tray)
-             VALUES (1, ?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14, ?15, ?16, ?17, ?18, ?19, ?20, ?21, ?22, ?23, ?24, ?25)
+                                   hotkey_manual_split, group_mode_enabled, show_town_visits, minimize_to_tray, endgame_enabled)
+             VALUES (1, ?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14, ?15, ?16, ?17, ?18, ?19, ?20, ?21, ?22, ?23, ?24, ?25, ?26)
              ON CONFLICT(id) DO UPDATE SET
                 poe_log_path = excluded.poe_log_path,
                 account_name = excluded.account_name,
@@ -930,7 +934,8 @@ impl Settings {
                 hotkey_manual_split = excluded.hotkey_manual_split,
                 group_mode_enabled = excluded.group_mode_enabled,
                 show_town_visits = excluded.show_town_visits,
-                minimize_to_tray = excluded.minimize_to_tray",
+                minimize_to_tray = excluded.minimize_to_tray,
+                endgame_enabled = excluded.endgame_enabled",
             params![
                 settings.poe_log_path,
                 settings.account_name,
@@ -957,6 +962,7 @@ impl Settings {
                 settings.group_mode_enabled,
                 settings.show_town_visits,
                 settings.minimize_to_tray,
+                settings.endgame_enabled,
             ],
         )?;
         Ok(())

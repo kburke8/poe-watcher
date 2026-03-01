@@ -6,6 +6,8 @@ import { OverlayTimer } from './components/Overlay/OverlayTimer';
 import { OverlayZone } from './components/Overlay/OverlayZone';
 import { OverlaySplit } from './components/Overlay/OverlaySplit';
 import { OverlayBreakpoints } from './components/Overlay/OverlayBreakpoints';
+import { OverlayFinalTime } from './components/Overlay/OverlayFinalTime';
+import { OverlayEndgameStats } from './components/Overlay/OverlayEndgameStats';
 
 interface OverlayState {
   startTime: number | null;
@@ -37,6 +39,18 @@ interface OverlayState {
   // Hotkey labels
   hotkeyToggleTimer?: string;
   hotkeyToggleOverlay?: string;
+  // Endgame mode
+  isEndgame?: boolean;
+  endgame?: {
+    act10FinalTimeMs: number | null;
+    isMappingSession?: boolean;
+    townHideoutTimeMs: number;
+    deathCount: number;
+    mapCount: number;
+    currentMapStartTime: number | null;
+    currentMapElapsedMs: number;
+    currentMapZone: string | null;
+  } | null;
 }
 
 const initialState: OverlayState = {
@@ -104,7 +118,7 @@ export function OverlayApp() {
     });
     observer.observe(el);
     return () => observer.disconnect();
-  }, [state.scale, state.showTimer, state.showZone, state.showLastSplit, state.showBreakpoints, state.breakpointCount]);
+  }, [state.scale, state.showTimer, state.showZone, state.showLastSplit, state.showBreakpoints, state.breakpointCount, state.isEndgame]);
 
   // Sync always-on-top changes
   useEffect(() => {
@@ -191,9 +205,15 @@ export function OverlayApp() {
           />
         )}
 
-        {/* Last split */}
+        {/* Last split / Endgame final time */}
         {showLastSplit && (
-          state.lastSplit ? (
+          state.isEndgame && state.endgame && !state.endgame.isMappingSession && state.endgame.act10FinalTimeMs != null ? (
+            <OverlayFinalTime
+              finalTimeMs={state.endgame.act10FinalTimeMs}
+              fontSize={fontSize}
+              scale={scale}
+            />
+          ) : state.lastSplit ? (
             <OverlaySplit
               name={state.lastSplit.name}
               deltaMs={state.lastSplit.deltaMs}
@@ -212,9 +232,20 @@ export function OverlayApp() {
           )
         )}
 
-        {/* Upcoming breakpoints */}
+        {/* Upcoming breakpoints / Endgame stats */}
         {showBreakpoints && (
-          state.upcomingBreakpoints.length > 0 ? (
+          state.isEndgame && state.endgame ? (
+            <OverlayEndgameStats
+              townHideoutTimeMs={state.endgame.townHideoutTimeMs}
+              deathCount={state.endgame.deathCount}
+              mapCount={state.endgame.mapCount}
+              currentMapStartTime={state.endgame.currentMapStartTime}
+              currentMapElapsedMs={state.endgame.currentMapElapsedMs}
+              currentMapZone={state.endgame.currentMapZone}
+              fontSize={fontSize}
+              isRunning={state.isRunning}
+            />
+          ) : state.upcomingBreakpoints.length > 0 ? (
             <OverlayBreakpoints
               breakpoints={state.upcomingBreakpoints}
               maxCount={breakpointCount}

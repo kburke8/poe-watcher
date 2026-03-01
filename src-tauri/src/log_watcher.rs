@@ -46,6 +46,12 @@ pub enum LogEvent {
         npc_name: String,
         dialog_text: String,
     },
+    GeneratingLevel {
+        timestamp: String,
+        level: u32,
+        area_name: String,
+        seed: u64,
+    },
 }
 
 /// Log watcher state
@@ -197,6 +203,9 @@ impl LogWatcher {
             LogEvent::NpcDialog { timestamp, npc_name, .. } => {
                 format!("npc_dialog:{}:{}", timestamp, npc_name)
             }
+            LogEvent::GeneratingLevel { timestamp, seed, .. } => {
+                format!("generating_level:{}:{}", timestamp, seed)
+            }
         }
     }
 
@@ -263,6 +272,12 @@ impl LogWatcher {
             static ref KITAVA_AFFLICTION: Regex = Regex::new(
                 r"(\d{4}/\d{2}/\d{2} \d{2}:\d{2}:\d{2}).*\] :? ?You have been permanently weakened by Kitava's .+ affliction\. You now have (?:a total of )?-(\d+)% to all Resistances\."
             ).unwrap();
+
+            // Pattern: Generating level N area "AreaName" with seed S
+            // Example: 2023/12/19 20:42:49 ... [DEBUG Client ...] Generating level 83 area "MapWorldsBurialChambers" with seed 3304002195
+            static ref GENERATING_LEVEL: Regex = Regex::new(
+                r#"(\d{4}/\d{2}/\d{2} \d{2}:\d{2}:\d{2}).*Generating level (\d+) area "([^"]+)" with seed (\d+)"#
+            ).unwrap();
         }
 
         // Try to match zone enter
@@ -315,6 +330,16 @@ impl LogWatcher {
                     dialog_text: caps[3].to_string(),
                 });
             }
+        }
+
+        // Try to match generating level (map instance creation)
+        if let Some(caps) = GENERATING_LEVEL.captures(line) {
+            return Some(LogEvent::GeneratingLevel {
+                timestamp: caps[1].to_string(),
+                level: caps[2].parse().unwrap_or(1),
+                area_name: caps[3].to_string(),
+                seed: caps[4].parse().unwrap_or(0),
+            });
         }
 
         // Try to match login

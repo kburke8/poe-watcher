@@ -1,7 +1,7 @@
 # Runbook
 
 > Operational guide for releasing, troubleshooting, and maintaining PoE Watcher.
-> Last updated: 2026-02-11
+> Last updated: 2026-02-28
 
 ## Release Procedure
 

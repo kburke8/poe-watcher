@@ -1,7 +1,7 @@
 # Development Guide
 
 > Auto-generated from `package.json` and project configuration.
-> Last updated: 2026-02-11
+> Last updated: 2026-02-28
 
 ## Available Scripts
 
@@ -11,6 +11,8 @@
 | `build` | `npm run build` | TypeScript check + Vite production build |
 | `preview` | `npm run preview` | Preview the production build locally |
 | `tauri` | `npm run tauri` | Tauri CLI passthrough (e.g., `npm run tauri dev`, `npm run tauri build`) |
+| `test` | `npm test` | Run vitest test suite (single run) |
+| `test:watch` | `npm run test:watch` | Run vitest in watch mode (re-runs on file changes) |
 
 ### Compound Commands
 
@@ -72,8 +74,9 @@ npm run dev
 1. Create a feature branch: `git checkout -b feature/my-feature`
 2. Run `npm run tauri dev` for full-stack development
 3. Make changes - frontend hot-reloads, Rust requires restart
-4. Test manually (no automated test suite yet)
-5. Commit with descriptive messages
+4. Run `npm test` to verify existing tests pass
+5. Test manually for UI/integration changes
+6. Commit with descriptive messages
 6. Open a Pull Request
 
 ### Adding a Tauri Command
@@ -109,9 +112,23 @@ npm run dev
 
 ## Testing
 
-**Status:** Manual testing only. No automated test suite.
+### Automated Tests
 
-Manual test checklist:
+```bash
+# Run all tests once
+npm test
+
+# Watch mode (re-runs on changes)
+npm run test:watch
+```
+
+Tests use **vitest** with jsdom environment. Current test coverage includes:
+- Overlay state building (comparison integration, PB/gold splits, segment times)
+- Store logic (comparison splits, active comparison state, delta calculations)
+
+### Manual Test Checklist
+
+For UI and integration changes, verify manually:
 - Timer starts/stops/resets correctly
 - Splits trigger on zone changes
 - Snapshots capture via PoE API
@@ -119,6 +136,7 @@ Manual test checklist:
 - Overlay window opens, syncs state, and persists position
 - Settings save and restore correctly
 - Run history filters and displays properly
+- Mapping session starts/tracks/ends without creating DB records
 
 ## Dependencies
 
@@ -133,8 +151,8 @@ Manual test checklist:
 | `@tauri-apps/plugin-opener` | Open URLs in browser |
 | `@tauri-apps/plugin-process` | Process control (restart) |
 | `@tauri-apps/plugin-updater` | Auto-update from GitHub Releases |
-| `@tanstack/react-query` | Async data fetching |
 | `date-fns` | Date formatting |
+| `lucide-react` | Icon library |
 | `recharts` | Charts for run analytics |
 | `pako` | Gzip compression (PoB export) |
 

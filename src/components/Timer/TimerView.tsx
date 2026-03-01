@@ -179,42 +179,96 @@ export function TimerView() {
           <div className="card-inset rounded-lg p-8 mb-6">
             <TimerDisplay elapsedMs={timer.elapsedMs} />
 
-            {/* Current segment */}
-            {timer.splits.length > 0 && (
+            {/* Current segment / Act 10 final time */}
+            {timer.isInEndgame && timer.act10FinalTimeMs != null ? (
+              <div className="mt-4 text-center">
+                <span className="text-[--color-text-muted] text-sm">Act 10 Complete: </span>
+                <span className="timer-display text-lg text-green-400">
+                  {formatTime(timer.act10FinalTimeMs)}
+                </span>
+              </div>
+            ) : timer.splits.length > 0 ? (
               <div className="mt-4 text-center">
                 <span className="text-[--color-text-muted] text-sm">Segment: </span>
                 <span className="timer-display text-lg text-[--color-text]">
                   {formatTime(timer.elapsedMs - timer.splits[timer.splits.length - 1].splitTimeMs)}
                 </span>
               </div>
-            )}
+            ) : null}
 
-            {/* Zone and Town/Hideout Time */}
+            {/* Zone and Town/Hideout Time — endgame vs normal */}
             <div className="mt-4 pt-4 border-t border-[--color-border]">
-              <div className="flex justify-between text-sm mb-2">
-                <div className="flex items-center gap-2">
-                  <span className="text-[--color-text-muted]">Zone:</span>
-                  <span className={`text-[--color-text] ${timer.inTown ? 'text-yellow-400' : ''} ${timer.inHideout ? 'text-blue-400' : ''}`}>
-                    {timer.currentZone || 'None'}
-                    {timer.inTown && ' (Town)'}
-                    {timer.inHideout && ' (Hideout)'}
-                  </span>
-                </div>
-              </div>
-              <div className="flex gap-6 text-sm">
-                <div className="flex items-center gap-2">
-                  <span className="text-yellow-400/70">Town:</span>
-                  <span className="timer-display text-[--color-text]">
-                    {formatTime(getCurrentTownTime(timer))}
-                  </span>
-                </div>
-                <div className="flex items-center gap-2">
-                  <span className="text-blue-400/70">Hideout:</span>
-                  <span className="timer-display text-[--color-text]">
-                    {formatTime(getCurrentHideoutTime(timer))}
-                  </span>
-                </div>
-              </div>
+              {timer.isInEndgame ? (
+                <>
+                  {/* Row 1: Current map zone + live map timer */}
+                  <div className="flex justify-between text-sm mb-2">
+                    <div className="flex items-center gap-2">
+                      <span className="text-[--color-text-muted]">Map:</span>
+                      <span className={`text-[--color-text] ${timer.currentMapZone == null ? (timer.inTown ? 'text-yellow-400' : timer.inHideout ? 'text-blue-400' : '') : ''}`}>
+                        {timer.currentMapZone || timer.currentZone || 'None'}
+                        {timer.currentMapZone != null && timer.currentMapAreaLevel != null && timer.currentMapAreaLevel > 67 && (
+                          <span className="text-[--color-text-muted]"> (T{timer.currentMapAreaLevel - 67})</span>
+                        )}
+                        {timer.currentMapZone == null && timer.inTown && ' (Town)'}
+                        {timer.currentMapZone == null && timer.inHideout && ' (Hideout)'}
+                      </span>
+                    </div>
+                    <span className="timer-display text-[--color-text]">
+                      {timer.currentMapZone != null
+                        ? formatTime(getCurrentMapTime(timer))
+                        : '--:--.--'}
+                    </span>
+                  </div>
+                  {/* Row 2: Town+HO time + Deaths */}
+                  <div className="flex justify-between text-sm mb-2">
+                    <div className="flex items-center gap-2">
+                      <span className="text-yellow-400/70">Town+HO:</span>
+                      <span className="timer-display text-[--color-text]">
+                        {formatTime(getCurrentEndgameTownTime(timer))}
+                      </span>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <span className={timer.endgameDeathCount > 0 ? 'text-red-400' : 'text-[--color-text-muted]'}>
+                        Deaths: {timer.endgameDeathCount}
+                      </span>
+                    </div>
+                  </div>
+                  {/* Row 3: Map count */}
+                  <div className="flex text-sm">
+                    <div className="flex items-center gap-2">
+                      <span className="text-[--color-text-muted]">Maps:</span>
+                      <span className="text-[--color-text]">{timer.mapCount}</span>
+                    </div>
+                  </div>
+                </>
+              ) : (
+                <>
+                  <div className="flex justify-between text-sm mb-2">
+                    <div className="flex items-center gap-2">
+                      <span className="text-[--color-text-muted]">Zone:</span>
+                      <span className={`text-[--color-text] ${timer.inTown ? 'text-yellow-400' : ''} ${timer.inHideout ? 'text-blue-400' : ''}`}>
+                        {timer.currentZone || 'None'}
+                        {timer.inTown && ' (Town)'}
+                        {timer.inHideout && ' (Hideout)'}
+                      </span>
+                    </div>
+                  </div>
+                  <div className="flex gap-6 text-sm">
+                    <div className="flex items-center gap-2">
+                      <span className="text-yellow-400/70">Town:</span>
+                      <span className="timer-display text-[--color-text]">
+                        {formatTime(getCurrentTownTime(timer))}
+                      </span>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <span className="text-blue-400/70">Hideout:</span>
+                      <span className="timer-display text-[--color-text]">
+                        {formatTime(getCurrentHideoutTime(timer))}
+                      </span>
+                    </div>
+                  </div>
+                </>
+              )}
             </div>
           </div>
 
@@ -268,6 +322,27 @@ function getCurrentTownTime(timer: TimerState): number {
 // Calculate current hideout time including time currently in hideout
 function getCurrentHideoutTime(timer: TimerState): number {
   let total = timer.hideoutTimeMs;
+  if (timer.inHideout && timer.hideoutEnteredAt !== null) {
+    total += Date.now() - timer.hideoutEnteredAt;
+  }
+  return total;
+}
+
+// Calculate live map elapsed time (includes pending time if currently in a map)
+function getCurrentMapTime(timer: TimerState): number {
+  let total = timer.currentMapElapsedMs;
+  if (timer.currentMapEnteredAt !== null && timer.isRunning) {
+    total += Date.now() - timer.currentMapEnteredAt;
+  }
+  return total;
+}
+
+// Calculate endgame town+hideout time including pending flush
+function getCurrentEndgameTownTime(timer: TimerState): number {
+  let total = timer.endgameTownTimeMs;
+  if (timer.inTown && timer.townEnteredAt !== null) {
+    total += Date.now() - timer.townEnteredAt;
+  }
   if (timer.inHideout && timer.hideoutEnteredAt !== null) {
     total += Date.now() - timer.hideoutEnteredAt;
   }

@@ -91,7 +91,8 @@ export type LogEventType =
   | 'instance_details'
   | 'login'
   | 'kitava_affliction'
-  | 'npc_dialog';
+  | 'npc_dialog'
+  | 'generating_level';
 
 export interface ZoneEnterEvent {
   zoneName: string;
@@ -173,6 +174,8 @@ export interface Settings {
   showTownVisits: boolean;
   // System tray
   minimizeToTray: boolean;
+  // Endgame mode
+  endgameEnabled: boolean;
 }
 
 // PoE API types
@@ -275,6 +278,29 @@ export interface TimerState {
   townVisits: TownVisit[];
   activeBossEncounter: BossEncounter | null;
   bossEncounters: BossEncounter[];
+  // Endgame mode
+  isInEndgame: boolean;
+  act10FinalTimeMs: number | null;
+  mapCount: number;
+  currentMapEnteredAt: number | null;
+  currentMapElapsedMs: number;
+  currentMapZone: string | null;
+  currentMapAreaLevel: number | null;
+  currentMapSeed: number | null;
+  latestSeed: number | null;
+  latestAreaLevel: number | null;
+  endgameTownTimeMs: number;
+  endgameDeathCount: number;
+  // Mapping session
+  isMappingSession: boolean;
+  completedMaps: CompletedMap[];
+}
+
+export interface CompletedMap {
+  zone: string;
+  areaLevel: number | null;
+  timeMs: number;
+  completedAt: number;
 }
 
 export interface SplitTime {
@@ -352,7 +378,7 @@ export interface PracticeSession {
 }
 
 // UI state
-export type ViewMode = 'timer' | 'snapshots' | 'comparison' | 'history' | 'settings' | 'group' | 'practice';
+export type ViewMode = 'timer' | 'snapshots' | 'comparison' | 'history' | 'settings' | 'group' | 'practice' | 'mapping';
 
 // Filtering and analytics
 export interface RunFilters {

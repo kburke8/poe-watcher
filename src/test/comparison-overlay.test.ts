@@ -103,6 +103,20 @@ const baseTimer: TimerState = {
   townVisits: [],
   activeBossEncounter: null,
   bossEncounters: [],
+  isInEndgame: false,
+  act10FinalTimeMs: null,
+  mapCount: 0,
+  currentMapEnteredAt: null,
+  currentMapElapsedMs: 0,
+  currentMapZone: null,
+  currentMapAreaLevel: null,
+  currentMapSeed: null,
+  latestSeed: null,
+  latestAreaLevel: null,
+  endgameTownTimeMs: 0,
+  endgameDeathCount: 0,
+  isMappingSession: false,
+  completedMaps: [],
 };
 
 describe('buildOverlayState - comparison integration', () => {

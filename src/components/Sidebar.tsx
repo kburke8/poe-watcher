@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { getVersion } from '@tauri-apps/api/app';
 import { invoke } from '@tauri-apps/api/core';
-import { Timer, Camera, GitCompareArrows, History, Settings as SettingsIcon, Monitor, Users, Target } from 'lucide-react';
+import { Timer, Camera, GitCompareArrows, History, Settings as SettingsIcon, Monitor, Users, Target, Map } from 'lucide-react';
 import { useSettingsStore } from '../stores/settingsStore';
 import { useUpdateChecker } from '../hooks/useUpdateChecker';
 import { Button } from './Shared/Button';
@@ -17,6 +17,7 @@ interface NavItem {
 const baseNavItems: NavItem[] = [
   { id: 'timer', label: 'Timer', icon: Timer },
   { id: 'practice', label: 'Practice', icon: Target },
+  { id: 'mapping', label: 'Mapping', icon: Map },
   { id: 'snapshots', label: 'Snapshots', icon: Camera },
   { id: 'comparison', label: 'Compare', icon: GitCompareArrows },
   { id: 'history', label: 'History', icon: History },

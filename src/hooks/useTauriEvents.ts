@@ -20,6 +20,8 @@ interface LogEventPayload {
   penalty?: number;
   npc_name?: string;
   dialog_text?: string;
+  area_name?: string;
+  seed?: number;
 }
 
 interface SettingsPayload {
@@ -200,9 +202,15 @@ export function useTauriEvents() {
           console.error('[useTauriEvents] Failed to auto-complete run:', error);
         }
 
-        // Update local state: sync elapsed time then end the run
+        // Update local state: sync elapsed time then either enter endgame or end run
         useRunStore.getState().updateElapsed(splitTimeMs);
-        useRunStore.getState().endRun();
+
+        const { endgameEnabled } = useSettingsStore.getState();
+        if (endgameEnabled) {
+          useRunStore.getState().enterEndgame(splitTimeMs);
+        } else {
+          useRunStore.getState().endRun();
+        }
 
         // Reload PB/gold splits so next run shows updated comparisons
         useRunStore.getState().loadPbAndGoldSplits();
@@ -378,6 +386,12 @@ export function useTauriEvents() {
             const { startBossEncounter } = useRunStore.getState();
             startBossEncounter(boss);
           }
+        }
+        break;
+
+      case 'generating_level':
+        if (payload.seed != null) {
+          useRunStore.getState().setLatestSeed(payload.seed, payload.level);
         }
         break;
 

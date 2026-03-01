@@ -6,6 +6,17 @@ import { useSettingsStore } from '../stores/settingsStore';
 import { getWizardCategory } from '../config/wizardRoutes';
 import type { TimerState, Breakpoint } from '../types';
 
+interface EndgameState {
+  act10FinalTimeMs: number | null;
+  isMappingSession?: boolean;
+  townHideoutTimeMs: number;
+  deathCount: number;
+  mapCount: number;
+  currentMapStartTime: number | null;
+  currentMapElapsedMs: number;
+  currentMapZone: string | null;
+}
+
 interface OverlayState {
   startTime: number | null;
   elapsedMs: number;
@@ -36,6 +47,9 @@ interface OverlayState {
   // Hotkey labels for overlay tooltips
   hotkeyToggleTimer: string;
   hotkeyToggleOverlay: string;
+  // Endgame mode
+  isEndgame: boolean;
+  endgame: EndgameState | null;
 }
 
 interface OverlayConfig {
@@ -133,6 +147,31 @@ function buildOverlayState(
     }
   }
 
+  // Compute endgame state
+  let endgame: EndgameState | null = null;
+  if (timer.isInEndgame) {
+    // Compute live town/hideout time (flush pending)
+    let townHideoutTimeMs = timer.endgameTownTimeMs;
+    const now = Date.now();
+    if (timer.inTown && timer.townEnteredAt !== null) {
+      townHideoutTimeMs += now - timer.townEnteredAt;
+    }
+    if (timer.inHideout && timer.hideoutEnteredAt !== null) {
+      townHideoutTimeMs += now - timer.hideoutEnteredAt;
+    }
+
+    endgame = {
+      act10FinalTimeMs: timer.act10FinalTimeMs,
+      isMappingSession: timer.isMappingSession,
+      townHideoutTimeMs,
+      deathCount: timer.endgameDeathCount,
+      mapCount: timer.mapCount,
+      currentMapStartTime: timer.currentMapEnteredAt,
+      currentMapElapsedMs: timer.currentMapElapsedMs,
+      currentMapZone: timer.currentMapZone,
+    };
+  }
+
   return {
     startTime: timer.startTime,
     elapsedMs: timer.isRunning && timer.startTime
@@ -165,6 +204,8 @@ function buildOverlayState(
     alwaysOnTop: config.overlayAlwaysOnTop,
     hotkeyToggleTimer: hotkeyLabels.hotkeyToggleTimer,
     hotkeyToggleOverlay: hotkeyLabels.hotkeyToggleOverlay,
+    isEndgame: timer.isInEndgame,
+    endgame,
   };
 }
 
@@ -249,6 +290,11 @@ export function useOverlaySync() {
       pbCount: personalBests.size,
       goldCount: goldSplits.size,
       comparisonCount: comparisonSplits.size,
+      // Endgame
+      isEndgame: timer.isInEndgame,
+      mapCount: timer.mapCount,
+      endgameDeathCount: timer.endgameDeathCount,
+      currentMapZone: timer.currentMapZone,
     });
 
     if (nonTimeKey !== prevNonTimeRef.current) {

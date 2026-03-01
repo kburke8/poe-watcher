@@ -87,6 +87,9 @@ export function SettingsView() {
     setOverlayAccentColor,
     setOverlayAlwaysOnTop,
     setOverlayOpen,
+    // Endgame mode
+    endgameEnabled,
+    setEndgameEnabled,
     // Hotkeys
     hotkeys,
     setHotkeys,
@@ -285,6 +288,7 @@ export function SettingsView() {
           group_mode_enabled: useSettingsStore.getState().groupModeEnabled,
           show_town_visits: useSettingsStore.getState().showTownVisits,
           minimize_to_tray: useSettingsStore.getState().minimizeToTray,
+          endgame_enabled: useSettingsStore.getState().endgameEnabled,
         },
       });
 
@@ -400,6 +404,7 @@ export function SettingsView() {
           overlayShowBreakpoints={overlayShowBreakpoints}
           overlayAlwaysOnTop={overlayAlwaysOnTop}
           overlayOpen={overlayOpen}
+          endgameEnabled={endgameEnabled}
           setOverlayEnabled={setOverlayEnabled}
           setOverlayOpacity={setOverlayOpacity}
           setOverlayScale={setOverlayScale}
@@ -410,6 +415,7 @@ export function SettingsView() {
           setOverlayShowLastSplit={setOverlayShowLastSplit}
           setOverlayShowBreakpoints={setOverlayShowBreakpoints}
           setOverlayAlwaysOnTop={setOverlayAlwaysOnTop}
+          setEndgameEnabled={setEndgameEnabled}
           handleToggleOverlay={handleToggleOverlay}
           handleResetPosition={handleResetPosition}
           hotkeys={hotkeys}
@@ -960,6 +966,7 @@ interface OverlayTabProps {
   overlayShowBreakpoints: boolean;
   overlayAlwaysOnTop: boolean;
   overlayOpen: boolean;
+  endgameEnabled: boolean;
   setOverlayEnabled: (v: boolean) => void;
   setOverlayOpacity: (v: number) => void;
   setOverlayScale: (v: 'small' | 'medium' | 'large') => void;
@@ -970,6 +977,7 @@ interface OverlayTabProps {
   setOverlayShowLastSplit: (v: boolean) => void;
   setOverlayShowBreakpoints: (v: boolean) => void;
   setOverlayAlwaysOnTop: (v: boolean) => void;
+  setEndgameEnabled: (v: boolean) => void;
   handleToggleOverlay: () => void;
   handleResetPosition: () => void;
   hotkeys: HotkeySettings;
@@ -987,6 +995,7 @@ function OverlayTab({
   overlayShowBreakpoints,
   overlayAlwaysOnTop,
   overlayOpen,
+  endgameEnabled,
   setOverlayEnabled,
   setOverlayOpacity,
   setOverlayScale,
@@ -997,6 +1006,7 @@ function OverlayTab({
   setOverlayShowLastSplit,
   setOverlayShowBreakpoints,
   setOverlayAlwaysOnTop,
+  setEndgameEnabled,
   handleToggleOverlay,
   handleResetPosition,
   hotkeys,
@@ -1139,6 +1149,7 @@ function OverlayTab({
           { label: 'Show Current Zone', value: overlayShowZone, setter: setOverlayShowZone },
           { label: 'Show Last Split', value: overlayShowLastSplit, setter: setOverlayShowLastSplit },
           { label: 'Show Upcoming Breakpoints', value: overlayShowBreakpoints, setter: setOverlayShowBreakpoints },
+          { label: 'Endgame Mode', value: endgameEnabled, setter: setEndgameEnabled },
         ].map(({ label, value, setter }) => (
           <div key={label} className="flex items-center justify-between mb-2">
             <span className="text-sm text-[--color-text]">{label}</span>

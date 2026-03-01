@@ -78,6 +78,8 @@ interface SettingsState extends Settings {
   setShowTownVisits: (show: boolean) => void;
   // System tray
   setMinimizeToTray: (enabled: boolean) => void;
+  // Endgame mode
+  setEndgameEnabled: (enabled: boolean) => void;
   // Comparison
   setActiveComparison: (runId: number | null, label?: string | null) => void;
 }
@@ -113,6 +115,8 @@ export const useSettingsStore = create<SettingsState>((set, get) => ({
   showTownVisits: true,
   // System tray
   minimizeToTray: false,
+  // Endgame mode
+  endgameEnabled: true,
   // Runtime-only
   overlayOpen: false,
   // Hotkey settings
@@ -315,6 +319,8 @@ export const useSettingsStore = create<SettingsState>((set, get) => ({
   setShowTownVisits: (show) => set({ showTownVisits: show }),
   // System tray
   setMinimizeToTray: (enabled) => set({ minimizeToTray: enabled }),
+  // Endgame mode
+  setEndgameEnabled: (enabled) => set({ endgameEnabled: enabled }),
   // Comparison
   setActiveComparison: (runId, label = null) => set({
     activeComparisonRunId: runId,
