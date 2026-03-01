@@ -87,9 +87,6 @@ export function SettingsView() {
     setOverlayAccentColor,
     setOverlayAlwaysOnTop,
     setOverlayOpen,
-    // Endgame mode
-    endgameEnabled,
-    setEndgameEnabled,
     // Hotkeys
     hotkeys,
     setHotkeys,
@@ -404,7 +401,6 @@ export function SettingsView() {
           overlayShowBreakpoints={overlayShowBreakpoints}
           overlayAlwaysOnTop={overlayAlwaysOnTop}
           overlayOpen={overlayOpen}
-          endgameEnabled={endgameEnabled}
           setOverlayEnabled={setOverlayEnabled}
           setOverlayOpacity={setOverlayOpacity}
           setOverlayScale={setOverlayScale}
@@ -415,7 +411,6 @@ export function SettingsView() {
           setOverlayShowLastSplit={setOverlayShowLastSplit}
           setOverlayShowBreakpoints={setOverlayShowBreakpoints}
           setOverlayAlwaysOnTop={setOverlayAlwaysOnTop}
-          setEndgameEnabled={setEndgameEnabled}
           handleToggleOverlay={handleToggleOverlay}
           handleResetPosition={handleResetPosition}
           hotkeys={hotkeys}
@@ -494,6 +489,31 @@ function MinimizeToTraySection() {
             <div className="text-xs text-[--color-text-muted]">Hide to system tray instead of quitting when you close the window.</div>
           </div>
           <Toggle checked={minimizeToTray} onChange={handleToggle} />
+        </div>
+      </div>
+    </section>
+  );
+}
+
+function EndgameModeSection() {
+  const endgameEnabled = useSettingsStore((s) => s.endgameEnabled);
+  const setEndgameEnabled = useSettingsStore((s) => s.setEndgameEnabled);
+
+  return (
+    <section>
+      <h2 className="text-lg font-semibold text-[--color-text] mb-4 flex items-center gap-2 flex-wrap">
+        Endgame Mode
+        <HelpTip>
+          When enabled, killing Act 10 Kitava will not stop the timer. Instead, the run completes and the timer continues into endgame mode, tracking your maps, town time, and deaths. This only applies to Act 10 runs — shorter runs (e.g. Act 5) will end normally.
+        </HelpTip>
+      </h2>
+      <div className="card-inset rounded-lg p-4">
+        <div className="flex items-center justify-between">
+          <div>
+            <div className="text-[--color-text]">Enable Endgame Mode</div>
+            <div className="text-xs text-[--color-text-muted]">Continue timer after Act 10 Kitava kill for map tracking</div>
+          </div>
+          <Toggle checked={endgameEnabled} onChange={setEndgameEnabled} />
         </div>
       </div>
     </section>
@@ -626,6 +646,9 @@ function GeneralTab({
 
       {/* System Tray */}
       <MinimizeToTraySection />
+
+      {/* Endgame Mode */}
+      <EndgameModeSection />
 
       {/* Updates */}
       <section>
@@ -966,7 +989,6 @@ interface OverlayTabProps {
   overlayShowBreakpoints: boolean;
   overlayAlwaysOnTop: boolean;
   overlayOpen: boolean;
-  endgameEnabled: boolean;
   setOverlayEnabled: (v: boolean) => void;
   setOverlayOpacity: (v: number) => void;
   setOverlayScale: (v: 'small' | 'medium' | 'large') => void;
@@ -977,7 +999,6 @@ interface OverlayTabProps {
   setOverlayShowLastSplit: (v: boolean) => void;
   setOverlayShowBreakpoints: (v: boolean) => void;
   setOverlayAlwaysOnTop: (v: boolean) => void;
-  setEndgameEnabled: (v: boolean) => void;
   handleToggleOverlay: () => void;
   handleResetPosition: () => void;
   hotkeys: HotkeySettings;
@@ -995,7 +1016,6 @@ function OverlayTab({
   overlayShowBreakpoints,
   overlayAlwaysOnTop,
   overlayOpen,
-  endgameEnabled,
   setOverlayEnabled,
   setOverlayOpacity,
   setOverlayScale,
@@ -1006,7 +1026,6 @@ function OverlayTab({
   setOverlayShowLastSplit,
   setOverlayShowBreakpoints,
   setOverlayAlwaysOnTop,
-  setEndgameEnabled,
   handleToggleOverlay,
   handleResetPosition,
   hotkeys,
@@ -1149,7 +1168,6 @@ function OverlayTab({
           { label: 'Show Current Zone', value: overlayShowZone, setter: setOverlayShowZone },
           { label: 'Show Last Split', value: overlayShowLastSplit, setter: setOverlayShowLastSplit },
           { label: 'Show Upcoming Breakpoints', value: overlayShowBreakpoints, setter: setOverlayShowBreakpoints },
-          { label: 'Endgame Mode', value: endgameEnabled, setter: setEndgameEnabled },
         ].map(({ label, value, setter }) => (
           <div key={label} className="flex items-center justify-between mb-2">
             <span className="text-sm text-[--color-text]">{label}</span>
