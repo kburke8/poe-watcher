@@ -18,6 +18,7 @@ const ComparisonView = lazy(() => import("./components/Comparison/ComparisonView
 const HistoryView = lazy(() => import("./components/History/HistoryView").then(m => ({ default: m.HistoryView })));
 const GroupView = lazy(() => import("./components/Group/GroupView").then(m => ({ default: m.GroupView })));
 const PracticeView = lazy(() => import("./components/Practice/PracticeView").then(m => ({ default: m.PracticeView })));
+const MappingView = lazy(() => import("./components/Mapping/MappingView").then(m => ({ default: m.MappingView })));
 
 const BREAKPOINTS_STORAGE_KEY = 'poe-watcher-breakpoints';
 const WIZARD_CONFIG_STORAGE_KEY = 'poe-watcher-wizard-config';
@@ -243,6 +244,8 @@ function App() {
         return <Suspense fallback={<ViewLoader />}><GroupView /></Suspense>;
       case 'practice':
         return <Suspense fallback={<ViewLoader />}><PracticeView /></Suspense>;
+      case 'mapping':
+        return <Suspense fallback={<ViewLoader />}><MappingView /></Suspense>;
       case 'settings':
         return <SettingsView />;
       default:

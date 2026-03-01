@@ -44,6 +44,10 @@ interface RunState {
   incrementDeathCount: () => void;
   setRunId: (id: number) => void;
   setCurrentLevel: (level: number) => void;
+  enterEndgame: (finalTimeMs: number) => void;
+  setLatestSeed: (seed: number, areaLevel?: number) => void;
+  startMappingSession: () => void;
+  stopMappingSession: () => void;
 
   // Data loading
   setRuns: (runs: Run[]) => void;
@@ -82,6 +86,22 @@ const initialTimerState: TimerState = {
   townVisits: [],
   activeBossEncounter: null,
   bossEncounters: [],
+  // Endgame mode
+  isInEndgame: false,
+  act10FinalTimeMs: null,
+  mapCount: 0,
+  currentMapEnteredAt: null,
+  currentMapElapsedMs: 0,
+  currentMapZone: null,
+  currentMapAreaLevel: null,
+  currentMapSeed: null,
+  latestSeed: null,
+  latestAreaLevel: null,
+  endgameTownTimeMs: 0,
+  endgameDeathCount: 0,
+  // Mapping session
+  isMappingSession: false,
+  completedMaps: [],
 };
 
 export const useRunStore = create<RunState>((set, get) => ({
@@ -213,7 +233,23 @@ export const useRunStore = create<RunState>((set, get) => ({
 
   // Timer actions
   startTimer: () => {
-    const { currentRun } = get();
+    const { currentRun, timer } = get();
+
+    // Mapping session: just resume the timer without creating a run
+    if (timer.isMappingSession) {
+      const now = Date.now();
+      set((state) => ({
+        timer: {
+          ...state.timer,
+          isRunning: true,
+          startTime: now - state.timer.elapsedMs,
+          townEnteredAt: state.timer.inTown ? now : state.timer.townEnteredAt,
+          hideoutEnteredAt: state.timer.inHideout ? now : state.timer.hideoutEnteredAt,
+        },
+      }));
+      return;
+    }
+
     // Get test character name and wizard config from settings store
     const { testCharacterName, wizardConfig, groupModeEnabled } = useSettingsStore.getState();
 
@@ -296,6 +332,24 @@ export const useRunStore = create<RunState>((set, get) => ({
       );
     }
 
+    // Flush endgame town/map time on pause
+    let newEndgameTownTimeMs = timer.endgameTownTimeMs;
+    let newCurrentMapEnteredAt = timer.currentMapEnteredAt;
+    let newCurrentMapElapsedMs = timer.currentMapElapsedMs;
+
+    if (timer.isInEndgame) {
+      if (timer.inTown && timer.townEnteredAt !== null) {
+        newEndgameTownTimeMs += now - timer.townEnteredAt;
+      }
+      if (timer.inHideout && timer.hideoutEnteredAt !== null) {
+        newEndgameTownTimeMs += now - timer.hideoutEnteredAt;
+      }
+      if (newCurrentMapEnteredAt !== null) {
+        newCurrentMapElapsedMs += now - newCurrentMapEnteredAt;
+        newCurrentMapEnteredAt = null;
+      }
+    }
+
     set({
       timer: {
         ...timer,
@@ -306,6 +360,10 @@ export const useRunStore = create<RunState>((set, get) => ({
         townEnteredAt: null,
         hideoutEnteredAt: null,
         townVisits: newTownVisits,
+        // Endgame
+        endgameTownTimeMs: newEndgameTownTimeMs,
+        currentMapEnteredAt: newCurrentMapEnteredAt,
+        currentMapElapsedMs: newCurrentMapElapsedMs,
       },
     });
   },
@@ -382,6 +440,75 @@ export const useRunStore = create<RunState>((set, get) => ({
       }
     }
 
+    // Endgame map tracking
+    let newEndgameTownTimeMs = timer.endgameTownTimeMs;
+    let newCurrentMapEnteredAt = timer.currentMapEnteredAt;
+    let newCurrentMapElapsedMs = timer.currentMapElapsedMs;
+    let newCurrentMapZone = timer.currentMapZone;
+    let newCurrentMapAreaLevel = timer.currentMapAreaLevel;
+    let newCurrentMapSeed = timer.currentMapSeed;
+    let newMapCount = timer.mapCount;
+    let newCompletedMaps = timer.completedMaps;
+
+    if (timer.isInEndgame && trackingActive) {
+      const wasTownOrHideout = timer.inTown || timer.inHideout;
+
+      // Accumulate endgame town/hideout time when leaving town
+      if (wasTownOrHideout && !(isTown || isHideout)) {
+        if (timer.townEnteredAt !== null) {
+          newEndgameTownTimeMs += now - timer.townEnteredAt;
+        }
+        if (timer.hideoutEnteredAt !== null) {
+          newEndgameTownTimeMs += now - timer.hideoutEnteredAt;
+        }
+      }
+
+      if (isTown || isHideout) {
+        // Entering town/hideout FROM a map: flush map time
+        if (newCurrentMapEnteredAt !== null) {
+          newCurrentMapElapsedMs += now - newCurrentMapEnteredAt;
+          newCurrentMapEnteredAt = null;
+        }
+      } else {
+        // Entering a non-town zone
+        const latestSeed = timer.latestSeed;
+        if (latestSeed != null && latestSeed !== 1) {
+          if (newCurrentMapSeed === latestSeed) {
+            // Same seed — portal-back to same map or sub-area
+            if (newCurrentMapEnteredAt === null) {
+              // Returning from town — resume map timer
+              newCurrentMapEnteredAt = now;
+            }
+            // Update zone name (could be boss arena / sub-area)
+            newCurrentMapZone = zoneName;
+          } else {
+            // Different seed — new map instance
+            // Log the completed map before overwriting
+            if (newCurrentMapZone != null) {
+              let finalMapTime = newCurrentMapElapsedMs;
+              if (newCurrentMapEnteredAt !== null) {
+                finalMapTime += now - newCurrentMapEnteredAt;
+              }
+              newCompletedMaps = [...newCompletedMaps, {
+                zone: newCurrentMapZone,
+                areaLevel: newCurrentMapAreaLevel,
+                timeMs: finalMapTime,
+                completedAt: now,
+              }];
+            }
+            newMapCount += 1;
+            newCurrentMapEnteredAt = now;
+            newCurrentMapElapsedMs = 0;
+            newCurrentMapZone = zoneName;
+            newCurrentMapAreaLevel = timer.latestAreaLevel;
+            newCurrentMapSeed = latestSeed;
+          }
+        } else if (newCurrentMapSeed === null && latestSeed == null) {
+          // No seed info yet — first non-town entry in endgame, wait for generating_level
+        }
+      }
+    }
+
     set((state) => ({
       timer: {
         ...state.timer,
@@ -395,6 +522,15 @@ export const useRunStore = create<RunState>((set, get) => ({
         townVisits: newTownVisits,
         activeBossEncounter: newActiveBoss,
         bossEncounters: newBossEncounters,
+        // Endgame map tracking
+        endgameTownTimeMs: newEndgameTownTimeMs,
+        currentMapEnteredAt: newCurrentMapEnteredAt,
+        currentMapElapsedMs: newCurrentMapElapsedMs,
+        currentMapZone: newCurrentMapZone,
+        currentMapAreaLevel: newCurrentMapAreaLevel,
+        currentMapSeed: newCurrentMapSeed,
+        mapCount: newMapCount,
+        completedMaps: newCompletedMaps,
       },
     }));
   },
@@ -423,7 +559,13 @@ export const useRunStore = create<RunState>((set, get) => ({
 
   incrementDeathCount: () => {
     set((state) => ({
-      timer: { ...state.timer, deathCount: state.timer.deathCount + 1 },
+      timer: {
+        ...state.timer,
+        deathCount: state.timer.deathCount + 1,
+        endgameDeathCount: state.timer.isInEndgame
+          ? state.timer.endgameDeathCount + 1
+          : state.timer.endgameDeathCount,
+      },
     }));
   },
 
@@ -434,6 +576,70 @@ export const useRunStore = create<RunState>((set, get) => ({
   },
 
   setCurrentLevel: (level) => set({ currentLevel: level }),
+
+  enterEndgame: (finalTimeMs: number) => {
+    const { currentRun } = get();
+    if (!currentRun) return;
+
+    // Mark the run as completed but keep timer running
+    const endedRun: Run = {
+      ...currentRun,
+      isCompleted: true,
+      status: 'completed',
+      endedAt: new Date().toISOString(),
+      totalTimeMs: finalTimeMs,
+    };
+
+    set((state) => ({
+      currentRun: endedRun,
+      runs: [...state.runs, endedRun],
+      timer: {
+        ...state.timer,
+        // Timer keeps running — do NOT set isRunning: false
+        isInEndgame: true,
+        act10FinalTimeMs: finalTimeMs,
+        mapCount: 0,
+        currentMapEnteredAt: null,
+        currentMapElapsedMs: 0,
+        currentMapZone: null,
+        currentMapAreaLevel: null,
+        currentMapSeed: null,
+        endgameTownTimeMs: 0,
+        endgameDeathCount: 0,
+      },
+    }));
+  },
+
+  setLatestSeed: (seed: number, areaLevel?: number) => {
+    set((state) => ({
+      timer: { ...state.timer, latestSeed: seed, ...(areaLevel != null ? { latestAreaLevel: areaLevel } : {}) },
+    }));
+  },
+
+  startMappingSession: () => {
+    const now = Date.now();
+    set({
+      currentRun: null,
+      currentLevel: 1,
+      splits: [],
+      timer: {
+        ...initialTimerState,
+        isRunning: true,
+        startTime: now,
+        isInEndgame: true,
+        isMappingSession: true,
+      },
+    });
+  },
+
+  stopMappingSession: () => {
+    set({
+      currentRun: null,
+      currentLevel: 1,
+      splits: [],
+      timer: initialTimerState,
+    });
+  },
 
   // Data loading
   setRuns: (runs) => set({ runs }),

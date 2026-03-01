@@ -1,0 +1,1 @@
+ALTER TABLE settings ADD COLUMN endgame_enabled BOOLEAN NOT NULL DEFAULT 1;

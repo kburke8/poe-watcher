@@ -1,6 +1,6 @@
 import { invoke } from '@tauri-apps/api/core';
 import { emit } from '@tauri-apps/api/event';
-import { Play, Pause, SplitSquareHorizontal, Camera, Flag, RotateCcw } from 'lucide-react';
+import { Play, Pause, SplitSquareHorizontal, Camera, Flag, RotateCcw, Zap } from 'lucide-react';
 import { useRunStore } from '../../stores/runStore';
 import { useSettingsStore } from '../../stores/settingsStore';
 import { useGroupStore } from '../../stores/groupStore';
@@ -203,6 +203,25 @@ export function TimerControls() {
     }
   };
 
+  const handleForceEndgame = async () => {
+    const state = useRunStore.getState();
+    const run = state.currentRun;
+    const { timer: t } = state;
+    if (!run?.id || !t.isRunning) return;
+
+    const totalTimeMs = t.startTime ? Date.now() - t.startTime : t.elapsedMs;
+
+    // Complete run in database
+    try {
+      await invoke('complete_run', { runId: run.id, totalTimeMs });
+    } catch (error) {
+      console.error('[TimerControls] Failed to complete run for endgame:', error);
+    }
+
+    useRunStore.getState().updateElapsed(totalTimeMs);
+    useRunStore.getState().enterEndgame(totalTimeMs);
+  };
+
   return (
     <div className="flex flex-col gap-2">
       <div className="flex gap-3">
@@ -274,6 +293,20 @@ export function TimerControls() {
       >
         Reset
       </Button>
+
+      {import.meta.env.DEV && (
+        <Button
+          variant="secondary"
+          size="lg"
+          icon={Zap}
+          onClick={handleForceEndgame}
+          disabled={!timer.isRunning || timer.isInEndgame}
+          title="Force enter endgame mode (dev only)"
+          className="border-yellow-500/40 hover:border-yellow-500/70"
+        >
+          Endgame
+        </Button>
+      )}
       </div>
       <div className="text-center text-xs text-[--color-text-muted]">
         Hotkey: <kbd>{hotkeys.toggleTimer}</kbd> to start/pause
