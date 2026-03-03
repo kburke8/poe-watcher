@@ -1,19 +1,15 @@
 mod api_client;
 mod commands;
 mod db;
+mod keyboard_hook;
 mod log_watcher;
 
 use commands::*;
-use std::collections::HashMap;
+use keyboard_hook::{parse_shortcut, KeyboardHookManager};
 use std::sync::Arc;
-use tauri::{Emitter, Manager};
+use tauri::Manager;
 use tauri::menu::{MenuBuilder, MenuItemBuilder};
 use tauri::tray::TrayIconBuilder;
-use tauri_plugin_global_shortcut::{GlobalShortcutExt, Shortcut, ShortcutState};
-
-/// Shared state mapping shortcut strings to action names.
-/// Accessible from commands via `app.state::<HotkeyMap>()`.
-pub struct HotkeyMap(pub Arc<std::sync::Mutex<HashMap<String, String>>>);
 
 /// In-memory flag for minimize-to-tray behavior.
 /// Read synchronously in `on_window_event`, updated by `set_minimize_to_tray` command.
@@ -21,43 +17,12 @@ pub struct MinimizeToTrayFlag(pub Arc<std::sync::Mutex<bool>>);
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
-    // Shared map: shortcut string -> action name
-    let hotkey_map: Arc<std::sync::Mutex<HashMap<String, String>>> =
-        Arc::new(std::sync::Mutex::new(HashMap::new()));
-    let map_for_handler = hotkey_map.clone();
-
-    // Store the app handle for the global shortcut handler
-    let app_handle: Arc<std::sync::Mutex<Option<tauri::AppHandle>>> =
-        Arc::new(std::sync::Mutex::new(None));
-    let app_handle_for_handler = app_handle.clone();
-
     tauri::Builder::default()
         .plugin(tauri_plugin_opener::init())
         .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_updater::Builder::new().build())
         .plugin(tauri_plugin_process::init())
-        .plugin(
-            tauri_plugin_global_shortcut::Builder::new()
-                .with_handler(move |_app, shortcut_ref, event| {
-                    if event.state() == ShortcutState::Pressed {
-                        if let Some(handle) = app_handle_for_handler.lock().ok().and_then(|guard| guard.clone()) {
-                            let shortcut_str = shortcut_ref.to_string();
-                            // Look up the action for this shortcut in the shared map
-                            if let Ok(map) = map_for_handler.lock() {
-                                if let Some(action) = map.get(&shortcut_str) {
-                                    let _ = handle.emit("global-shortcut", action.as_str());
-                                }
-                            }
-                        }
-                    }
-                })
-                .build(),
-        )
         .setup(move |app| {
-            // Store the app handle for the global shortcut handler
-            if let Ok(mut guard) = app_handle.lock() {
-                *guard = Some(app.handle().clone());
-            }
 
             // Initialize database
             let app_data_dir = app
@@ -131,41 +96,33 @@ pub fn run() {
                 }
             }
 
-            // Register hotkeys from settings (or defaults)
+            // Register hotkeys from settings (or defaults) via low-level keyboard hook
             let hotkeys_to_register = vec![
-                (settings.hotkey_toggle_timer.clone(), "toggle-timer"),
-                (settings.hotkey_reset_timer.clone(), "reset-timer"),
-                (settings.hotkey_manual_snapshot.clone(), "manual-snapshot"),
-                (settings.hotkey_toggle_overlay.clone(), "toggle-overlay"),
-                (settings.hotkey_manual_split.clone(), "manual-split"),
+                (settings.hotkey_toggle_timer.as_str(), "toggle-timer"),
+                (settings.hotkey_reset_timer.as_str(), "reset-timer"),
+                (settings.hotkey_manual_snapshot.as_str(), "manual-snapshot"),
+                (settings.hotkey_toggle_overlay.as_str(), "toggle-overlay"),
+                (settings.hotkey_manual_split.as_str(), "manual-split"),
             ];
 
-            {
-                let mut map = hotkey_map.lock().expect("Failed to lock hotkey map");
-
-                // Unregister any leftover shortcuts from a previous instance
-                // (force-killing the app on Windows can leave registrations dangling)
-                let _ = app.global_shortcut().unregister_all();
-
-                for (shortcut_str, action) in &hotkeys_to_register {
-                    if let Ok(shortcut) = shortcut_str.parse::<Shortcut>() {
-                        match app.global_shortcut().register(shortcut.clone()) {
-                            Ok(_) => {
-                                eprintln!("[hotkeys] Registered global shortcut: {} -> {}", shortcut.to_string(), action);
-                            }
-                            Err(e) => {
-                                eprintln!("[hotkeys] Failed to register global shortcut {}: {}", shortcut_str, e);
-                            }
+            let bindings: Vec<_> = hotkeys_to_register
+                .iter()
+                .filter_map(|(shortcut_str, action)| {
+                    match parse_shortcut(shortcut_str, action) {
+                        Some(b) => {
+                            eprintln!("[hotkeys] Parsed hotkey: {} -> {}", shortcut_str, action);
+                            Some(b)
                         }
-                        // Use canonical Shortcut::to_string() as key so it matches
-                        // the handler's shortcut_ref.to_string() lookup format.
-                        map.insert(shortcut.to_string(), action.to_string());
+                        None => {
+                            eprintln!("[hotkeys] Failed to parse hotkey: {}", shortcut_str);
+                            None
+                        }
                     }
-                }
-            }
+                })
+                .collect();
 
-            // Store the hotkey map as managed state so commands can access it
-            app.manage(HotkeyMap(hotkey_map));
+            let manager = KeyboardHookManager::start(app.handle().clone(), bindings);
+            app.manage(manager);
 
             Ok(())
         })

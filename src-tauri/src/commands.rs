@@ -5,14 +5,14 @@ use crate::db::{
     GroupMember, NewGroupMember, GroupSnapshot, NewGroupSnapshot,
 };
 use crate::log_watcher::{detect_log_path, LogWatcher};
-use crate::{HotkeyMap, MinimizeToTrayFlag};
+use crate::keyboard_hook::{parse_shortcut, KeyboardHookManager};
+use crate::MinimizeToTrayFlag;
 use anyhow::Result;
 use once_cell::sync::OnceCell;
 use serde::{Deserialize, Serialize};
 use std::path::PathBuf;
 use std::sync::Mutex;
 use tauri::{AppHandle, Emitter, Manager, WebviewUrl, WebviewWindowBuilder, LogicalSize};
-use tauri_plugin_global_shortcut::{GlobalShortcutExt, Shortcut};
 
 // Global state
 static LOG_WATCHER: OnceCell<Mutex<Option<LogWatcher>>> = OnceCell::new();
@@ -775,49 +775,37 @@ pub async fn get_hotkeys() -> Result<HotkeySettings, String> {
 #[tauri::command]
 pub async fn update_hotkeys(app_handle: AppHandle, hotkeys: HotkeySettings) -> Result<(), String> {
     // Define the action mappings
-    let new_bindings = vec![
-        (hotkeys.toggle_timer.clone(), "toggle-timer"),
-        (hotkeys.reset_timer.clone(), "reset-timer"),
-        (hotkeys.manual_snapshot.clone(), "manual-snapshot"),
-        (hotkeys.toggle_overlay.clone(), "toggle-overlay"),
-        (hotkeys.manual_split.clone(), "manual-split"),
+    let new_bindings_raw = vec![
+        (hotkeys.toggle_timer.as_str(), "toggle-timer"),
+        (hotkeys.reset_timer.as_str(), "reset-timer"),
+        (hotkeys.manual_snapshot.as_str(), "manual-snapshot"),
+        (hotkeys.toggle_overlay.as_str(), "toggle-overlay"),
+        (hotkeys.manual_split.as_str(), "manual-split"),
     ];
 
     // Validate: parse all new shortcuts first
-    let mut parsed: Vec<(Shortcut, String, &str)> = Vec::new();
-    for (shortcut_str, action) in &new_bindings {
-        let shortcut: Shortcut = shortcut_str.parse()
-            .map_err(|_| format!("Invalid shortcut format: {}", shortcut_str))?;
-        parsed.push((shortcut, shortcut_str.clone(), action));
+    let mut parsed = Vec::new();
+    for (shortcut_str, action) in &new_bindings_raw {
+        let binding = parse_shortcut(shortcut_str, action)
+            .ok_or_else(|| format!("Invalid shortcut format: {}", shortcut_str))?;
+        parsed.push((shortcut_str.to_string(), binding));
     }
 
-    // Validate: check for duplicates
-    let mut seen = std::collections::HashSet::new();
-    for (_, shortcut_str, _) in &parsed {
-        if !seen.insert(shortcut_str.clone()) {
-            return Err(format!("Duplicate shortcut: {}", shortcut_str));
+    // Validate: check for duplicates (same vk_code + modifiers)
+    for i in 0..parsed.len() {
+        for j in (i + 1)..parsed.len() {
+            let a = &parsed[i].1;
+            let b = &parsed[j].1;
+            if a.vk_code == b.vk_code && a.ctrl == b.ctrl && a.shift == b.shift && a.alt == b.alt {
+                return Err(format!("Duplicate shortcut: {} and {}", parsed[i].0, parsed[j].0));
+            }
         }
     }
 
-    // Get the shared hotkey map
-    let hotkey_map = app_handle.state::<HotkeyMap>();
-
-    // Unregister all old shortcuts, then register new ones
-    {
-        let mut map = hotkey_map.0.lock().map_err(|e| e.to_string())?;
-
-        // Unregister all old shortcuts
-        let _ = app_handle.global_shortcut().unregister_all();
-        map.clear();
-
-        // Register new shortcuts using canonical Shortcut::to_string() as key
-        // so it matches the handler's shortcut_ref.to_string() lookup format.
-        for (shortcut, shortcut_str, action) in &parsed {
-            app_handle.global_shortcut().register(shortcut.clone())
-                .map_err(|e| format!("Failed to register {}: {}", shortcut_str, e))?;
-            map.insert(shortcut.to_string(), action.to_string());
-        }
-    }
+    // Update the keyboard hook bindings
+    let manager = app_handle.state::<KeyboardHookManager>();
+    let bindings: Vec<_> = parsed.into_iter().map(|(_, b)| b).collect();
+    manager.update_bindings(bindings);
 
     // Persist to database
     let mut settings = Settings::load().map_err(|e| e.to_string())?;
@@ -831,34 +819,21 @@ pub async fn update_hotkeys(app_handle: AppHandle, hotkeys: HotkeySettings) -> R
     Ok(())
 }
 
-/// Temporarily unregister all OS-level global shortcuts so the webview can
-/// capture key combos in the HotkeyInput component. The HotkeyMap is
-/// preserved so `resume_hotkeys` can restore exactly the same shortcuts.
+/// Temporarily disable hotkey detection so the webview can capture key combos
+/// in the HotkeyInput component. The bindings are preserved so `resume_hotkeys`
+/// re-enables the exact same hotkeys.
 #[tauri::command]
 pub async fn suspend_hotkeys(app_handle: AppHandle) -> Result<(), String> {
-    app_handle
-        .global_shortcut()
-        .unregister_all()
-        .map_err(|e| e.to_string())?;
+    let manager = app_handle.state::<KeyboardHookManager>();
+    manager.suspend();
     Ok(())
 }
 
-/// Re-register all shortcuts from the preserved HotkeyMap after hotkey
-/// capture is finished.
+/// Re-enable hotkey detection after hotkey capture is finished.
 #[tauri::command]
 pub async fn resume_hotkeys(app_handle: AppHandle) -> Result<(), String> {
-    let hotkey_map = app_handle.state::<HotkeyMap>();
-    let map = hotkey_map.0.lock().map_err(|e| e.to_string())?;
-
-    for (shortcut_str, _action) in map.iter() {
-        if let Ok(shortcut) = shortcut_str.parse::<Shortcut>() {
-            app_handle
-                .global_shortcut()
-                .register(shortcut)
-                .map_err(|e| format!("Failed to re-register {}: {}", shortcut_str, e))?;
-        }
-    }
-
+    let manager = app_handle.state::<KeyboardHookManager>();
+    manager.resume();
     Ok(())
 }
 
