@@ -1,7 +1,7 @@
-import { useState, useEffect, useMemo, useCallback, type ReactNode } from 'react';
+import { useState, useEffect, useMemo, useCallback, useRef, type ReactNode } from 'react';
 import { invoke } from '@tauri-apps/api/core';
 import { open } from '@tauri-apps/plugin-dialog';
-import { MapPin, ArrowUp, Skull, Landmark, Trophy, Star, ChevronUp, ChevronDown, Save } from 'lucide-react';
+import { MapPin, ArrowUp, Skull, Landmark, Trophy, Star, ChevronUp, ChevronDown, Save, Undo2 } from 'lucide-react';
 import { useSettingsStore } from '../../stores/settingsStore';
 import { useUpdateChecker } from '../../hooks/useUpdateChecker';
 import { BreakpointWizard } from './BreakpointWizard';
@@ -9,7 +9,6 @@ import { HotkeyInput } from './HotkeyInput';
 import { Button } from '../Shared/Button';
 import { Toggle } from '../Shared/Toggle';
 import { HelpTip } from '../Shared/HelpTip';
-import { LoadingSpinner } from '../Shared/LoadingSpinner';
 import type { HotkeySettings, BreakpointType, Breakpoint } from '../../types';
 import { DEFAULT_HOTKEYS } from '../../types';
 
@@ -118,6 +117,19 @@ export function SettingsView() {
   const [actFilter, setActFilter] = useState<number | 'all' | 'level'>('all');
   const [saveStatus, setSaveStatus] = useState<'idle' | 'saving' | 'saved' | 'error'>('idle');
 
+  // Track "last saved" general settings for dirty detection
+  const lastSavedGeneral = useRef({ poeLogPath, accountName, checkUpdates });
+  // Snapshot on mount (values come from backend via settings-loaded)
+  useEffect(() => {
+    lastSavedGeneral.current = { poeLogPath, accountName, checkUpdates };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []); // only on mount
+
+  const isGeneralDirty = useMemo(() => {
+    const s = lastSavedGeneral.current;
+    return poeLogPath !== s.poeLogPath || accountName !== s.accountName || checkUpdates !== s.checkUpdates;
+  }, [poeLogPath, accountName, checkUpdates]);
+
   // Local hotkey editing state (changes are applied on "Apply" click)
   const [editingHotkeys, setEditingHotkeys] = useState<HotkeySettings>({ ...hotkeys });
   const [hotkeyErrors, setHotkeyErrors] = useState<Partial<Record<keyof HotkeySettings, string>>>({});
@@ -190,6 +202,22 @@ export function SettingsView() {
       setTimeout(() => setHotkeyApplyStatus('idle'), 3000);
     }
   }, [setHotkeys]);
+
+  // Combined dirty flag — only for tabs that need explicit save
+  const isDirty = (activeTab === 'general' && isGeneralDirty) || (activeTab === 'shortcuts' && hasHotkeyChanges);
+
+  // Discard unsaved changes
+  const handleDiscard = useCallback(() => {
+    if (activeTab === 'general') {
+      const s = lastSavedGeneral.current;
+      setLogPath(s.poeLogPath);
+      setAccountName(s.accountName);
+      setCheckUpdates(s.checkUpdates);
+    } else if (activeTab === 'shortcuts') {
+      setEditingHotkeys({ ...hotkeys });
+      setHotkeyErrors({});
+    }
+  }, [activeTab, hotkeys, setLogPath, setAccountName, setCheckUpdates]);
 
   // Toggle overlay window
   const handleToggleOverlay = useCallback(async () => {
@@ -323,6 +351,9 @@ export function SettingsView() {
       // Sync minimize-to-tray runtime flag
       await invoke('set_minimize_to_tray', { enabled: useSettingsStore.getState().minimizeToTray });
 
+      // Update last-saved snapshot so dirty detection clears
+      lastSavedGeneral.current = { poeLogPath, accountName, checkUpdates };
+
       setSaveStatus('saved');
       setTimeout(() => setSaveStatus('idle'), 2000);
     } catch (error) {
@@ -333,70 +364,69 @@ export function SettingsView() {
   };
 
   return (
-    <div className="h-full overflow-auto p-6">
-      <div className="max-w-2xl">
-        <h1 className="text-2xl font-bold text-[--color-text] mb-6 flex items-center gap-2">
-          Settings
-          <HelpTip>
-            Configure your PoE log file path, account name, breakpoints, overlay, hotkeys, and other preferences. Changes to General settings require clicking Save.
-          </HelpTip>
-        </h1>
+    <div className="h-full flex flex-col">
+      <div className="flex-1 overflow-auto p-6">
+        <div className="max-w-2xl">
+          <h1 className="text-2xl font-bold text-[--color-text] mb-6 flex items-center gap-2">
+            Settings
+            <HelpTip>
+              Configure your PoE log file path, account name, breakpoints, overlay, hotkeys, and other preferences. Changes to General settings require clicking Save.
+            </HelpTip>
+          </h1>
 
-        {/* Tab bar */}
-        <div className="flex gap-6 border-b border-[--color-border] mb-6">
-          {tabs.map(tab => (
-            <button
-              key={tab.id}
-              onClick={() => setActiveTab(tab.id)}
-              className={`pb-2 px-1 text-sm border-b-2 transition-colors ${
-                activeTab === tab.id
-                  ? 'text-[--color-text] border-[--color-poe-gold] font-medium'
-                  : 'text-[--color-text-muted] border-transparent hover:text-[--color-text] hover:border-[--color-poe-gold]/50'
-              }`}
-            >
-              {tab.label}
-            </button>
-          ))}
-        </div>
+          {/* Tab bar */}
+          <div className="flex gap-6 border-b border-[--color-border] mb-6">
+            {tabs.map(tab => (
+              <button
+                key={tab.id}
+                onClick={() => setActiveTab(tab.id)}
+                className={`pb-2 px-1 text-sm border-b-2 transition-colors ${
+                  activeTab === tab.id
+                    ? 'text-[--color-text] border-[--color-poe-gold] font-medium'
+                    : 'text-[--color-text-muted] border-transparent hover:text-[--color-text] hover:border-[--color-poe-gold]/50'
+                }`}
+              >
+                {tab.label}
+              </button>
+            ))}
+          </div>
 
-        {/* Tab content */}
-        {activeTab === 'general' && <GeneralTab
-          poeLogPath={poeLogPath}
-          accountName={accountName}
-          testCharacterName={testCharacterName}
-          checkUpdates={checkUpdates}
-          setLogPath={setLogPath}
-          setAccountName={setAccountName}
-          setTestCharacterName={setTestCharacterName}
-          setCheckUpdates={setCheckUpdates}
-          handleBrowseLogPath={handleBrowseLogPath}
-          handleDetectLogPath={handleDetectLogPath}
-          handleSaveSettings={handleSaveSettings}
-          saveStatus={saveStatus}
-          checking={checking}
-          available={available}
-          version={version}
-          updateError={updateError}
-          checkForUpdate={checkForUpdate}
-          downloadAndInstall={downloadAndInstall}
-          downloading={downloading}
-          progress={progress}
-        />}
+          {/* Tab content */}
+          {activeTab === 'general' && <GeneralTab
+            poeLogPath={poeLogPath}
+            accountName={accountName}
+            testCharacterName={testCharacterName}
+            checkUpdates={checkUpdates}
+            setLogPath={setLogPath}
+            setAccountName={setAccountName}
+            setTestCharacterName={setTestCharacterName}
+            setCheckUpdates={setCheckUpdates}
+            handleBrowseLogPath={handleBrowseLogPath}
+            handleDetectLogPath={handleDetectLogPath}
+            checking={checking}
+            available={available}
+            version={version}
+            updateError={updateError}
+            checkForUpdate={checkForUpdate}
+            downloadAndInstall={downloadAndInstall}
+            downloading={downloading}
+            progress={progress}
+          />}
 
-        {activeTab === 'breakpoints' && <BreakpointsTab
-          breakpoints={breakpoints}
-          filteredBreakpoints={filteredBreakpoints}
-          acts={acts}
-          actFilter={actFilter}
-          setActFilter={setActFilter}
-          toggleBreakpoint={toggleBreakpoint}
-          toggleSnapshotCapture={toggleSnapshotCapture}
-          moveBreakpoint={moveBreakpoint}
-          setAllBreakpoints={setAllBreakpoints}
-          setActBreakpoints={setActBreakpoints}
-        />}
+          {activeTab === 'breakpoints' && <BreakpointsTab
+            breakpoints={breakpoints}
+            filteredBreakpoints={filteredBreakpoints}
+            acts={acts}
+            actFilter={actFilter}
+            setActFilter={setActFilter}
+            toggleBreakpoint={toggleBreakpoint}
+            toggleSnapshotCapture={toggleSnapshotCapture}
+            moveBreakpoint={moveBreakpoint}
+            setAllBreakpoints={setAllBreakpoints}
+            setActBreakpoints={setActBreakpoints}
+          />}
 
-        {activeTab === 'overlay' && <OverlayTab
+          {activeTab === 'overlay' && <OverlayTab
           overlayEnabled={overlayEnabled}
           overlayOpacity={overlayOpacity}
           overlayScale={overlayScale}
@@ -427,17 +457,60 @@ export function SettingsView() {
           hotkeys={hotkeys}
         />}
 
-        {activeTab === 'shortcuts' && <ShortcutsTab
-          editingHotkeys={editingHotkeys}
-          hotkeyErrors={hotkeyErrors}
-          hotkeyApplyStatus={hotkeyApplyStatus}
-          hasHotkeyChanges={hasHotkeyChanges}
-          hasHotkeyErrors={hasHotkeyErrors}
-          handleHotkeyChange={handleHotkeyChange}
-          handleApplyHotkeys={handleApplyHotkeys}
-          handleResetHotkeys={handleResetHotkeys}
-        />}
+          {activeTab === 'shortcuts' && <ShortcutsTab
+            editingHotkeys={editingHotkeys}
+            hotkeyErrors={hotkeyErrors}
+            handleHotkeyChange={handleHotkeyChange}
+            handleResetHotkeys={handleResetHotkeys}
+            hotkeyApplyStatus={hotkeyApplyStatus}
+          />}
+        </div>
       </div>
+
+      {/* Sticky save bar — appears only when there are unsaved changes */}
+      {isDirty && (
+        <div className="border-t border-[--color-poe-gold]/40 bg-gradient-to-t from-[--color-surface] to-[--color-surface-elevated] px-6 py-3 shadow-[0_-4px_12px_rgba(0,0,0,0.3)]">
+          <div className="max-w-2xl flex items-center justify-between">
+            <span className="text-sm text-[--color-poe-gold]">Unsaved changes</span>
+            <div className="flex items-center gap-2">
+              <Button variant="secondary" size="sm" icon={Undo2} onClick={handleDiscard}>
+                Discard
+              </Button>
+              {activeTab === 'general' && (
+                <Button
+                  variant="primary"
+                  size="sm"
+                  icon={saveStatus === 'idle' ? Save : undefined}
+                  loading={saveStatus === 'saving'}
+                  onClick={handleSaveSettings}
+                  disabled={saveStatus === 'saving'}
+                  className={
+                    saveStatus === 'saved'
+                      ? 'bg-[--color-timer-ahead] text-white border-green-400 hover:bg-[--color-timer-ahead]'
+                      : ''
+                  }
+                >
+                  {saveStatus === 'saving' ? 'Saving...' :
+                   saveStatus === 'saved' ? 'Saved!' :
+                   saveStatus === 'error' ? 'Error — Retry' :
+                   'Save Settings'}
+                </Button>
+              )}
+              {activeTab === 'shortcuts' && (
+                <Button
+                  variant="primary"
+                  size="sm"
+                  onClick={handleApplyHotkeys}
+                  disabled={hasHotkeyErrors || hotkeyApplyStatus === 'applying'}
+                  loading={hotkeyApplyStatus === 'applying'}
+                >
+                  {hotkeyApplyStatus === 'applying' ? 'Applying...' : 'Apply Shortcuts'}
+                </Button>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
@@ -544,8 +617,6 @@ interface GeneralTabProps {
   setCheckUpdates: (v: boolean) => void;
   handleBrowseLogPath: () => void;
   handleDetectLogPath: () => void;
-  handleSaveSettings: () => void;
-  saveStatus: 'idle' | 'saving' | 'saved' | 'error';
   checking: boolean;
   available: boolean;
   version: string | null;
@@ -567,8 +638,6 @@ function GeneralTab({
   setCheckUpdates,
   handleBrowseLogPath,
   handleDetectLogPath,
-  handleSaveSettings,
-  saveStatus,
   checking,
   available,
   version,
@@ -714,39 +783,6 @@ function GeneralTab({
         </div>
       </section>
 
-      {/* Save button */}
-      <div className="flex gap-3 items-center">
-        <Button
-          variant={
-            saveStatus === 'saved' ? 'primary' :
-            saveStatus === 'error' ? 'destructive' :
-            'primary'
-          }
-          size="lg"
-          icon={saveStatus === 'idle' ? Save : undefined}
-          loading={saveStatus === 'saving'}
-          onClick={handleSaveSettings}
-          disabled={saveStatus === 'saving'}
-          className={
-            saveStatus === 'saved'
-              ? 'bg-[--color-timer-ahead] text-white border-green-400 hover:bg-[--color-timer-ahead]'
-              : ''
-          }
-        >
-          {saveStatus === 'saving' ? (
-            <>
-              <LoadingSpinner size="sm" />
-              Saving...
-            </>
-          ) :
-           saveStatus === 'saved' ? 'Saved!' :
-           saveStatus === 'error' ? 'Error!' :
-           'Save Settings'}
-        </Button>
-        {saveStatus === 'error' && (
-          <span className="text-[--color-timer-behind] text-sm">Check console for details</span>
-        )}
-      </div>
     </div>
   );
 }
@@ -1324,23 +1360,17 @@ function OverlayTab({
 interface ShortcutsTabProps {
   editingHotkeys: HotkeySettings;
   hotkeyErrors: Partial<Record<keyof HotkeySettings, string>>;
-  hotkeyApplyStatus: 'idle' | 'applying' | 'applied' | 'error';
-  hasHotkeyChanges: boolean;
-  hasHotkeyErrors: boolean;
   handleHotkeyChange: (key: keyof HotkeySettings, value: string) => void;
-  handleApplyHotkeys: () => void;
   handleResetHotkeys: () => void;
+  hotkeyApplyStatus: 'idle' | 'applying' | 'applied' | 'error';
 }
 
 function ShortcutsTab({
   editingHotkeys,
   hotkeyErrors,
-  hotkeyApplyStatus,
-  hasHotkeyChanges,
-  hasHotkeyErrors,
   handleHotkeyChange,
-  handleApplyHotkeys,
   handleResetHotkeys,
+  hotkeyApplyStatus,
 }: ShortcutsTabProps) {
   return (
     <div className="card-inset rounded-lg p-4 space-y-3">
@@ -1363,26 +1393,6 @@ function ShortcutsTab({
         </div>
       ))}
       <div className="flex gap-2 pt-3 border-t border-[--color-border]">
-        <Button
-          variant={
-            hotkeyApplyStatus === 'applied' ? 'primary' :
-            hotkeyApplyStatus === 'error' ? 'destructive' :
-            'primary'
-          }
-          onClick={handleApplyHotkeys}
-          disabled={!hasHotkeyChanges || hasHotkeyErrors || hotkeyApplyStatus === 'applying'}
-          loading={hotkeyApplyStatus === 'applying'}
-          className={
-            hotkeyApplyStatus === 'applied'
-              ? 'bg-[--color-timer-ahead] text-white border-green-400 hover:bg-[--color-timer-ahead]'
-              : ''
-          }
-        >
-          {hotkeyApplyStatus === 'applying' ? 'Applying...' :
-           hotkeyApplyStatus === 'applied' ? 'Applied!' :
-           hotkeyApplyStatus === 'error' ? 'Error!' :
-           'Apply Shortcuts'}
-        </Button>
         <Button
           variant="secondary"
           onClick={handleResetHotkeys}
