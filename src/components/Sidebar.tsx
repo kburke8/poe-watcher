@@ -16,11 +16,11 @@ interface NavItem {
 
 const baseNavItems: NavItem[] = [
   { id: 'timer', label: 'Timer', icon: Timer },
-  { id: 'practice', label: 'Practice', icon: Target },
   { id: 'mapping', label: 'Mapping', icon: Map },
   { id: 'snapshots', label: 'Snapshots', icon: Camera },
   { id: 'comparison', label: 'Compare', icon: GitCompareArrows },
   { id: 'history', label: 'History', icon: History },
+  { id: 'practice', label: 'Practice', icon: Target },
   { id: 'settings', label: 'Settings', icon: SettingsIcon },
 ];
 

@@ -273,11 +273,13 @@ function StepVerbosity({ config, setConfig, onAdvance }: {
                   </span>
                   <span className="text-xs text-[--color-text-muted] ml-2">~{count} splits</span>
                 </div>
-                <div className={`w-4 h-4 rounded-full border-2 flex items-center justify-center flex-shrink-0 ${
-                  selected ? 'border-[--color-poe-gold]' : 'border-[--color-text-muted]/40'
-                }`}>
-                  {selected && <div className="w-2 h-2 rounded-full bg-[--color-poe-gold]" />}
-                </div>
+                <div
+                  className="w-4 h-4 rounded-full border-2 flex-shrink-0"
+                  style={{
+                    borderColor: selected ? 'var(--color-poe-gold)' : 'rgba(150,150,150,0.4)',
+                    backgroundColor: selected ? '#ffffff' : 'transparent',
+                  }}
+                />
               </div>
               <div className="text-xs text-[--color-text-muted] mt-1">{opt.desc}</div>
             </button>
@@ -333,11 +335,13 @@ function StepSnapshots({ config, setConfig, onAdvance }: {
                   </span>
                   <span className="text-xs text-[--color-text-muted] ml-2">~{count} snapshots</span>
                 </div>
-                <div className={`w-4 h-4 rounded-full border-2 flex items-center justify-center flex-shrink-0 ${
-                  selected ? 'border-[--color-poe-gold]' : 'border-[--color-text-muted]/40'
-                }`}>
-                  {selected && <div className="w-2 h-2 rounded-full bg-[--color-poe-gold]" />}
-                </div>
+                <div
+                  className="w-4 h-4 rounded-full border-2 flex-shrink-0"
+                  style={{
+                    borderColor: selected ? 'var(--color-poe-gold)' : 'rgba(150,150,150,0.4)',
+                    backgroundColor: selected ? '#ffffff' : 'transparent',
+                  }}
+                />
               </div>
               <div className="text-xs text-[--color-text-muted] mt-1">{opt.desc}</div>
             </button>
