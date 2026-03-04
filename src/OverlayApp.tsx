@@ -51,6 +51,8 @@ interface OverlayState {
     currentMapElapsedMs: number;
     currentMapZone: string | null;
   } | null;
+  // Transparency mode
+  transparent?: boolean;
 }
 
 const initialState: OverlayState = {
@@ -76,6 +78,18 @@ export function OverlayApp() {
   const [state, setState] = useState<OverlayState>(initialState);
   const prevScaleRef = useRef<string | undefined>(undefined);
   const contentRef = useRef<HTMLDivElement>(null);
+
+  // When opaque mode: set a solid body background so there's no transparency bleed-through
+  useEffect(() => {
+    const isTransparent = state.transparent ?? true;
+    if (!isTransparent) {
+      document.body.style.backgroundColor = 'rgb(0, 0, 0)';
+      document.documentElement.style.backgroundColor = 'rgb(0, 0, 0)';
+    } else {
+      document.body.style.backgroundColor = 'transparent';
+      document.documentElement.style.backgroundColor = 'transparent';
+    }
+  }, [state.transparent]);
 
   // Listen for state updates from main window
   useEffect(() => {
@@ -165,8 +179,9 @@ export function OverlayApp() {
   // Scale drives font size directly - ensures content fits the window
   const fontSize = scale;
 
-  // Background color — transparent window, rgba alpha controls visibility
-  const bgOpacity = state.bgOpacity ?? 1;
+  // Background color — when transparent: rgba alpha controls visibility; when opaque: solid
+  const isTransparent = state.transparent ?? true;
+  const bgOpacity = isTransparent ? (state.bgOpacity ?? 1) : 1;
   const bgColor = `rgba(13, 11, 10, ${bgOpacity})`;
 
   // Scale-based layout classes

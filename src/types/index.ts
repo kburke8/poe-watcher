@@ -176,6 +176,8 @@ export interface Settings {
   minimizeToTray: boolean;
   // Endgame mode
   endgameEnabled: boolean;
+  // Overlay transparency (false = opaque/OBS-friendly default, true = transparent)
+  overlayTransparent: boolean;
 }
 
 // PoE API types

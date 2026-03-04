@@ -22,12 +22,11 @@
   --color-text-muted: #9a8e82;
 }
 
-/* Transparent background — the visible background is controlled by the
-   bgColor rgba in OverlayApp.tsx. transparent(true) on the window enables
-   click-through (WS_EX_LAYERED) on Windows. OBS users should use
-   "Game Capture" or "Display Capture" instead of "Window Capture". */
+/* Background is controlled by OverlayApp.tsx based on transparency mode.
+   When transparent: body stays transparent, CSS rgba controls the overlay bg.
+   When opaque: JS sets body to solid black so OBS "auto" capture works. */
 html, body {
-  background: transparent !important;
+  background: transparent;
   margin: 0;
   padding: 0;
   overflow: hidden;
@@ -38,7 +37,6 @@ html, body {
 #overlay-root {
   width: 100%;
   height: 100%;
-  background: transparent;
   color: #e8e0d6;
 }
 

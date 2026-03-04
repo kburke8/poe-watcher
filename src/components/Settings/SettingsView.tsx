@@ -87,6 +87,9 @@ export function SettingsView() {
     setOverlayAccentColor,
     setOverlayAlwaysOnTop,
     setOverlayOpen,
+    // Overlay transparency
+    overlayTransparent,
+    setOverlayTransparent,
     // Hotkeys
     hotkeys,
     setHotkeys,
@@ -286,6 +289,7 @@ export function SettingsView() {
           show_town_visits: useSettingsStore.getState().showTownVisits,
           minimize_to_tray: useSettingsStore.getState().minimizeToTray,
           endgame_enabled: useSettingsStore.getState().endgameEnabled,
+          overlay_stream_mode: useSettingsStore.getState().overlayTransparent,
         },
       });
 
@@ -401,6 +405,7 @@ export function SettingsView() {
           overlayShowBreakpoints={overlayShowBreakpoints}
           overlayAlwaysOnTop={overlayAlwaysOnTop}
           overlayOpen={overlayOpen}
+          overlayTransparent={overlayTransparent}
           setOverlayEnabled={setOverlayEnabled}
           setOverlayOpacity={setOverlayOpacity}
           setOverlayScale={setOverlayScale}
@@ -411,6 +416,7 @@ export function SettingsView() {
           setOverlayShowLastSplit={setOverlayShowLastSplit}
           setOverlayShowBreakpoints={setOverlayShowBreakpoints}
           setOverlayAlwaysOnTop={setOverlayAlwaysOnTop}
+          setOverlayTransparent={setOverlayTransparent}
           handleToggleOverlay={handleToggleOverlay}
           handleResetPosition={handleResetPosition}
           hotkeys={hotkeys}
@@ -989,6 +995,7 @@ interface OverlayTabProps {
   overlayShowBreakpoints: boolean;
   overlayAlwaysOnTop: boolean;
   overlayOpen: boolean;
+  overlayTransparent: boolean;
   setOverlayEnabled: (v: boolean) => void;
   setOverlayOpacity: (v: number) => void;
   setOverlayScale: (v: 'small' | 'medium' | 'large') => void;
@@ -999,6 +1006,7 @@ interface OverlayTabProps {
   setOverlayShowLastSplit: (v: boolean) => void;
   setOverlayShowBreakpoints: (v: boolean) => void;
   setOverlayAlwaysOnTop: (v: boolean) => void;
+  setOverlayTransparent: (v: boolean) => void;
   handleToggleOverlay: () => void;
   handleResetPosition: () => void;
   hotkeys: HotkeySettings;
@@ -1016,6 +1024,7 @@ function OverlayTab({
   overlayShowBreakpoints,
   overlayAlwaysOnTop,
   overlayOpen,
+  overlayTransparent,
   setOverlayEnabled,
   setOverlayOpacity,
   setOverlayScale,
@@ -1026,10 +1035,63 @@ function OverlayTab({
   setOverlayShowLastSplit,
   setOverlayShowBreakpoints,
   setOverlayAlwaysOnTop,
+  setOverlayTransparent,
   handleToggleOverlay,
   handleResetPosition,
   hotkeys,
 }: OverlayTabProps) {
+  // Handle transparency toggle — requires overlay restart since transparent is a creation-time property
+  const handleTransparencyToggle = useCallback(async (enabled: boolean) => {
+    setOverlayTransparent(enabled);
+    // If overlay is currently open, restart it so the new transparency setting takes effect
+    if (overlayOpen) {
+      try {
+        await invoke('close_overlay');
+        useSettingsStore.getState().setOverlayOpen(false);
+        // Brief delay to allow the window to fully close before reopening
+        setTimeout(async () => {
+          try {
+            // Save settings first so the backend picks up the new overlay_stream_mode
+            await invoke('save_settings', {
+              settings: {
+                poe_log_path: useSettingsStore.getState().poeLogPath,
+                account_name: useSettingsStore.getState().accountName,
+                overlay_enabled: useSettingsStore.getState().overlayEnabled,
+                overlay_opacity: useSettingsStore.getState().overlayOpacity,
+                sound_enabled: true,
+                overlay_scale: useSettingsStore.getState().overlayScale,
+                overlay_font_size: useSettingsStore.getState().overlayFontSize,
+                overlay_show_timer: useSettingsStore.getState().overlayShowTimer,
+                overlay_show_zone: useSettingsStore.getState().overlayShowZone,
+                overlay_show_last_split: useSettingsStore.getState().overlayShowLastSplit,
+                overlay_show_breakpoints: useSettingsStore.getState().overlayShowBreakpoints,
+                overlay_breakpoint_count: useSettingsStore.getState().overlayBreakpointCount,
+                overlay_bg_opacity: useSettingsStore.getState().overlayBgOpacity,
+                overlay_accent_color: useSettingsStore.getState().overlayAccentColor,
+                overlay_always_on_top: useSettingsStore.getState().overlayAlwaysOnTop,
+                hotkey_toggle_timer: useSettingsStore.getState().hotkeys.toggleTimer,
+                hotkey_reset_timer: useSettingsStore.getState().hotkeys.resetTimer,
+                hotkey_manual_snapshot: useSettingsStore.getState().hotkeys.manualSnapshot,
+                hotkey_toggle_overlay: useSettingsStore.getState().hotkeys.toggleOverlay,
+                hotkey_manual_split: useSettingsStore.getState().hotkeys.manualSplit,
+                group_mode_enabled: useSettingsStore.getState().groupModeEnabled,
+                show_town_visits: useSettingsStore.getState().showTownVisits,
+                minimize_to_tray: useSettingsStore.getState().minimizeToTray,
+                endgame_enabled: useSettingsStore.getState().endgameEnabled,
+                overlay_stream_mode: enabled,
+              },
+            });
+            const isOpen = await invoke<boolean>('toggle_overlay');
+            useSettingsStore.getState().setOverlayOpen(isOpen);
+          } catch (error) {
+            console.error('Failed to reopen overlay:', error);
+          }
+        }, 300);
+      } catch (error) {
+        console.error('Failed to close overlay for restart:', error);
+      }
+    }
+  }, [overlayOpen, setOverlayTransparent]);
   return (
     <div className="card-inset rounded-lg p-4 space-y-4">
       {/* Enable toggle */}
@@ -1078,37 +1140,64 @@ function OverlayTab({
           </div>
         </div>
 
-        {/* Window Opacity */}
+        {/* Enable Transparency */}
         <div className="mb-3">
-          <label className="block text-sm text-[--color-text-muted] mb-2">
-            Window Opacity: {Math.round(overlayOpacity * 100)}%
-          </label>
-          <input
-            type="range"
-            min="0.2"
-            max="1"
-            step="0.05"
-            value={overlayOpacity}
-            onChange={(e) => setOverlayOpacity(parseFloat(e.target.value))}
-            className="w-full"
-          />
+          <div className="flex items-center justify-between">
+            <div>
+              <div className="text-sm text-[--color-text] flex items-center gap-2">
+                Enable Transparency
+                <HelpTip>
+                  When off (default), the overlay has a solid dark background and works with OBS Window Capture using the default "Automatic" capture method. When on, the overlay background becomes transparent — useful for a floating look — but requires selecting "Windows 10 (1903 and up)" as the capture method in OBS.
+                </HelpTip>
+              </div>
+              <div className="text-xs text-[--color-text-muted]">Requires overlay restart when changed</div>
+            </div>
+            <Toggle checked={overlayTransparent} onChange={handleTransparencyToggle} />
+          </div>
+          {overlayTransparent && (
+            <div className="mt-2 px-3 py-2 rounded-md bg-amber-900/20 border border-amber-700/30">
+              <div className="text-xs text-amber-200/80">
+                For OBS: set Capture Method to <span className="font-medium text-amber-100">Windows 10 (1903 and up)</span>. The default "Automatic" method won't capture transparent overlays.
+              </div>
+            </div>
+          )}
         </div>
 
-        {/* Background Opacity */}
-        <div className="mb-3">
-          <label className="block text-sm text-[--color-text-muted] mb-2">
-            Background Opacity: {Math.round(overlayBgOpacity * 100)}%
-          </label>
-          <input
-            type="range"
-            min="0.1"
-            max="1"
-            step="0.05"
-            value={overlayBgOpacity}
-            onChange={(e) => setOverlayBgOpacity(parseFloat(e.target.value))}
-            className="w-full"
-          />
-        </div>
+        {/* Window Opacity — only shown when transparency is enabled */}
+        {overlayTransparent && (
+          <div className="mb-3">
+            <label className="block text-sm text-[--color-text-muted] mb-2">
+              Window Opacity: {Math.round(overlayOpacity * 100)}%
+            </label>
+            <input
+              type="range"
+              min="0.2"
+              max="1"
+              step="0.05"
+              value={overlayOpacity}
+              onChange={(e) => setOverlayOpacity(parseFloat(e.target.value))}
+              className="w-full"
+            />
+          </div>
+        )}
+
+        {/* Background Opacity — only shown when transparency is enabled */}
+        {overlayTransparent && (
+          <div className="mb-3">
+            <label className="block text-sm text-[--color-text-muted] mb-2">
+              Background Opacity: {Math.round(overlayBgOpacity * 100)}%
+            </label>
+            <input
+              type="range"
+              min="0.1"
+              max="1"
+              step="0.05"
+              value={overlayBgOpacity}
+              onChange={(e) => setOverlayBgOpacity(parseFloat(e.target.value))}
+              className="w-full"
+            />
+          </div>
+        )}
 
         {/* Accent Color */}
         <div className="mb-3">
@@ -1181,7 +1270,7 @@ function OverlayTab({
         <h3 className="text-sm font-semibold text-[--color-text-muted] mb-3 uppercase tracking-wide flex items-center gap-2 flex-wrap">
           Behavior
           <HelpTip>
-            Always on Top keeps the overlay above all other windows including PoE. For OBS capture: add a Window Capture source, select "PoE Watcher Overlay", and set Capture Method to "Windows 10 (1903 and up)".
+            Always on Top keeps the overlay above all other windows including PoE. The overlay is OBS-compatible — add a Window Capture source for "PoE Watcher Overlay".
           </HelpTip>
         </h3>
 
@@ -1191,10 +1280,6 @@ function OverlayTab({
             <div className="text-xs text-[--color-text-muted]">Keep overlay above other windows</div>
           </div>
           <Toggle checked={overlayAlwaysOnTop} onChange={setOverlayAlwaysOnTop} />
-        </div>
-
-        <div className="text-xs text-[--color-text-muted] mt-2">
-          The overlay is OBS-compatible. In OBS, add a <span className="font-medium text-[--color-text]">Window Capture</span> for "PoE Watcher Overlay" with Capture Method set to <span className="font-medium text-[--color-text]">Windows 10 (1903 and up)</span>.
         </div>
       </div>
 

@@ -50,6 +50,8 @@ interface OverlayState {
   // Endgame mode
   isEndgame: boolean;
   endgame: EndgameState | null;
+  // Transparency mode
+  transparent: boolean;
 }
 
 interface OverlayConfig {
@@ -64,6 +66,7 @@ interface OverlayConfig {
   overlayBgOpacity: number;
   overlayAccentColor: string;
   overlayAlwaysOnTop: boolean;
+  overlayTransparent: boolean;
 }
 
 interface HotkeyLabels {
@@ -206,6 +209,7 @@ function buildOverlayState(
     hotkeyToggleOverlay: hotkeyLabels.hotkeyToggleOverlay,
     isEndgame: timer.isInEndgame,
     endgame,
+    transparent: config.overlayTransparent,
   };
 }
 
@@ -234,6 +238,7 @@ export function useOverlaySync() {
   const overlayBgOpacity = useSettingsStore((state) => state.overlayBgOpacity);
   const overlayAccentColor = useSettingsStore((state) => state.overlayAccentColor);
   const overlayAlwaysOnTop = useSettingsStore((state) => state.overlayAlwaysOnTop);
+  const overlayTransparent = useSettingsStore((state) => state.overlayTransparent);
   const hotkeys = useSettingsStore((state) => state.hotkeys);
 
   const config: OverlayConfig = {
@@ -248,6 +253,7 @@ export function useOverlaySync() {
     overlayBgOpacity,
     overlayAccentColor,
     overlayAlwaysOnTop,
+    overlayTransparent,
   };
 
   // Track previous non-time state to detect meaningful changes
@@ -265,7 +271,7 @@ export function useOverlaySync() {
     const state = buildOverlayState(timer, breakpoints, config, personalBests, goldSplits, comparisonSplits, runInfo, hotkeyLabels, fallbackCategory);
     sendToOverlay(state);
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [timer, breakpoints, overlayOpacity, overlayScale, overlayFontSize, overlayShowTimer, overlayShowZone, overlayShowLastSplit, overlayShowBreakpoints, overlayBreakpointCount, overlayBgOpacity, overlayAccentColor, overlayAlwaysOnTop, personalBests, goldSplits, comparisonSplits, currentRun, hotkeys, wizardConfig]);
+  }, [timer, breakpoints, overlayOpacity, overlayScale, overlayFontSize, overlayShowTimer, overlayShowZone, overlayShowLastSplit, overlayShowBreakpoints, overlayBreakpointCount, overlayBgOpacity, overlayAccentColor, overlayAlwaysOnTop, overlayTransparent, personalBests, goldSplits, comparisonSplits, currentRun, hotkeys, wizardConfig]);
 
   // Emit immediately on meaningful state changes (zone, splits, start/stop, config, etc.)
   useEffect(() => {
@@ -295,13 +301,15 @@ export function useOverlaySync() {
       mapCount: timer.mapCount,
       endgameDeathCount: timer.endgameDeathCount,
       currentMapZone: timer.currentMapZone,
+      // Transparency
+      transparent: overlayTransparent,
     });
 
     if (nonTimeKey !== prevNonTimeRef.current) {
       prevNonTimeRef.current = nonTimeKey;
       syncNow();
     }
-  }, [timer, overlayOpacity, overlayScale, overlayFontSize, overlayShowTimer, overlayShowZone, overlayShowLastSplit, overlayShowBreakpoints, overlayBreakpointCount, overlayBgOpacity, overlayAccentColor, overlayAlwaysOnTop, personalBests, goldSplits, comparisonSplits, syncNow]);
+  }, [timer, overlayOpacity, overlayScale, overlayFontSize, overlayShowTimer, overlayShowZone, overlayShowLastSplit, overlayShowBreakpoints, overlayBreakpointCount, overlayBgOpacity, overlayAccentColor, overlayAlwaysOnTop, overlayTransparent, personalBests, goldSplits, comparisonSplits, syncNow]);
 
   // Listen for overlay-ready signal and immediately sync
   useEffect(() => {

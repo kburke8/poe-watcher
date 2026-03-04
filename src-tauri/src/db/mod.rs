@@ -97,4 +97,5 @@ const MIGRATIONS: &[(&str, &str)] = &[
     ("015_add_overlay_stream_mode", include_str!("migrations/015_add_overlay_stream_mode.sql")),
     ("016_add_minimize_to_tray", include_str!("migrations/016_add_minimize_to_tray.sql")),
     ("017_add_endgame_enabled", include_str!("migrations/017_add_endgame_enabled.sql")),
+    ("018_fix_overlay_stream_mode_default", include_str!("migrations/018_fix_overlay_stream_mode_default.sql")),
 ];

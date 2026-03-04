@@ -180,6 +180,7 @@ function App() {
           group_mode_enabled: boolean;
           show_town_visits: boolean;
           minimize_to_tray: boolean;
+          overlay_stream_mode: boolean;
         } | null>('get_settings');
 
         if (settings) {
@@ -202,6 +203,7 @@ function App() {
             groupModeEnabled: settings.group_mode_enabled ?? false,
             showTownVisits: settings.show_town_visits ?? true,
             minimizeToTray: settings.minimize_to_tray ?? false,
+            overlayTransparent: settings.overlay_stream_mode ?? false,
           });
 
           // Start log watcher if we have a path

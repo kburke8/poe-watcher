@@ -80,6 +80,8 @@ interface SettingsState extends Settings {
   setMinimizeToTray: (enabled: boolean) => void;
   // Endgame mode
   setEndgameEnabled: (enabled: boolean) => void;
+  // Overlay transparency
+  setOverlayTransparent: (enabled: boolean) => void;
   // Comparison
   setActiveComparison: (runId: number | null, label?: string | null) => void;
 }
@@ -117,6 +119,8 @@ export const useSettingsStore = create<SettingsState>((set, get) => ({
   minimizeToTray: false,
   // Endgame mode
   endgameEnabled: true,
+  // Overlay transparency
+  overlayTransparent: false,
   // Runtime-only
   overlayOpen: false,
   // Hotkey settings
@@ -321,6 +325,8 @@ export const useSettingsStore = create<SettingsState>((set, get) => ({
   setMinimizeToTray: (enabled) => set({ minimizeToTray: enabled }),
   // Endgame mode
   setEndgameEnabled: (enabled) => set({ endgameEnabled: enabled }),
+  // Overlay transparency
+  setOverlayTransparent: (enabled) => set({ overlayTransparent: enabled }),
   // Comparison
   setActiveComparison: (runId, label = null) => set({
     activeComparisonRunId: runId,
