@@ -26,6 +26,9 @@ export interface Run {
   sourceName?: string | null;
   // Group mode
   isGroupRun?: boolean;
+  // Video linking
+  videoUrl?: string | null;
+  videoStartOffsetMs?: number | null;
 }
 
 export interface Split {

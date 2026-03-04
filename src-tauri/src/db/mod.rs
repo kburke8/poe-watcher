@@ -99,4 +99,5 @@ const MIGRATIONS: &[(&str, &str)] = &[
     ("017_add_endgame_enabled", include_str!("migrations/017_add_endgame_enabled.sql")),
     ("018_fix_overlay_stream_mode_default", include_str!("migrations/018_fix_overlay_stream_mode_default.sql")),
     ("019_add_overlay_hide_deaths", include_str!("migrations/019_add_overlay_hide_deaths.sql")),
+    ("020_add_video_link", include_str!("migrations/020_add_video_link.sql")),
 ];

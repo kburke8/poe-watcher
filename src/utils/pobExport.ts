@@ -3,6 +3,7 @@ import { invoke } from '@tauri-apps/api/core';
 import type { PoeItem, Snapshot, Run, Split, GroupSnapshot } from '../types';
 import { defaultBreakpoints } from '../config/breakpoints';
 import gemsData from '../config/gems_minimal.json';
+import { getSnapshotVideoLink } from './videoLinks';
 
 // ============================================================================
 // PoB Config Auto-Population Helpers
@@ -168,7 +169,7 @@ interface BuildData {
 /**
  * Generate notes for PoB export with run stats
  */
-function generateNotes(run: Run, splits?: Split[]): string {
+function generateNotes(run: Run, splits?: Split[], snapshots?: Snapshot[]): string {
   const lines: string[] = [];
 
   if (run.category) {
@@ -206,6 +207,29 @@ function generateNotes(run: Run, splits?: Split[]): string {
 
   if (run.isPersonalBest) {
     lines.push('Personal Best!');
+  }
+
+  // Video links
+  if (run.videoUrl && run.videoStartOffsetMs != null && snapshots && snapshots.length > 0 && splits) {
+    const splitMap = new Map<number, string>();
+    for (const split of splits) {
+      splitMap.set(split.id, split.breakpointName);
+    }
+
+    lines.push('');
+    const fullVideoLink = getSnapshotVideoLink(run.videoUrl, run.videoStartOffsetMs, 0);
+    lines.push(`Video: ${fullVideoLink}`);
+    lines.push('');
+    lines.push('Snapshot Links:');
+    for (const snapshot of snapshots) {
+      const label = splitMap.get(snapshot.splitId) || `Level ${snapshot.characterLevel}`;
+      const timeStr = formatTimeForLabel(snapshot.elapsedTimeMs);
+      const link = getSnapshotVideoLink(run.videoUrl, run.videoStartOffsetMs, snapshot.elapsedTimeMs);
+      lines.push(`  ${label} [${timeStr}] - ${link}`);
+    }
+  } else if (run.videoUrl) {
+    lines.push('');
+    lines.push(`Video: ${run.videoUrl}`);
   }
 
   lines.push('');
@@ -840,7 +864,7 @@ export function createBuildData(snapshot: Snapshot, run: Run, splits?: Split[]):
       class: run.class,
       ascendancy: run.ascendancy || undefined,
     },
-    notes: generateNotes(run, splits),
+    notes: generateNotes(run, splits, [snapshot]),
   };
 
   return buildData;
@@ -1164,7 +1188,7 @@ export function createMultiBuildData(snapshots: Snapshot[], run: Run, splits?: S
       class: run.class,
       ascendancy: ascendancy,
     },
-    notes: generateNotes(run, splits),
+    notes: generateNotes(run, splits, snapshotData.map(sd => sd.snapshot)),
   };
 }
 

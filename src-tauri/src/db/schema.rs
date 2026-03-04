@@ -32,6 +32,9 @@ pub struct Run {
     pub source_name: Option<String>,
     // Group mode
     pub is_group_run: bool,
+    // Video linking
+    pub video_url: Option<String>,
+    pub video_start_offset_ms: Option<i64>,
 }
 
 impl Run {
@@ -55,6 +58,8 @@ impl Run {
             is_reference: row.get("is_reference")?,
             source_name: row.get("source_name")?,
             is_group_run: row.get("is_group_run")?,
+            video_url: row.get("video_url")?,
+            video_start_offset_ms: row.get("video_start_offset_ms")?,
         })
     }
 
@@ -93,6 +98,15 @@ impl Run {
         conn.execute(
             "UPDATE runs SET status = 'abandoned', ended_at = datetime('now'), total_time_ms = ?1 WHERE id = ?2",
             params![total_time_ms, id],
+        )?;
+        Ok(())
+    }
+
+    pub fn update_video(id: i64, video_url: Option<&str>, video_start_offset_ms: Option<i64>) -> Result<()> {
+        let conn = get_db()?;
+        conn.execute(
+            "UPDATE runs SET video_url = ?1, video_start_offset_ms = ?2 WHERE id = ?3",
+            params![video_url, video_start_offset_ms, id],
         )?;
         Ok(())
     }

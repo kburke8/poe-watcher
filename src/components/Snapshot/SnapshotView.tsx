@@ -1,6 +1,6 @@
 import { useState, useEffect, useMemo, useCallback } from 'react';
 import { invoke } from '@tauri-apps/api/core';
-import { Camera, MousePointerClick } from 'lucide-react';
+import { Camera, MousePointerClick, Video, ExternalLink, X, Pencil } from 'lucide-react';
 import { useRunStore } from '../../stores/runStore';
 import { HelpTip } from '../Shared/HelpTip';
 import { useSnapshotStore, parseItems, parsePassives, getEquippedItems } from '../../stores/snapshotStore';
@@ -15,6 +15,7 @@ import { LoadingSpinner } from '../Shared/LoadingSpinner';
 import { Button } from '../Shared/Button';
 import { exportToPob, shareOnPobbIn, exportAllToPob, shareAllOnPobbIn } from '../../utils/pobExport';
 import { exportRunToJson } from '../../utils/jsonExport';
+import { parseVideoUrl, formatOffsetTime, parseOffsetInput, getSnapshotVideoLink } from '../../utils/videoLinks';
 import type { Run, Split, Snapshot, PersonalBest, GoldSplit } from '../../types';
 
 type SnapshotTabType = 'equipment' | 'passives';
@@ -316,6 +317,12 @@ function SnapshotDetail({
   const [shareAllUrl, setShareAllUrl] = useState<string | null>(null);
   const [pbTimeMs, setPbTimeMs] = useState<number | null>(null);
   const [goldSplitsMap, setGoldSplitsMap] = useState<Map<string, number>>(new Map());
+  // Video link state
+  const [videoExpanded, setVideoExpanded] = useState(false);
+  const [videoUrlInput, setVideoUrlInput] = useState('');
+  const [videoOffsetInput, setVideoOffsetInput] = useState('');
+  const [videoAutoDetected, setVideoAutoDetected] = useState(false);
+  const [videoEditing, setVideoEditing] = useState(false);
 
   // Load PB and gold splits for this run's category
   useEffect(() => {
@@ -338,6 +345,63 @@ function SnapshotDetail({
       setGoldSplitsMap(map);
     }).catch(() => setGoldSplitsMap(new Map()));
   }, [run.id, run.category, run.class]);
+
+  // Sync video state from run
+  useEffect(() => {
+    if (run.videoUrl) {
+      setVideoUrlInput(run.videoUrl);
+      setVideoOffsetInput(formatOffsetTime(run.videoStartOffsetMs ?? 0));
+      setVideoAutoDetected(false);
+      setVideoEditing(false);
+    } else {
+      setVideoUrlInput('');
+      setVideoOffsetInput('0:00');
+      setVideoAutoDetected(false);
+      setVideoEditing(false);
+    }
+  }, [run.id, run.videoUrl, run.videoStartOffsetMs]);
+
+  const handleVideoUrlChange = useCallback((url: string) => {
+    setVideoUrlInput(url);
+    if (url.trim()) {
+      const parsed = parseVideoUrl(url.trim());
+      if (parsed.timestampMs > 0) {
+        setVideoOffsetInput(formatOffsetTime(parsed.timestampMs));
+        setVideoAutoDetected(true);
+      } else {
+        setVideoAutoDetected(false);
+      }
+    }
+  }, []);
+
+  const handleVideoSave = useCallback(async () => {
+    const url = videoUrlInput.trim() || null;
+    const offsetMs = url ? parseOffsetInput(videoOffsetInput) : null;
+    try {
+      await invoke('update_run_video', { runId: run.id, videoUrl: url, videoStartOffsetMs: offsetMs });
+      // Refresh the run in the store
+      const updatedRuns = await invoke<Run[]>('get_runs');
+      useRunStore.getState().setRuns(updatedRuns);
+      setVideoEditing(false);
+      if (!url) setVideoExpanded(false);
+    } catch (error) {
+      console.error('Failed to save video link:', error);
+    }
+  }, [run.id, videoUrlInput, videoOffsetInput]);
+
+  const handleVideoRemove = useCallback(async () => {
+    try {
+      await invoke('update_run_video', { runId: run.id, videoUrl: null, videoStartOffsetMs: null });
+      const updatedRuns = await invoke<Run[]>('get_runs');
+      useRunStore.getState().setRuns(updatedRuns);
+      setVideoUrlInput('');
+      setVideoOffsetInput('0:00');
+      setVideoExpanded(false);
+      setVideoEditing(false);
+    } catch (error) {
+      console.error('Failed to remove video link:', error);
+    }
+  }, [run.id]);
 
   const handleExportToPob = async () => {
     if (!selectedSnapshot) return;
@@ -435,16 +499,116 @@ function SnapshotDetail({
     <div className="flex flex-col h-full">
       {/* Header */}
       <div className="p-6 pb-4 border-b border-[--color-border]">
-        <h2 className="text-xl font-semibold text-[--color-text]">
-          {run.characterName || run.character || 'Unknown'}
-        </h2>
-        <p className="text-[--color-text-muted]">
-          {run.ascendancy || run.class || 'Unknown'}
-          {run.category && run.category !== 'any%' && (
-            <span className="ml-1.5 text-[--color-poe-gold]/80">{run.category}</span>
-          )}
-          {run.league && <span className="ml-1.5">- {run.league}</span>}
-        </p>
+        <div className="flex items-start justify-between">
+          <div>
+            <h2 className="text-xl font-semibold text-[--color-text]">
+              {run.characterName || run.character || 'Unknown'}
+            </h2>
+            <p className="text-[--color-text-muted]">
+              {run.ascendancy || run.class || 'Unknown'}
+              {run.category && run.category !== 'any%' && (
+                <span className="ml-1.5 text-[--color-poe-gold]/80">{run.category}</span>
+              )}
+              {run.league && <span className="ml-1.5">- {run.league}</span>}
+            </p>
+          </div>
+          <button
+            onClick={() => setVideoExpanded(!videoExpanded)}
+            className={`flex items-center gap-1.5 text-xs px-2.5 py-1.5 rounded transition-colors ${
+              run.videoUrl
+                ? 'text-[--color-poe-gold] bg-[--color-poe-gold]/10 hover:bg-[--color-poe-gold]/20'
+                : 'text-[--color-text-muted] hover:text-[--color-text] hover:bg-[--color-surface-elevated]'
+            }`}
+            title={run.videoUrl ? 'Video linked' : 'Link a video'}
+          >
+            <Video className="w-3.5 h-3.5" />
+            {run.videoUrl ? 'Video' : 'Link Video'}
+          </button>
+        </div>
+
+        {/* Video link panel */}
+        {videoExpanded && (
+          <div className="mt-3 p-3 rounded-lg bg-[--color-surface-elevated] border border-[--color-border]">
+            {run.videoUrl && !videoEditing ? (
+              /* Show linked video */
+              <div className="flex items-center gap-2">
+                <Video className="w-4 h-4 text-[--color-poe-gold] shrink-0" />
+                <a
+                  href={run.videoUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="text-sm text-[--color-poe-gold] hover:underline truncate min-w-0"
+                >
+                  {run.videoUrl}
+                </a>
+                <span className="text-xs text-[--color-text-muted] shrink-0">
+                  starts at {formatOffsetTime(run.videoStartOffsetMs ?? 0)}
+                </span>
+                <button
+                  onClick={() => setVideoEditing(true)}
+                  className="p-1 text-[--color-text-muted] hover:text-[--color-text] rounded shrink-0"
+                  title="Edit"
+                >
+                  <Pencil className="w-3.5 h-3.5" />
+                </button>
+                <button
+                  onClick={handleVideoRemove}
+                  className="p-1 text-[--color-text-muted] hover:text-red-400 rounded shrink-0"
+                  title="Remove video link"
+                >
+                  <X className="w-3.5 h-3.5" />
+                </button>
+              </div>
+            ) : (
+              /* Edit / add video */
+              <div className="space-y-2">
+                <div>
+                  <label className="text-xs text-[--color-text-muted] mb-1 block">Twitch VOD or YouTube URL</label>
+                  <input
+                    type="text"
+                    value={videoUrlInput}
+                    onChange={(e) => handleVideoUrlChange(e.target.value)}
+                    placeholder="https://twitch.tv/videos/... or https://youtube.com/watch?v=..."
+                    className="w-full px-3 py-1.5 text-sm bg-[--color-surface] border border-[--color-border] rounded text-[--color-text] placeholder:text-[--color-text-muted]/50 focus:outline-none focus:border-[--color-poe-gold]/50"
+                  />
+                </div>
+                {videoUrlInput.trim() && (
+                  <div>
+                    <label className="text-xs text-[--color-text-muted] mb-1 block">
+                      {videoAutoDetected
+                        ? 'Run starts at (auto-detected from URL)'
+                        : 'Run starts at in video (H:MM:SS)'}
+                    </label>
+                    <input
+                      type="text"
+                      value={videoOffsetInput}
+                      onChange={(e) => {
+                        setVideoOffsetInput(e.target.value);
+                        setVideoAutoDetected(false);
+                      }}
+                      placeholder="0:00"
+                      className="w-32 px-3 py-1.5 text-sm bg-[--color-surface] border border-[--color-border] rounded text-[--color-text] placeholder:text-[--color-text-muted]/50 focus:outline-none focus:border-[--color-poe-gold]/50"
+                    />
+                  </div>
+                )}
+                <div className="flex items-center gap-2 pt-1">
+                  <Button variant="primary" size="sm" onClick={handleVideoSave}>
+                    Save
+                  </Button>
+                  {videoEditing && (
+                    <Button variant="ghost" size="sm" onClick={() => {
+                      setVideoEditing(false);
+                      setVideoUrlInput(run.videoUrl || '');
+                      setVideoOffsetInput(formatOffsetTime(run.videoStartOffsetMs ?? 0));
+                    }}>
+                      Cancel
+                    </Button>
+                  )}
+                </div>
+              </div>
+            )}
+          </div>
+        )}
       </div>
 
       {/* Top-level mode tabs: Snapshots | Analysis */}
@@ -594,10 +758,28 @@ function SnapshotDetail({
             {/* Timeline labels */}
             <div className="flex justify-between mt-2 text-xs text-[--color-text-muted]">
               <span>Start</span>
-              <span>{selectedSnapshot ? (() => {
+              <span className="flex items-center gap-1.5">{selectedSnapshot ? (() => {
                 const matchingSplit = splits.find(s => s.id === selectedSnapshot.splitId);
                 const zoneName = matchingSplit?.breakpointName;
-                return `${formatTime(selectedSnapshot.elapsedTimeMs)} - Level ${selectedSnapshot.characterLevel}${zoneName ? ` - ${zoneName}` : ''}`;
+                const label = `${formatTime(selectedSnapshot.elapsedTimeMs)} - Level ${selectedSnapshot.characterLevel}${zoneName ? ` - ${zoneName}` : ''}`;
+                const hasVideo = run.videoUrl && run.videoStartOffsetMs != null;
+                return (
+                  <>
+                    {label}
+                    {hasVideo && (
+                      <button
+                        onClick={() => {
+                          const link = getSnapshotVideoLink(run.videoUrl!, run.videoStartOffsetMs!, selectedSnapshot.elapsedTimeMs);
+                          window.open(link, '_blank');
+                        }}
+                        className="text-[--color-poe-gold]/70 hover:text-[--color-poe-gold] transition-colors"
+                        title="Open video at this snapshot"
+                      >
+                        <ExternalLink className="w-3 h-3" />
+                      </button>
+                    )}
+                  </>
+                );
               })() : ''}</span>
               <span>{formatTime(maxTime)}</span>
             </div>

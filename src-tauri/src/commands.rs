@@ -115,6 +115,11 @@ pub async fn update_run_character(run_id: i64, character_name: String, class: St
 }
 
 #[tauri::command]
+pub async fn update_run_video(run_id: i64, video_url: Option<String>, video_start_offset_ms: Option<i64>) -> Result<(), String> {
+    Run::update_video(run_id, video_url.as_deref(), video_start_offset_ms).map_err(|e| e.to_string())
+}
+
+#[tauri::command]
 pub async fn complete_run(run_id: i64, total_time_ms: i64) -> Result<bool, String> {
     Run::complete(run_id, total_time_ms).map_err(|e| e.to_string())?;
 

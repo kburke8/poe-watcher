@@ -67,6 +67,7 @@ On Windows, requires Visual Studio Build Tools with C++ workload. Run builds fro
 - `config/breakpoints.ts` - Default breakpoint definitions and presets
 - `config/wizardRoutes.ts` - Wizard-based breakpoint generation from route config
 - `utils/pobExport.ts` - Path of Building XML generation
+- `utils/videoLinks.ts` - Video URL parsing (Twitch/YouTube) and timestamped link generation
 
 ### Overlay Window
 
@@ -112,6 +113,7 @@ Commands are defined in `commands.rs` and invoked from React:
 **Runs:**
 - `create_run` / `complete_run` / `get_runs` / `get_run` / `delete_run`
 - `update_run_character` - Update character name/class after detection
+- `update_run_video` - Link/unlink a video URL and start offset to a run
 - `get_runs_filtered` / `get_run_stats` / `get_split_stats`
 - `create_reference_run`
 
@@ -202,6 +204,23 @@ The `pobExport.ts` file handles Path of Building integration:
 - `shareOnPobbIn()` / `shareAllOnPobbIn()` - Upload to pobb.in
 
 Key insight: PoE logs capture **ascendancy names** (e.g., "Pathfinder") in level-up events, not base class. The `deriveClassAndAscendancy()` function handles this by checking if `rawClass` is actually an ascendancy name.
+
+### Video Linking
+
+Users can link Twitch VODs or YouTube videos to runs. Each snapshot then gets a computed timestamped link (video start offset + snapshot elapsed time).
+
+- **Database**: `video_url` and `video_start_offset_ms` columns on the `runs` table (migration 020)
+- **Backend**: `update_run_video` IPC command updates both fields
+- **URL Parsing** (`utils/videoLinks.ts`):
+  - `parseVideoUrl(url)` - Auto-detects provider (Twitch/YouTube/unknown), extracts timestamp from URL params (`?t=0h5m30s` for Twitch, `&t=330s` for YouTube), returns clean base URL
+  - `generateVideoLink(baseUrl, provider, offsetMs)` - Appends provider-appropriate timestamp param
+  - `getSnapshotVideoLink(videoUrl, videoStartOffsetMs, snapshotElapsedMs)` - Convenience: computes total offset and generates link
+  - `parseOffsetInput(input)` / `formatOffsetTime(ms)` - H:MM:SS ↔ milliseconds conversion for manual offset entry
+- **UI** (`SnapshotView.tsx`):
+  - Collapsible "Link Video" panel in snapshot detail header
+  - Paste a URL → auto-detects timestamp from URL, or enter manual offset
+  - When linked: shows URL with edit/remove buttons, per-snapshot external link icon in timeline
+- **PoB Export**: `generateNotes()` includes video URL and per-snapshot timestamped links in export notes (both clipboard and pobb.in)
 
 ## Important Constraints
 

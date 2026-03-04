@@ -139,6 +139,7 @@ pub fn run() {
             // Runs
             create_run,
             update_run_character,
+            update_run_video,
             complete_run,
             abandon_run,
             get_runs,
