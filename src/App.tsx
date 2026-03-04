@@ -173,6 +173,7 @@ function App() {
           overlay_show_zone: boolean;
           overlay_show_last_split: boolean;
           overlay_show_breakpoints: boolean;
+          overlay_hide_deaths: boolean;
           overlay_breakpoint_count: number;
           overlay_bg_opacity: number;
           overlay_accent_color: string;
@@ -196,6 +197,7 @@ function App() {
             overlayShowZone: settings.overlay_show_zone ?? false,
             overlayShowLastSplit: settings.overlay_show_last_split ?? false,
             overlayShowBreakpoints: settings.overlay_show_breakpoints ?? false,
+            overlayHideDeaths: settings.overlay_hide_deaths ?? false,
             overlayBreakpointCount: settings.overlay_breakpoint_count ?? 3,
             overlayBgOpacity: settings.overlay_bg_opacity ?? 0.9,
             overlayAccentColor: settings.overlay_accent_color || 'transparent',

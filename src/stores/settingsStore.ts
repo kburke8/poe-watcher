@@ -63,6 +63,7 @@ interface SettingsState extends Settings {
   setOverlayShowZone: (show: boolean) => void;
   setOverlayShowLastSplit: (show: boolean) => void;
   setOverlayShowBreakpoints: (show: boolean) => void;
+  setOverlayHideDeaths: (hide: boolean) => void;
   setOverlayBreakpointCount: (count: number) => void;
   setOverlayBgOpacity: (opacity: number) => void;
   setOverlayAccentColor: (color: string) => void;
@@ -107,6 +108,7 @@ export const useSettingsStore = create<SettingsState>((set, get) => ({
   overlayShowZone: false,
   overlayShowLastSplit: false,
   overlayShowBreakpoints: false,
+  overlayHideDeaths: false,
   overlayBreakpointCount: 3,
   overlayBgOpacity: 0.9,
   overlayAccentColor: 'transparent',
@@ -248,6 +250,7 @@ export const useSettingsStore = create<SettingsState>((set, get) => ({
   setOverlayShowZone: (show) => set({ overlayShowZone: show }),
   setOverlayShowLastSplit: (show) => set({ overlayShowLastSplit: show }),
   setOverlayShowBreakpoints: (show) => set({ overlayShowBreakpoints: show }),
+  setOverlayHideDeaths: (hide) => set({ overlayHideDeaths: hide }),
   setOverlayBreakpointCount: (count) => set({ overlayBreakpointCount: count }),
   setOverlayBgOpacity: (opacity) => set({ overlayBgOpacity: opacity }),
   setOverlayAccentColor: (color) => set({ overlayAccentColor: color }),

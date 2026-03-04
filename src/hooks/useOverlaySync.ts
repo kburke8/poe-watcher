@@ -40,6 +40,7 @@ interface OverlayState {
   showZone: boolean;
   showLastSplit: boolean;
   showBreakpoints: boolean;
+  hideDeaths: boolean;
   breakpointCount: number;
   bgOpacity: number;
   accentColor: string;
@@ -62,6 +63,7 @@ interface OverlayConfig {
   overlayShowZone: boolean;
   overlayShowLastSplit: boolean;
   overlayShowBreakpoints: boolean;
+  overlayHideDeaths: boolean;
   overlayBreakpointCount: number;
   overlayBgOpacity: number;
   overlayAccentColor: string;
@@ -201,6 +203,7 @@ function buildOverlayState(
     showZone: config.overlayShowZone,
     showLastSplit: config.overlayShowLastSplit,
     showBreakpoints: config.overlayShowBreakpoints,
+    hideDeaths: config.overlayHideDeaths,
     breakpointCount: config.overlayBreakpointCount,
     bgOpacity: config.overlayBgOpacity,
     accentColor: config.overlayAccentColor,
@@ -234,6 +237,7 @@ export function useOverlaySync() {
   const overlayShowZone = useSettingsStore((state) => state.overlayShowZone);
   const overlayShowLastSplit = useSettingsStore((state) => state.overlayShowLastSplit);
   const overlayShowBreakpoints = useSettingsStore((state) => state.overlayShowBreakpoints);
+  const overlayHideDeaths = useSettingsStore((state) => state.overlayHideDeaths);
   const overlayBreakpointCount = useSettingsStore((state) => state.overlayBreakpointCount);
   const overlayBgOpacity = useSettingsStore((state) => state.overlayBgOpacity);
   const overlayAccentColor = useSettingsStore((state) => state.overlayAccentColor);
@@ -249,6 +253,7 @@ export function useOverlaySync() {
     overlayShowZone,
     overlayShowLastSplit,
     overlayShowBreakpoints,
+    overlayHideDeaths,
     overlayBreakpointCount,
     overlayBgOpacity,
     overlayAccentColor,
@@ -271,7 +276,7 @@ export function useOverlaySync() {
     const state = buildOverlayState(timer, breakpoints, config, personalBests, goldSplits, comparisonSplits, runInfo, hotkeyLabels, fallbackCategory);
     sendToOverlay(state);
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [timer, breakpoints, overlayOpacity, overlayScale, overlayFontSize, overlayShowTimer, overlayShowZone, overlayShowLastSplit, overlayShowBreakpoints, overlayBreakpointCount, overlayBgOpacity, overlayAccentColor, overlayAlwaysOnTop, overlayTransparent, personalBests, goldSplits, comparisonSplits, currentRun, hotkeys, wizardConfig]);
+  }, [timer, breakpoints, overlayOpacity, overlayScale, overlayFontSize, overlayShowTimer, overlayShowZone, overlayShowLastSplit, overlayShowBreakpoints, overlayHideDeaths, overlayBreakpointCount, overlayBgOpacity, overlayAccentColor, overlayAlwaysOnTop, overlayTransparent, personalBests, goldSplits, comparisonSplits, currentRun, hotkeys, wizardConfig]);
 
   // Emit immediately on meaningful state changes (zone, splits, start/stop, config, etc.)
   useEffect(() => {
@@ -289,6 +294,7 @@ export function useOverlaySync() {
       showZone: overlayShowZone,
       showLastSplit: overlayShowLastSplit,
       showBreakpoints: overlayShowBreakpoints,
+      hideDeaths: overlayHideDeaths,
       breakpointCount: overlayBreakpointCount,
       bgOpacity: overlayBgOpacity,
       accentColor: overlayAccentColor,
@@ -309,7 +315,7 @@ export function useOverlaySync() {
       prevNonTimeRef.current = nonTimeKey;
       syncNow();
     }
-  }, [timer, overlayOpacity, overlayScale, overlayFontSize, overlayShowTimer, overlayShowZone, overlayShowLastSplit, overlayShowBreakpoints, overlayBreakpointCount, overlayBgOpacity, overlayAccentColor, overlayAlwaysOnTop, overlayTransparent, personalBests, goldSplits, comparisonSplits, syncNow]);
+  }, [timer, overlayOpacity, overlayScale, overlayFontSize, overlayShowTimer, overlayShowZone, overlayShowLastSplit, overlayShowBreakpoints, overlayHideDeaths, overlayBreakpointCount, overlayBgOpacity, overlayAccentColor, overlayAlwaysOnTop, overlayTransparent, personalBests, goldSplits, comparisonSplits, syncNow]);
 
   // Listen for overlay-ready signal and immediately sync
   useEffect(() => {

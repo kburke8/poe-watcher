@@ -32,6 +32,7 @@ interface OverlayState {
   showZone?: boolean;
   showLastSplit?: boolean;
   showBreakpoints?: boolean;
+  hideDeaths?: boolean;
   breakpointCount?: number;
   bgOpacity?: number;
   accentColor?: string;
@@ -259,6 +260,7 @@ export function OverlayApp() {
               currentMapZone={state.endgame.currentMapZone}
               fontSize={fontSize}
               isRunning={state.isRunning}
+              hideDeaths={state.hideDeaths}
             />
           ) : state.upcomingBreakpoints.length > 0 ? (
             <OverlayBreakpoints

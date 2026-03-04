@@ -9,6 +9,7 @@ interface OverlayEndgameStatsProps {
   currentMapZone: string | null;
   fontSize?: 'small' | 'medium' | 'large';
   isRunning: boolean;
+  hideDeaths?: boolean;
 }
 
 function formatTime(ms: number): string {
@@ -32,6 +33,7 @@ export function OverlayEndgameStats({
   currentMapZone,
   fontSize = 'medium',
   isRunning,
+  hideDeaths,
 }: OverlayEndgameStatsProps) {
   const itemClass = fontSize === 'small' ? 'text-[10px]' : fontSize === 'large' ? 'text-sm' : 'text-xs';
 
@@ -90,10 +92,12 @@ export function OverlayEndgameStats({
 
         {/* Row 3: Deaths + Maps */}
         <div className={`${itemClass} flex items-center justify-between`}>
-          <span style={{ color: deathCount > 0 ? '#ef4444' : '#e8e0d6' }}>
-            Deaths: {deathCount}
-          </span>
-          <span className="ml-2 flex-shrink-0" style={{ color: '#e8e0d6' }}>
+          {!hideDeaths && (
+            <span style={{ color: deathCount > 0 ? '#ef4444' : '#e8e0d6' }}>
+              Deaths: {deathCount}
+            </span>
+          )}
+          <span className={`${hideDeaths ? '' : 'ml-2 '}flex-shrink-0`} style={{ color: '#e8e0d6' }}>
             Maps: {mapCount}
           </span>
         </div>

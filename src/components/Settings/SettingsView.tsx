@@ -83,6 +83,8 @@ export function SettingsView() {
     setOverlayShowZone,
     setOverlayShowLastSplit,
     setOverlayShowBreakpoints,
+    overlayHideDeaths,
+    setOverlayHideDeaths,
     setOverlayBgOpacity,
     setOverlayAccentColor,
     setOverlayAlwaysOnTop,
@@ -276,6 +278,7 @@ export function SettingsView() {
           overlay_show_zone: overlayShowZone,
           overlay_show_last_split: overlayShowLastSplit,
           overlay_show_breakpoints: overlayShowBreakpoints,
+          overlay_hide_deaths: overlayHideDeaths,
           overlay_breakpoint_count: overlayBreakpointCount,
           overlay_bg_opacity: overlayBgOpacity,
           overlay_accent_color: overlayAccentColor,
@@ -403,6 +406,7 @@ export function SettingsView() {
           overlayShowZone={overlayShowZone}
           overlayShowLastSplit={overlayShowLastSplit}
           overlayShowBreakpoints={overlayShowBreakpoints}
+          overlayHideDeaths={overlayHideDeaths}
           overlayAlwaysOnTop={overlayAlwaysOnTop}
           overlayOpen={overlayOpen}
           overlayTransparent={overlayTransparent}
@@ -415,6 +419,7 @@ export function SettingsView() {
           setOverlayShowZone={setOverlayShowZone}
           setOverlayShowLastSplit={setOverlayShowLastSplit}
           setOverlayShowBreakpoints={setOverlayShowBreakpoints}
+          setOverlayHideDeaths={setOverlayHideDeaths}
           setOverlayAlwaysOnTop={setOverlayAlwaysOnTop}
           setOverlayTransparent={setOverlayTransparent}
           handleToggleOverlay={handleToggleOverlay}
@@ -993,6 +998,7 @@ interface OverlayTabProps {
   overlayShowZone: boolean;
   overlayShowLastSplit: boolean;
   overlayShowBreakpoints: boolean;
+  overlayHideDeaths: boolean;
   overlayAlwaysOnTop: boolean;
   overlayOpen: boolean;
   overlayTransparent: boolean;
@@ -1005,6 +1011,7 @@ interface OverlayTabProps {
   setOverlayShowZone: (v: boolean) => void;
   setOverlayShowLastSplit: (v: boolean) => void;
   setOverlayShowBreakpoints: (v: boolean) => void;
+  setOverlayHideDeaths: (v: boolean) => void;
   setOverlayAlwaysOnTop: (v: boolean) => void;
   setOverlayTransparent: (v: boolean) => void;
   handleToggleOverlay: () => void;
@@ -1022,6 +1029,7 @@ function OverlayTab({
   overlayShowZone,
   overlayShowLastSplit,
   overlayShowBreakpoints,
+  overlayHideDeaths,
   overlayAlwaysOnTop,
   overlayOpen,
   overlayTransparent,
@@ -1034,6 +1042,7 @@ function OverlayTab({
   setOverlayShowZone,
   setOverlayShowLastSplit,
   setOverlayShowBreakpoints,
+  setOverlayHideDeaths,
   setOverlayAlwaysOnTop,
   setOverlayTransparent,
   handleToggleOverlay,
@@ -1065,6 +1074,7 @@ function OverlayTab({
                 overlay_show_zone: useSettingsStore.getState().overlayShowZone,
                 overlay_show_last_split: useSettingsStore.getState().overlayShowLastSplit,
                 overlay_show_breakpoints: useSettingsStore.getState().overlayShowBreakpoints,
+                overlay_hide_deaths: useSettingsStore.getState().overlayHideDeaths,
                 overlay_breakpoint_count: useSettingsStore.getState().overlayBreakpointCount,
                 overlay_bg_opacity: useSettingsStore.getState().overlayBgOpacity,
                 overlay_accent_color: useSettingsStore.getState().overlayAccentColor,
@@ -1256,13 +1266,19 @@ function OverlayTab({
           { label: 'Show Timer', value: overlayShowTimer, setter: setOverlayShowTimer },
           { label: 'Show Current Zone', value: overlayShowZone, setter: setOverlayShowZone },
           { label: 'Show Last Split', value: overlayShowLastSplit, setter: setOverlayShowLastSplit },
-          { label: 'Show Upcoming Breakpoints', value: overlayShowBreakpoints, setter: setOverlayShowBreakpoints },
+          { label: 'Show Upcoming Breakpoints / Endgame Stats', value: overlayShowBreakpoints, setter: setOverlayShowBreakpoints },
         ].map(({ label, value, setter }) => (
           <div key={label} className="flex items-center justify-between mb-2">
             <span className="text-sm text-[--color-text]">{label}</span>
             <Toggle checked={value} onChange={setter} size="sm" />
           </div>
         ))}
+        {overlayShowBreakpoints && (
+          <div className="flex items-center justify-between mb-2 ml-4">
+            <span className="text-sm text-[--color-text-muted]">Hide Deaths</span>
+            <Toggle checked={overlayHideDeaths} onChange={setOverlayHideDeaths} size="sm" />
+          </div>
+        )}
       </div>
 
       {/* Behavior */}

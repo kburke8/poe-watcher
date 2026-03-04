@@ -1,0 +1,1 @@
+ALTER TABLE settings ADD COLUMN overlay_hide_deaths INTEGER NOT NULL DEFAULT 0;

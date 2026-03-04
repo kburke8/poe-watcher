@@ -164,6 +164,7 @@ export interface Settings {
   overlayShowZone: boolean;
   overlayShowLastSplit: boolean;
   overlayShowBreakpoints: boolean;
+  overlayHideDeaths: boolean;
   overlayBreakpointCount: number;
   overlayBgOpacity: number;
   overlayAccentColor: string;
